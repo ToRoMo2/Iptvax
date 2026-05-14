@@ -1,0 +1,285 @@
+/* ── Aurora Settings ─────────────────────────────────────────────────────── */
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 40px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(7,7,11,0.9) 0%, rgba(7,7,11,0.6) 70%, transparent 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+
+.title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  flex: 1;
+}
+
+/* ── Tab bar ── */
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 40px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.tab:hover {
+  background: rgba(255,255,255,.05);
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: linear-gradient(135deg, rgba(108,99,255,.2), rgba(168,85,247,.1)) !important;
+  color: white !important;
+  border-color: rgba(108,99,255,.4) !important;
+}
+
+/* ── Content area ── */
+.content {
+  padding: 0 40px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+}
+
+/* ── Section ── */
+.section {
+  background: rgba(20,20,32,.55);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.sectionTitle {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.sectionDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Row ── */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  gap: 16px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+
+.row:last-child { border-bottom: none; }
+
+.rowLabel {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  flex: 1;
+}
+
+.rowValue {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+  max-width: 300px;
+}
+
+.rowValueMuted {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Status badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.badgeGreen {
+  background: rgba(16,185,129,.12);
+  border: 1px solid rgba(16,185,129,.25);
+  color: #10b981;
+}
+
+.badgeYellow {
+  background: rgba(255,211,77,.12);
+  border: 1px solid rgba(255,211,77,.25);
+  color: #ffd34d;
+}
+
+.badgePulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+/* ── Toggle switch ── */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggleInput {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggleTrack {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms;
+}
+
+.toggleInput:checked + .toggleTrack {
+  background: linear-gradient(135deg, #6c63ff, #a855f7);
+  border-color: transparent;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1);
+  pointer-events: none;
+}
+
+.toggleInput:checked ~ .toggleThumb {
+  transform: translateX(20px);
+}
+
+/* ── Danger zone ── */
+.dangerSection {
+  background: rgba(239,68,68,.05);
+  border: 1px solid rgba(239,68,68,.18);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.dangerHeader {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(239,68,68,.1);
+}
+
+.dangerTitle {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #ef4444;
+}
+
+.dangerDesc {
+  font-size: 12px;
+  color: rgba(239,68,68,.65);
+  margin-top: 3px;
+}
+
+.dangerBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 22px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(239,68,68,.35);
+  background: rgba(239,68,68,.08);
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 180ms;
+  font-family: inherit;
+}
+
+.dangerBtn:hover {
+  background: rgba(239,68,68,.18);
+  border-color: rgba(239,68,68,.55);
+}
+
+/* ── Version chip ── */
+.versionChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px 20px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.versionDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}

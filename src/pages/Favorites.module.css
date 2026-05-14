@@ -1,0 +1,24 @@
+.page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  color: #fff;
+}
+
+.title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0 0 28px;
+}
+
+.empty {
+  color: #aaa;
+  margin-top: 40px;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}

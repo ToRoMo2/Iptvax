@@ -1,0 +1,209 @@
+/* ── Aurora Browse layout ────────────────────────────────────────────────── */
+
+.page {
+  /* Natural block flow — scroll is handled by .main-content in app.css */
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 40px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(7,7,11,0.9) 0%, rgba(7,7,11,0.6) 70%, transparent 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+
+.title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.searchWrapper {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all var(--transition);
+}
+
+.searchWrapper:focus-within {
+  border-color: rgba(108, 99, 255, 0.6);
+  box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.searchIcon {
+  color: var(--text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.search {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.search::placeholder {
+  color: var(--text-muted);
+}
+
+.searchBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(108, 99, 255, 0.15);
+  border: 1px solid rgba(108, 99, 255, 0.3);
+  border-radius: 20px;
+  color: var(--accent-light);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Category pills bar ── */
+.categories {
+  display: flex;
+  gap: 8px;
+  padding: 4px 40px 20px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.categories::-webkit-scrollbar {
+  display: none;
+}
+
+.catBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all var(--transition);
+}
+
+.catBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.catActive {
+  background: linear-gradient(135deg, rgba(108,99,255,0.25), rgba(168,85,247,0.15)) !important;
+  color: white !important;
+  border-color: rgba(108, 99, 255, 0.5) !important;
+}
+
+.catSkeleton {
+  height: 60px;
+  flex-shrink: 0;
+}
+
+/* ── Content grid — cards always correct size, scrolls naturally ── */
+.grid {
+  padding: 8px 40px 48px;
+  display: grid;
+  align-content: start;
+  gap: 20px;
+}
+
+/* Channels: 16:9 cards, 3-4 per row */
+.gridChannel {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* Movies / Series: portrait 2:3 poster cards */
+.gridPoster {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+/* ── Loading skeletons ── */
+.gridLoading {
+  padding: 8px 40px 48px;
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.skeleton {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skeletonChannel {
+  /* aspect-ratio drives the height — no flex tricks needed */
+  aspect-ratio: 16 / 9;
+  /* add info row height */
+  padding-bottom: 58px;
+}
+
+.skeletonPoster {
+  aspect-ratio: 2 / 3;
+  padding-bottom: 52px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Error / Empty ── */
+.error {
+  margin: 8px 40px;
+  padding: 10px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius);
+  color: var(--error);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: 80px 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}

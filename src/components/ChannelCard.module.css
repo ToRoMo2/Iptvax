@@ -1,0 +1,63 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #1a1a2e;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.card.focused,
+.card:hover {
+  border-color: #e50914;
+  background: #16213e;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: #e50914;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.name {
+  flex: 1;
+  color: #fff;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.favBtn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #666;
+  padding: 0 4px;
+  transition: color 0.15s;
+}
+
+.favActive {
+  color: #f5c518;
+}

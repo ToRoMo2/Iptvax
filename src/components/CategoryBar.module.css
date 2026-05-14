@@ -1,0 +1,112 @@
+/* ── CategoryBar ──────────────────────────────────────────────────────────── */
+
+.outer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 4px 40px 20px;
+  gap: 0;
+}
+
+/* Scrollable pill rail */
+.rail {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0 2px;
+}
+
+.rail::-webkit-scrollbar { display: none; }
+
+/* Category pill */
+.pill {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(244, 245, 251, 0.78);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 180ms, color 180ms, border-color 180ms;
+  font-family: inherit;
+}
+
+.pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f5fb;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.pillActive {
+  background: linear-gradient(135deg, rgba(108,99,255,0.28), rgba(168,85,247,0.16)) !important;
+  color: white !important;
+  border-color: rgba(108, 99, 255, 0.55) !important;
+}
+
+/* Arrow buttons */
+.arrow {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(20, 20, 32, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f4f5fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 180ms, background 180ms, transform 180ms;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 2;
+  position: relative;
+}
+
+.arrow:hover {
+  background: rgba(108, 99, 255, 0.25);
+  border-color: rgba(108, 99, 255, 0.5);
+  transform: scale(1.08);
+}
+
+.arrowLeft  { margin-right: 8px; }
+.arrowRight { margin-left: 8px; }
+
+/* Fade out when not applicable */
+.arrowHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Fade gradients on rail edges to hint overflow */
+.outer::before,
+.outer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 20px; /* match bottom padding */
+  width: 64px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.outer::before {
+  left: 40px;
+  background: linear-gradient(90deg, rgba(7,7,11,0.9), transparent);
+}
+
+.outer::after {
+  right: 40px;
+  background: linear-gradient(270deg, rgba(7,7,11,0.9), transparent);
+}

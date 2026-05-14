@@ -1,0 +1,540 @@
+/* ── Wrapper ── */
+.wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* ── Center overlays (loading / error / idle) ── */
+.centerOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+}
+
+.centerOverlay .retryBtn {
+  pointer-events: all;
+}
+
+.spinner {
+  width: 52px;
+  height: 52px;
+  border: 4px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.overlayLabel {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.errorIcon {
+  font-size: 36px;
+}
+
+.errorMsg {
+  font-size: 14px;
+  color: #fca5a5;
+  text-align: center;
+  max-width: 400px;
+  padding: 0 16px;
+}
+
+.errorActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.retryBtn {
+  padding: 9px 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+  pointer-events: all;
+}
+
+.retryBtn:hover {
+  background: var(--accent-light);
+}
+
+.retryBtnAlt {
+  background: rgba(255,255,255,0.12);
+}
+
+.retryBtnAlt:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+.pauseHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bigPlayBtn {
+  width: 72px;
+  height: 72px;
+  background: rgba(124, 58, 237, 0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #fff;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.pauseHint:hover .bigPlayBtn {
+  transform: scale(1.1);
+  background: var(--accent);
+}
+
+/* ── Sous-titres personnalisés ── */
+.subtitleOverlay {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 85%;
+  text-align: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.subtitleLine {
+  display: inline-block;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.35;
+  /* Ombre douce par défaut (lisible sur fond varié) */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.7);
+  padding: 2px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.01em;
+}
+
+/* Tailles — agrandies + nouvelle taille XL pour grands écrans / distance */
+.subSm .subtitleLine { font-size: 18px; }
+.subMd .subtitleLine { font-size: 26px; }
+.subLg .subtitleLine { font-size: 36px; }
+.subXl .subtitleLine { font-size: 48px; }
+
+/* Fonds */
+.subBgNone .subtitleLine {
+  background: transparent;
+  /* Contour noir net (4 ombres directionnelles) pour discerner les sous-titres
+     sur un fond clair (ex: scène blanche). Mode par défaut sans fond. */
+  text-shadow:
+    -1.5px -1.5px 0 #000,
+    1.5px -1.5px 0 #000,
+    -1.5px 1.5px 0 #000,
+    1.5px 1.5px 0 #000,
+    0 0 5px rgba(0, 0, 0, 0.6);
+}
+.subBgSemi .subtitleLine { background: rgba(0, 0, 0, 0.6); }
+.subBgSolid .subtitleLine { background: rgba(0, 0, 0, 0.92); }
+
+/* Couleurs */
+.subColorWhite  .subtitleLine { color: #ffffff; }
+.subColorYellow .subtitleLine { color: #ffe066; }
+.subColorCyan   .subtitleLine { color: #66e0ff; }
+.subColorGreen  .subtitleLine { color: #7eff7e; }
+
+/* ── Controls overlay ── */
+.controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  /* IMPORTANT : pointer-events reste 'none' sur le wrapper .controls — sinon la
+     zone vide du milieu intercepte les clics et empêche le clic-pour-play. Seuls
+     les éléments enfants (topBar / bottomSection) acceptent les pointer events. */
+  pointer-events: none;
+}
+
+.wrapper.showControls .controls {
+  opacity: 1;
+}
+
+.wrapper.showControls .topBar,
+.wrapper.showControls .bottomSection {
+  pointer-events: all;
+}
+
+/* ── Top bar ── */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.liveBadge {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ── Bottom section (progress + controls grouped) ── */
+.bottomSection {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 80%, transparent 100%);
+}
+
+/* ── Progress bar area ── */
+.progressArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 4px;
+}
+
+.progressTrack {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: height 150ms ease;
+}
+
+.progressTrack:hover {
+  height: 6px;
+}
+
+.progressBuffered {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: rgba(255,255,255,0.35);
+  border-radius: 2px;
+  pointer-events: none;
+  transition: width 0.3s;
+}
+
+.progressFilled {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.scrubber {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.timeLabel {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* ── Bottom bar ── */
+.bottomBar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px 12px;
+}
+
+.controlBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 15px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.controlBtn:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.controlBtnActive {
+  background: rgba(255,255,255,0.15) !important;
+  color: #fff !important;
+}
+
+.controlBtnOn {
+  color: var(--accent-light) !important;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ── Volume ── */
+.volumeGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.volumeSlider {
+  width: 76px;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Menus popup (qualité / audio / sous-titres) ── */
+.menuContainer {
+  position: relative;
+}
+
+.popupMenu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-lg);
+  padding: 6px;
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+  backdrop-filter: blur(12px);
+  z-index: 20;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.menuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 4px;
+}
+
+.menuSettingsBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color var(--transition), background var(--transition);
+}
+
+.menuSettingsBtn:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.1);
+}
+
+.menuOption {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  gap: 6px;
+}
+
+.menuOption:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+.menuOptionActive {
+  color: var(--accent-light) !important;
+  font-weight: 600;
+}
+
+.menuOptionIcon {
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--accent-light);
+  flex-shrink: 0;
+}
+
+/* ── Paramètres sous-titres ── */
+.subSettings {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subSettingsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subSettingsLabel {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+}
+
+.subSettingsBtns {
+  display: flex;
+  gap: 4px;
+}
+
+.subSettingsOpt {
+  padding: 4px 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.65);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.subSettingsOpt:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.subSettingsOptActive {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+}
+
+/* ── Qualité (legacy alias vers popupMenu) ── */
+.qualityContainer {
+  position: relative;
+}
+
+.qualityMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(15, 15, 25, 0.95);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+  min-width: 90px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+.qualityOption {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.qualityOption:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+.qualityActive {
+  color: var(--accent-light) !important;
+  font-weight: 600;
+}

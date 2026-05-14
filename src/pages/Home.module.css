@@ -1,0 +1,594 @@
+/* ── Aurora Home ─────────────────────────────────────────────────────────── */
+
+/* ── Hero ──────────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  height: 600px;
+  margin: 24px 32px 0;
+  border-radius: 22px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #0d0d1a;
+}
+
+.heroSlide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 700ms cubic-bezier(.2,.8,.2,1);
+  pointer-events: none;
+}
+
+.heroSlide.heroSlideActive {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.heroBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  filter: blur(0px) brightness(0.55);
+  transform: scale(1.04);
+  transition: transform 8s ease-out;
+}
+
+.heroSlide.heroSlideActive .heroBg {
+  transform: scale(1);
+}
+
+.heroVignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(7,7,11,.96) 0%, rgba(7,7,11,.55) 50%, rgba(7,7,11,.15) 100%),
+    linear-gradient(0deg, rgba(7,7,11,.85) 0%, transparent 45%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.heroVignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.10) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 55% 80% at 80% 50%, black 20%, transparent 100%);
+  pointer-events: none;
+}
+
+.heroContent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 48px 52px 52px;
+  z-index: 2;
+  max-width: 680px;
+}
+
+.heroEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .22em;
+  font-size: 11px;
+  color: rgba(244,245,251,.65);
+  margin-bottom: 14px;
+}
+
+.heroEyebrowDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a855f7;
+  flex-shrink: 0;
+}
+
+.heroTitle {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 68px;
+  line-height: .93;
+  letter-spacing: -.04em;
+  color: #f4f5fb;
+  margin-bottom: 18px;
+}
+
+.heroMeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.heroMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: rgba(244,245,251,.7);
+  font-weight: 500;
+}
+
+.heroMetaDivider {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(244,245,251,.3);
+  flex-shrink: 0;
+}
+
+.heroRating {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(255,211,77,.14);
+  border: 1px solid rgba(255,211,77,.28);
+  color: #ffd34d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.heroDesc {
+  font-size: 14px;
+  color: rgba(244,245,251,.65);
+  line-height: 1.55;
+  margin-bottom: 32px;
+  max-width: 480px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.heroActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.heroPlayBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 28px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #6c63ff, #a855f7);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(108,99,255,.5);
+  transition: all 200ms cubic-bezier(.2,.8,.2,1);
+  letter-spacing: .01em;
+}
+
+.heroPlayBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(108,99,255,.65);
+}
+
+.heroInfoBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(244,245,251,.9);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(.2,.8,.2,1);
+}
+
+.heroInfoBtn:hover {
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.28);
+}
+
+/* Vertical pagination dots — right edge of hero */
+.heroDots {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 3;
+}
+
+.heroDot {
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.22);
+  border: none;
+  cursor: pointer;
+  transition: all 300ms cubic-bezier(.2,.8,.2,1);
+  padding: 0;
+}
+
+.heroDotActive {
+  background: white;
+  height: 36px;
+  box-shadow: 0 0 10px rgba(255,255,255,.45);
+}
+
+/* Hero loading skeleton */
+.heroSkeleton {
+  height: 600px;
+  margin: 24px 32px 0;
+  border-radius: 22px;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* ── Content rows ─────────────────────────────────────────────────────────── */
+.rows {
+  padding: 36px 0 60px;
+}
+
+.row {
+  margin-bottom: 36px;
+}
+
+.rowHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 32px;
+  margin-bottom: 14px;
+}
+
+.rowTitle {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -.01em;
+  color: #f4f5fb;
+}
+
+.rowSeeAll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(108,99,255,.85);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 180ms;
+  padding: 0;
+}
+
+.rowSeeAll:hover { color: #a855f7; }
+
+.rowRail {
+  display: flex;
+  gap: 14px;
+  padding: 6px 32px 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.rowRail::-webkit-scrollbar { display: none; }
+
+/* ── Continue Watching cards (16:9, 320px) ───────────────────────────────── */
+.cwCard {
+  flex-shrink: 0;
+  width: 320px;
+  scroll-snap-align: start;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(20, 20, 32, 0.55);
+  border: 1px solid rgba(255,255,255,.08);
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms cubic-bezier(.2,.8,.2,1), border-color 220ms;
+}
+
+.cwCard:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
+  border-color: rgba(255,255,255,.16);
+}
+
+.cwThumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.cwThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cwOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(7,7,11,.85) 0%, transparent 55%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.cwCard:hover .cwOverlay { opacity: 1; }
+
+.cwPlayBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(108,99,255,.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 32px rgba(108,99,255,.55);
+}
+
+.cwProgress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,.14);
+}
+
+.cwProgressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #6c63ff, #a855f7);
+  border-radius: 2px;
+}
+
+.cwInfo {
+  padding: 11px 14px 13px;
+}
+
+.cwTitle {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #f4f5fb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.cwSub {
+  font-size: 11px;
+  color: rgba(244,245,251,.48);
+}
+
+/* ── Channel cards (16:9, 260px) ─────────────────────────────────────────── */
+.channelCard {
+  flex-shrink: 0;
+  width: 260px;
+  scroll-snap-align: start;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(20, 20, 32, 0.55);
+  border: 1px solid rgba(255,255,255,.08);
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms cubic-bezier(.2,.8,.2,1), border-color 220ms;
+}
+
+.channelCard:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
+  border-color: rgba(255,255,255,.16);
+}
+
+.channelThumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.channelThumbImg {
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+  display: block;
+}
+
+.channelLive {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: #ff3b56;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: white;
+  z-index: 1;
+}
+
+.channelLiveDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: white;
+  animation: lp 1.4s ease-in-out infinite;
+}
+
+@keyframes lp {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .4; transform: scale(.65); }
+}
+
+.channelInfo {
+  padding: 10px 14px 13px;
+}
+
+.channelName {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #f4f5fb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channelCat {
+  font-size: 11px;
+  color: rgba(244,245,251,.48);
+  margin-top: 3px;
+}
+
+/* ── Poster cards (2:3, 185px) ───────────────────────────────────────────── */
+.posterCard {
+  flex-shrink: 0;
+  width: 185px;
+  scroll-snap-align: start;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(20, 20, 32, 0.55);
+  border: 1px solid rgba(255,255,255,.08);
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms cubic-bezier(.2,.8,.2,1), border-color 220ms;
+}
+
+.posterCard:hover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 0 28px 64px rgba(0,0,0,.6);
+  border-color: rgba(255,255,255,.16);
+}
+
+.posterThumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+}
+
+.posterThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 400ms cubic-bezier(.2,.8,.2,1);
+}
+
+.posterCard:hover .posterThumbImg { transform: scale(1.06); }
+
+.posterOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(7,7,11,.9) 0%, transparent 50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  opacity: 0;
+  transition: opacity 220ms;
+}
+
+.posterCard:hover .posterOverlay { opacity: 1; }
+
+.posterPlayBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6c63ff, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(108,99,255,.55);
+  margin-bottom: 8px;
+}
+
+.posterRating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffd34d;
+}
+
+.posterInfo {
+  padding: 10px 12px 12px;
+}
+
+.posterTitle {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #f4f5fb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.posterYear {
+  font-size: 11px;
+  color: rgba(244,245,251,.48);
+}
+
+/* ── Skeleton loading ──────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skBase {
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,.04) 25%,
+    rgba(255,255,255,.08) 50%,
+    rgba(255,255,255,.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  flex-shrink: 0;
+}
+
+.skCw      { width: 320px; aspect-ratio: 16/9; padding-bottom: 52px; }
+.skChannel { width: 260px; aspect-ratio: 16/9; padding-bottom: 52px; }
+.skPoster  { width: 185px; aspect-ratio: 2/3;  padding-bottom: 48px; }
