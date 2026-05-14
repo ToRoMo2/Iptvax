@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
+import { useSubtitles } from '../hooks/useSubtitles';
 import { safeImgUrl } from '../utils/image';
+import { SubtitleOverlay, type SubSize, type SubBg, type SubColor } from './SubtitleOverlay';
 import styles from './VideoPlayer.module.css';
 
 interface Props {
@@ -12,8 +14,7 @@ interface Props {
   /**
    * URL du fichier média direct (MKV/MP4) — utilisée pour le probe ffprobe et
    * l'extraction des sous-titres via /api/subtitle. Indépendante de l'URL de
-   * lecture qui peut être un .m3u8 HLS. Recommandé : passer le fallbackUrl
-   * (qui pointe sur le fichier direct).
+   * lecture qui peut être un .m3u8 HLS.
    */
   mediaUrl?: string;
   onFallback?: () => void;
@@ -29,11 +30,12 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-type SubSize = 'sm' | 'md' | 'lg' | 'xl';
-type SubBg = 'none' | 'semi' | 'solid';
-type SubColor = 'white' | 'yellow' | 'cyan' | 'green';
+function formatOffset(s: number): string {
+  if (s === 0) return '0.0s';
+  return `${s > 0 ? '+' : ''}${s.toFixed(2)}s`;
+}
 
-// ── Persistance des préférences de sous-titres ───────────────────────────────
+// ── Persistance des préférences visuelles ────────────────────────────────────
 const SUB_PREFS_KEY = 'iptv-subtitle-prefs';
 
 interface SubPrefs {
@@ -44,11 +46,31 @@ interface SubPrefs {
 
 const DEFAULT_SUB_PREFS: SubPrefs = { size: 'md', bg: 'none', color: 'white' };
 
+const ALL_SIZES: SubSize[] = ['sm', 'md', 'lg', 'xl', 'xxl'];
+const ALL_BGS: SubBg[] = ['none', 'semi', 'solid'];
+const ALL_COLORS: SubColor[] = ['white', 'yellow', 'cyan', 'green', 'red', 'pink'];
+
+const SIZE_LABEL: Record<SubSize, string> = { sm: 'S', md: 'M', lg: 'L', xl: 'XL', xxl: 'XXL' };
+const BG_LABEL: Record<SubBg, string> = { none: 'Aucun', semi: 'Semi', solid: 'Plein' };
+const COLOR_LABEL: Record<SubColor, string> = {
+  white: 'Blanc', yellow: 'Jaune', cyan: 'Cyan',
+  green: 'Vert', red: 'Rouge', pink: 'Rose',
+};
+const COLOR_SWATCH: Record<SubColor, string> = {
+  white: '#ffffff', yellow: '#ffd93d', cyan: '#61dafb',
+  green: '#7fff7f', red: '#ff8a8a', pink: '#ffb3d9',
+};
+
 function loadSubPrefs(): SubPrefs {
   try {
     const raw = localStorage.getItem(SUB_PREFS_KEY);
     if (!raw) return DEFAULT_SUB_PREFS;
-    return { ...DEFAULT_SUB_PREFS, ...(JSON.parse(raw) as Partial<SubPrefs>) };
+    const parsed = JSON.parse(raw) as Partial<SubPrefs>;
+    return {
+      size: ALL_SIZES.includes(parsed.size as SubSize) ? parsed.size as SubSize : DEFAULT_SUB_PREFS.size,
+      bg: ALL_BGS.includes(parsed.bg as SubBg) ? parsed.bg as SubBg : DEFAULT_SUB_PREFS.bg,
+      color: ALL_COLORS.includes(parsed.color as SubColor) ? parsed.color as SubColor : DEFAULT_SUB_PREFS.color,
+    };
   } catch { return DEFAULT_SUB_PREFS; }
 }
 
@@ -58,6 +80,18 @@ function saveSubPrefs(prefs: SubPrefs) {
 
 export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, mediaUrl, onFallback, onError }: Props) {
   const player = usePlayer(url, mediaUrl);
+
+  // Sous-titres : nouveau hook frame-accurate, totalement découplé du player.
+  // Il utilise requestVideoFrameCallback pour synchroniser exactement à la
+  // frame affichée, en compensant le décalage de timestamp via getStreamBase().
+  const subtitles = useSubtitles({
+    videoRef: player.videoRef,
+    getMediaUrl: player.getMediaUrl,
+    tracks: player.subtitleTracks,
+    getStreamBase: player.getStreamBase,
+    streamEpoch: player.streamEpoch,
+  });
+
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
   const [showAudio, setShowAudio] = useState(false);
@@ -65,14 +99,11 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
   const [showSubSettings, setShowSubSettings] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sous-titres : préférences visuelles persistées dans localStorage
   const initialPrefs = loadSubPrefs();
   const [subSize, setSubSize] = useState<SubSize>(initialPrefs.size);
   const [subBg, setSubBg] = useState<SubBg>(initialPrefs.bg);
   const [subColor, setSubColor] = useState<SubColor>(initialPrefs.color);
-  const subtitleText = player.subtitleText;
 
-  // Sauvegarde automatique des préférences à chaque changement
   useEffect(() => {
     saveSubPrefs({ size: subSize, bg: subBg, color: subColor });
   }, [subSize, subBg, subColor]);
@@ -82,8 +113,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
   const hasError = player.status === 'error';
   const isPlaying = player.status === 'playing';
 
-  // Basculement automatique sur le fallback dès qu'une erreur fatale survient
-  // (ex : serveur ne supporte pas HLS pour ce contenu → passe au fichier direct)
   const prevErrorRef = useRef(false);
   useEffect(() => {
     if (hasError && !prevErrorRef.current && fallbackUrl) {
@@ -103,7 +132,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
     if (!isPlaying) setControlsVisible(true);
   }, [isPlaying]);
 
-  // Raccourcis clavier
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
@@ -140,21 +168,21 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
           break;
         case 'g':
         case 'G':
-          // g = sous-titres plus tôt (compense un retard), Shift+G = pas de 1s
+          // g = sous-titres plus tôt, Shift+G = pas de 1s
           e.preventDefault();
-          player.adjustSubtitleOffset(e.shiftKey ? 1 : 0.25);
+          subtitles.adjustSubtitleOffset(e.shiftKey ? 1 : 0.25);
           break;
         case 'h':
         case 'H':
-          // h = sous-titres plus tard (compense une avance), Shift+H = pas de 1s
+          // h = sous-titres plus tard, Shift+H = pas de 1s
           e.preventDefault();
-          player.adjustSubtitleOffset(e.shiftKey ? -1 : -0.25);
+          subtitles.adjustSubtitleOffset(e.shiftKey ? -1 : -0.25);
           break;
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [player, isLive]);
+  }, [player, subtitles, isLive]);
 
   const progressPercent = !isLive && player.duration > 0
     ? (player.currentTime / player.duration) * 100
@@ -177,16 +205,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
     setShowSubSettings(false);
   };
 
-  const subSizeClass = subSize === 'sm' ? styles.subSm
-    : subSize === 'lg' ? styles.subLg
-    : subSize === 'xl' ? styles.subXl
-    : styles.subMd;
-  const subBgClass = subBg === 'none' ? styles.subBgNone : subBg === 'solid' ? styles.subBgSolid : styles.subBgSemi;
-  const subColorClass = subColor === 'yellow' ? styles.subColorYellow
-    : subColor === 'cyan' ? styles.subColorCyan
-    : subColor === 'green' ? styles.subColorGreen
-    : styles.subColorWhite;
-
   return (
     <div
       ref={player.wrapperRef}
@@ -203,18 +221,14 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
         onClick={player.toggle}
       />
 
-      {/* Sous-titres personnalisés */}
-      {subtitleText && (
-        <div className={`${styles.subtitleOverlay} ${subSizeClass} ${subBgClass} ${subColorClass}`}>
-          {subtitleText.split('\n').map((line, i) => (
-            <span key={i} className={styles.subtitleLine}
-              dangerouslySetInnerHTML={{ __html: line }}
-            />
-          ))}
-        </div>
-      )}
+      {/* Sous-titres frame-accurate (requestVideoFrameCallback) + contour noir */}
+      <SubtitleOverlay
+        text={subtitles.subtitleText}
+        size={subSize}
+        bg={subBg}
+        color={subColor}
+      />
 
-      {/* Chargement */}
       {isLoading && (
         <div className={styles.centerOverlay}>
           <div className={styles.spinner} />
@@ -224,7 +238,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
         </div>
       )}
 
-      {/* Erreur */}
       {hasError && (
         <div className={styles.centerOverlay}>
           <span className={styles.errorIcon}>⚠</span>
@@ -242,23 +255,19 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
         </div>
       )}
 
-      {/* Bouton play central quand en pause */}
       {player.status === 'paused' && (
         <div className={styles.pauseHint} onClick={player.toggle}>
           <div className={styles.bigPlayBtn}>▶</div>
         </div>
       )}
 
-      {/* Overlay contrôles */}
       <div className={styles.controls} onClick={(e) => e.stopPropagation()}>
 
-        {/* Barre du haut */}
         <div className={styles.topBar}>
           {title && <span className={styles.title}>{title}</span>}
           {isLive && <span className={styles.liveBadge}>● EN DIRECT</span>}
         </div>
 
-        {/* Section basse : barre de progression + contrôles */}
         <div className={styles.bottomSection}>
           {!isLive && player.duration > 0 && (
             <div className={styles.progressArea}>
@@ -280,7 +289,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
             </div>
           )}
 
-          {/* Barre du bas */}
           <div className={styles.bottomBar}>
             <button className={styles.controlBtn} onClick={player.toggle} title="Lecture/Pause (Espace)">
               {isPlaying ? '⏸' : '▶'}
@@ -299,7 +307,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
 
             <div className={styles.spacer} />
 
-            {/* Volume */}
             <div className={styles.volumeGroup}>
               <button className={styles.controlBtn} onClick={player.toggleMute} title="Muet (M)">
                 {volumeIcon}
@@ -315,7 +322,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
               />
             </div>
 
-            {/* Sélecteur de piste audio */}
             {player.audioTracks.length > 0 && (
               <div className={styles.menuContainer}>
                 <button
@@ -343,24 +349,23 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
               </div>
             )}
 
-            {/* Sélecteur de sous-titres */}
             {player.subtitleTracks.length > 0 && (
               <div className={styles.menuContainer}>
                 <button
-                  className={`${styles.controlBtn} ${showSubtitles ? styles.controlBtnActive : ''} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
+                  className={`${styles.controlBtn} ${showSubtitles ? styles.controlBtnActive : ''} ${subtitles.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowSubtitles((v) => !v); setShowQuality(false); setShowAudio(false); }}
                   title="Sous-titres"
                 >
-                  CC{player.currentSubtitle >= 0 ? ` · ${player.subtitleTracks[player.currentSubtitle]?.language?.toUpperCase() || '●'}` : ''}
+                  CC{subtitles.currentSubtitle >= 0 ? ` · ${player.subtitleTracks[subtitles.currentSubtitle]?.language?.toUpperCase() || '●'}` : ''}
                 </button>
                 {showSubtitles && (
                   <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
                     <div className={styles.menuHeader}>
                       Sous-titres
                       <button
-                        className={styles.menuSettingsBtn}
+                        className={`${styles.menuSettingsBtn} ${showSubSettings ? styles.menuSettingsBtnActive : ''}`}
                         onClick={() => setShowSubSettings((v) => !v)}
-                        title="Personnaliser"
+                        title="Personnaliser l'apparence"
                       >
                         ⚙
                       </button>
@@ -371,9 +376,13 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
                         <div className={styles.subSettingsRow}>
                           <span className={styles.subSettingsLabel}>Taille</span>
                           <div className={styles.subSettingsBtns}>
-                            {(['sm', 'md', 'lg', 'xl'] as SubSize[]).map((s) => (
-                              <button key={s} className={`${styles.subSettingsOpt} ${subSize === s ? styles.subSettingsOptActive : ''}`} onClick={() => setSubSize(s)}>
-                                {s === 'sm' ? 'S' : s === 'md' ? 'M' : s === 'lg' ? 'L' : 'XL'}
+                            {ALL_SIZES.map((s) => (
+                              <button
+                                key={s}
+                                className={`${styles.subSettingsOpt} ${subSize === s ? styles.subSettingsOptActive : ''}`}
+                                onClick={() => setSubSize(s)}
+                              >
+                                {SIZE_LABEL[s]}
                               </button>
                             ))}
                           </div>
@@ -381,40 +390,71 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
                         <div className={styles.subSettingsRow}>
                           <span className={styles.subSettingsLabel}>Fond</span>
                           <div className={styles.subSettingsBtns}>
-                            {(['none', 'semi', 'solid'] as SubBg[]).map((b) => (
-                              <button key={b} className={`${styles.subSettingsOpt} ${subBg === b ? styles.subSettingsOptActive : ''}`} onClick={() => setSubBg(b)}>
-                                {b === 'none' ? 'Aucun' : b === 'semi' ? 'Semi' : 'Plein'}
+                            {ALL_BGS.map((b) => (
+                              <button
+                                key={b}
+                                className={`${styles.subSettingsOpt} ${subBg === b ? styles.subSettingsOptActive : ''}`}
+                                onClick={() => setSubBg(b)}
+                              >
+                                {BG_LABEL[b]}
                               </button>
                             ))}
                           </div>
                         </div>
                         <div className={styles.subSettingsRow}>
                           <span className={styles.subSettingsLabel}>Couleur</span>
-                          <div className={styles.subSettingsBtns}>
-                            {(['white', 'yellow', 'cyan', 'green'] as SubColor[]).map((c) => (
-                              <button key={c} className={`${styles.subSettingsOpt} ${subColor === c ? styles.subSettingsOptActive : ''}`} onClick={() => setSubColor(c)}>
-                                {c === 'white' ? 'Blanc' : c === 'yellow' ? 'Jaune' : c === 'cyan' ? 'Cyan' : 'Vert'}
-                              </button>
+                          <div className={styles.subSettingsBtnsColors}>
+                            {ALL_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                className={`${styles.colorSwatch} ${subColor === c ? styles.colorSwatchActive : ''}`}
+                                onClick={() => setSubColor(c)}
+                                title={COLOR_LABEL[c]}
+                                style={{ background: COLOR_SWATCH[c] }}
+                              />
                             ))}
+                          </div>
+                        </div>
+                        <div className={styles.subSettingsRow}>
+                          <span className={styles.subSettingsLabel}>
+                            Décalage<br/>
+                            <span className={styles.subSettingsHint}>{formatOffset(subtitles.subtitleOffset)}</span>
+                          </span>
+                          <div className={styles.subSettingsBtns}>
+                            <button
+                              className={styles.subSettingsOpt}
+                              onClick={() => subtitles.adjustSubtitleOffset(-0.25)}
+                              title="Sous-titres plus tard (-0.25s)"
+                            >−</button>
+                            <button
+                              className={styles.subSettingsOpt}
+                              onClick={() => subtitles.setSubtitleOffset(0)}
+                              title="Remettre à zéro"
+                            >0</button>
+                            <button
+                              className={styles.subSettingsOpt}
+                              onClick={() => subtitles.adjustSubtitleOffset(0.25)}
+                              title="Sous-titres plus tôt (+0.25s)"
+                            >+</button>
                           </div>
                         </div>
                       </div>
                     )}
 
                     <button
-                      className={`${styles.menuOption} ${player.currentSubtitle === -1 ? styles.menuOptionActive : ''}`}
-                      onClick={() => { player.setSubtitle(-1); setShowSubtitles(false); }}
+                      className={`${styles.menuOption} ${subtitles.currentSubtitle === -1 ? styles.menuOptionActive : ''}`}
+                      onClick={() => { subtitles.setSubtitle(-1); setShowSubtitles(false); }}
                     >
-                      <span className={styles.menuOptionIcon}>{player.currentSubtitle === -1 ? '✓' : ''}</span>
+                      <span className={styles.menuOptionIcon}>{subtitles.currentSubtitle === -1 ? '✓' : ''}</span>
                       Désactivés
                     </button>
                     {player.subtitleTracks.map((t) => (
                       <button
                         key={t.index}
-                        className={`${styles.menuOption} ${player.currentSubtitle === t.index ? styles.menuOptionActive : ''}`}
-                        onClick={() => { player.setSubtitle(t.index); setShowSubtitles(false); }}
+                        className={`${styles.menuOption} ${subtitles.currentSubtitle === t.index ? styles.menuOptionActive : ''}`}
+                        onClick={() => { subtitles.setSubtitle(t.index); setShowSubtitles(false); }}
                       >
-                        <span className={styles.menuOptionIcon}>{player.currentSubtitle === t.index ? '✓' : ''}</span>
+                        <span className={styles.menuOptionIcon}>{subtitles.currentSubtitle === t.index ? '✓' : ''}</span>
                         {t.name}{t.language ? ` (${t.language})` : ''}
                       </button>
                     ))}
@@ -423,7 +463,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
               </div>
             )}
 
-            {/* Sélecteur de qualité */}
             {player.levels.length > 1 && (
               <div className={styles.menuContainer}>
                 <button
@@ -460,7 +499,6 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
               </div>
             )}
 
-            {/* Plein écran */}
             <button
               className={styles.controlBtn}
               onClick={player.toggleFullscreen}

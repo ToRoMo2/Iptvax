@@ -100,5 +100,6 @@ Le pipeline média est hybride :
 |---|---|---|
 | Handler `SUBTITLE_TRACKS_UPDATED` HLS.js | Les pistes HLS ne correspondent pas aux tracks du fichier source | Probe toujours depuis `mediaUrl` (fichier direct) |
 | Afficher les sous-titres en mode natif HLS | HLS.js crée des TextTracks que Chrome n'active pas fiablement | Désactiver tous les textTracks, utiliser overlay custom |
-| `timeupdate` pour la sync sous-titres | Ne fire qu'à ~4 Hz → lag visible de 250 ms | `requestAnimationFrame` (~60 Hz) |
+| `timeupdate` ou `requestAnimationFrame` pour la sync sous-titres | 4 Hz / stale `currentTime` → lag visible ; valeur stale lors d'un seek ou restart ffmpeg | `requestVideoFrameCallback` (mediaTime de la frame affichée) + RAF fallback pause |
+| `streamEpoch` effacé seulement via `useEffect` | React schedule l'effet de manière asynchrone → ancien cue visible pendant le rewind keyframe (changement piste audio) | `streamEpochRef.current = streamEpoch` au render + guard synchrone dans `computeAndShow` |
 | Recherche linéaire O(n) dans les cues | Lente sur les fichiers avec milliers de cues | Recherche binaire + hint d'index (`lastIdx`) |

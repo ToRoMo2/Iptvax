@@ -466,6 +466,16 @@ function iptvProxyPlugin(): Plugin {
           ffArgs.push('-headers', headerLines.join('\r\n') + '\r\n');
           ffArgs.push('-multiple_requests', '1');
           ffArgs.push('-i', targetUrl);
+          // ⚠️ CRUCIAL : préserver les timestamps absolus du fichier source.
+          // Sans -copyts, ffmpeg rebase l'output pour démarrer à 0 (via
+          // -avoid_negative_ts make_non_negative par défaut). Si la piste de
+          // sous-titres a un start_time non-nul dans le conteneur (très courant
+          // sur MKV où la piste sub commence un peu avant la vidéo), TOUS les
+          // cues sont décalés vers l'avant → sous-titres systématiquement en avance.
+          // -copyts conserve les PTS d'origine → alignement parfait avec la timeline vidéo.
+          ffArgs.push('-copyts');
+          // Désactive explicitement le rebasage négatif (ceinture + bretelles avec -copyts).
+          ffArgs.push('-avoid_negative_ts', 'disabled');
           // On utilise l'index ABSOLU de stream (0:N) plutôt que 0:s:N car le probe
           // filtre les codecs image (PGS/DVB) → 0:s:N ne correspondrait plus à la
           // numérotation côté JS. L'index absolu reste valide quoi qu'il arrive.

@@ -1,0 +1,90 @@
+/* ── Sous-titres : overlay personnalisé ─────────────────────────────────────
+   Rendu via un <div> overlay au-dessus de la vidéo (jamais <track>, voir
+   CLAUDE.md §IV.1). Contour noir TOUJOURS visible grâce à -webkit-text-stroke
+   + paint-order: stroke fill — garantit que les sous-titres restent lisibles
+   sur n'importe quel arrière-plan (scène blanche, fond clair…). L'épaisseur
+   du contour est proportionnelle à la taille via la var CSS --sub-outline.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: absolute;
+  bottom: 11%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 5;
+  /* Animation d'apparition très courte pour éviter le "flash" entre cues. */
+  animation: subFadeIn 90ms ease-out;
+}
+
+@keyframes subFadeIn {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0);    }
+}
+
+.line {
+  display: inline-block;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--sub-size);
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: 0.01em;
+  padding: var(--sub-pad-y) var(--sub-pad-x);
+  border-radius: 8px;
+  /* CONTOUR NOIR TOUJOURS ACTIF — visibilité garantie sur tout fond.
+     paint-order: stroke fill → le contour est dessiné d'abord, puis le remplissage
+     par-dessus. Sans paint-order, le stroke "rogne" les lettres et le rendu
+     paraît plus fin que prévu. */
+  -webkit-text-stroke: var(--sub-outline) #000;
+  paint-order: stroke fill;
+  /* Ombre portée additionnelle pour un peu de profondeur. */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+  /* Rendu net sur les écrans haute densité. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Tailles ──────────────────────────────────────────────────────────────
+   L'outline scale avec la taille pour rester proportionnel visuellement.
+   Ratio outline/taille ~ 7-8 % — assez épais pour être net, pas trop pour ne
+   pas alourdir les caractères. */
+.sizeSm  { --sub-size: 18px; --sub-outline: 1.4px; --sub-pad-x: 8px;  --sub-pad-y: 2px; }
+.sizeMd  { --sub-size: 26px; --sub-outline: 2px;   --sub-pad-x: 10px; --sub-pad-y: 3px; }
+.sizeLg  { --sub-size: 36px; --sub-outline: 2.5px; --sub-pad-x: 14px; --sub-pad-y: 4px; }
+.sizeXl  { --sub-size: 48px; --sub-outline: 3px;   --sub-pad-x: 18px; --sub-pad-y: 5px; }
+.sizeXxl { --sub-size: 60px; --sub-outline: 3.5px; --sub-pad-x: 22px; --sub-pad-y: 6px; }
+
+/* ── Fonds (le contour reste TOUJOURS visible, indépendamment du fond) ──── */
+.bgNone  .line { background: transparent; }
+.bgSemi  .line { background: rgba(0, 0, 0, 0.55); }
+.bgSolid .line { background: rgba(0, 0, 0, 0.88); }
+
+/* ── Couleurs du texte (le contour noir reste constant) ─────────────────── */
+.colorWhite  .line { color: #ffffff; }
+.colorYellow .line { color: #ffd93d; }
+.colorCyan   .line { color: #61dafb; }
+.colorGreen  .line { color: #7fff7f; }
+.colorRed    .line { color: #ff8a8a; }
+.colorPink   .line { color: #ffb3d9; }
+
+/* Fallback pour navigateurs sans -webkit-text-stroke (très rare) :
+   on simule le contour avec des ombres directionnelles empilées. */
+@supports not (-webkit-text-stroke: 1px black) {
+  .line {
+    text-shadow:
+      calc(-1 * var(--sub-outline)) calc(-1 * var(--sub-outline)) 0 #000,
+       0                              calc(-1 * var(--sub-outline)) 0 #000,
+       var(--sub-outline)             calc(-1 * var(--sub-outline)) 0 #000,
+      calc(-1 * var(--sub-outline))   0                              0 #000,
+       var(--sub-outline)             0                              0 #000,
+      calc(-1 * var(--sub-outline))   var(--sub-outline)             0 #000,
+       0                              var(--sub-outline)             0 #000,
+       var(--sub-outline)             var(--sub-outline)             0 #000;
+  }
+}
