@@ -220,6 +220,17 @@
   flex: 1;
 }
 
+.channelPos {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
 .liveBadge {
   flex-shrink: 0;
   padding: 3px 10px;
@@ -327,9 +338,14 @@
   line-height: 1;
 }
 
-.controlBtn:hover {
+.controlBtn:hover:not(:disabled) {
   background: rgba(255,255,255,0.15);
   color: #fff;
+}
+
+.controlBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .controlBtnActive {

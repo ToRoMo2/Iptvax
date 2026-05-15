@@ -146,6 +146,14 @@ export interface SeriesInfo {
 
 export type MediaType = 'live' | 'movie' | 'episode';
 
+// Référence minimale d'une chaîne live, utilisée pour la navigation
+// prev/next directement depuis le lecteur sans repasser par la grille.
+export interface LiveChannelRef {
+  stream_id: number;
+  name: string;
+  stream_icon?: string;
+}
+
 export interface PlayerState {
   url: string;
   fallbackUrl?: string; // URL avec extension originale si m3u8 échoue
@@ -153,4 +161,8 @@ export interface PlayerState {
   type: MediaType;
   poster?: string;
   description?: string;
+  // Live uniquement : snapshot de la liste affichée au moment du clic
+  // + index courant, pour permettre prev/next depuis le player.
+  liveChannels?: LiveChannelRef[];
+  liveIndex?: number;
 }

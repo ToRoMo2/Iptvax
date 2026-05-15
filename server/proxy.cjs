@@ -1,6 +1,8 @@
 const express = require('express');
 const path = require('path');
 const { Readable } = require('stream');
+const nodeHttps = require('https');
+const nodeHttp = require('http');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -181,6 +183,76 @@ app.get('/api/liveproxy', async (req, res) => {
     if (!isAbort) console.error('[liveproxy]', err instanceof Error ? err.message : err);
     if (!res.headersSent) res.status(isAbort ? 499 : 502).end();
   }
+});
+
+// ─── Proxy d'images IPTV (cert HTTPS souvent expiré côté upstream) ────────
+// Cf. vite.config.ts /api/img — même logique en CJS pour la prod.
+app.get('/api/img', (req, res) => {
+  const { url } = req.query;
+  if (!url || typeof url !== 'string') return res.status(400).end();
+
+  let attempts = 0;
+  let current = url;
+  let aborted = false;
+  let activeReq = null;
+  req.on('close', () => {
+    aborted = true;
+    try { activeReq && activeReq.destroy(); } catch (_) { /* */ }
+  });
+
+  const fire = () => {
+    if (aborted) return;
+    let parsed;
+    try { parsed = new URL(current); }
+    catch { if (!res.headersSent) res.status(400).end(); return; }
+
+    const isHttps = parsed.protocol === 'https:';
+    const lib = isHttps ? nodeHttps : nodeHttp;
+    const opts = {
+      hostname: parsed.hostname,
+      port: parsed.port || (isHttps ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      headers: { 'User-Agent': UA_DEFAULT, 'Accept': 'image/*,*/*;q=0.8' },
+      ...(isHttps ? { rejectUnauthorized: false } : {}),
+    };
+
+    const upstreamReq = lib.request(opts, (upstreamRes) => {
+      const status = upstreamRes.statusCode || 502;
+
+      if ([301, 302, 303, 307, 308].includes(status) && upstreamRes.headers.location && attempts < 3) {
+        attempts++;
+        upstreamRes.resume();
+        current = new URL(String(upstreamRes.headers.location), current).toString();
+        fire();
+        return;
+      }
+
+      if (status < 200 || status >= 300) {
+        upstreamRes.resume();
+        if (!res.headersSent) res.status(status).end();
+        return;
+      }
+
+      const ct = upstreamRes.headers['content-type'] || 'image/jpeg';
+      res.status(200);
+      res.setHeader('Content-Type', ct);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      upstreamRes.pipe(res);
+      upstreamRes.on('error', () => { try { res.end(); } catch (_) { /* */ } });
+    });
+    activeReq = upstreamReq;
+    upstreamReq.on('error', () => {
+      if (!res.headersSent) res.status(502).end();
+    });
+    upstreamReq.setTimeout(15_000, () => {
+      try { upstreamReq.destroy(); } catch (_) { /* */ }
+      if (!res.headersSent) res.status(504).end();
+    });
+    upstreamReq.end();
+  };
+
+  fire();
 });
 
 // ─── Production : servir le build React ───────────────────────────────────

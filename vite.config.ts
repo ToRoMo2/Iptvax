@@ -2,6 +2,9 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
+import * as nodeHttps from 'node:https';
+import * as nodeHttp from 'node:http';
+import type { IncomingMessage, ClientRequest } from 'node:http';
 import { createRequire } from 'node:module';
 const _require = createRequire(import.meta.url);
 const ffmpegPath: string  = _require('ffmpeg-static') as string;
@@ -194,6 +197,91 @@ function iptvProxyPlugin(): Plugin {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: (err as Error).message }));
           }
+          return;
+        }
+
+        // ── /api/img : proxy d'icônes / posters IPTV ────────────────────
+        // Beaucoup de serveurs (ex: covers.ddns.net) ont des certificats HTTPS
+        // expirés → Chrome refuse de charger les images (ERR_CERT_DATE_INVALID).
+        // On les fait transiter par Node (qui peut ignorer l'erreur TLS), puis
+        // on les renvoie en same-origin au navigateur.
+        if (reqUrl.pathname === '/api/img') {
+          const targetUrl = reqUrl.searchParams.get('url');
+          if (!targetUrl) { res.statusCode = 400; res.end(); return; }
+
+          // Suivi manuel des redirections (max 3) car node:https/http ne le font pas
+          let attempts = 0;
+          let current = targetUrl;
+          let aborted = false;
+          let activeReq: ClientRequest | null = null;
+          req.on('close', () => {
+            aborted = true;
+            try { activeReq?.destroy(); } catch { /* */ }
+          });
+
+          const fire = () => {
+            if (aborted) return;
+            let parsed: URL;
+            try { parsed = new URL(current); }
+            catch { if (!res.headersSent) { res.statusCode = 400; res.end(); } return; }
+
+            const isHttps = parsed.protocol === 'https:';
+            const lib: typeof nodeHttps | typeof nodeHttp = isHttps ? nodeHttps : nodeHttp;
+            const opts: nodeHttps.RequestOptions = {
+              hostname: parsed.hostname,
+              port: parsed.port || (isHttps ? 443 : 80),
+              path: parsed.pathname + parsed.search,
+              method: 'GET',
+              headers: { 'User-Agent': UA, 'Accept': 'image/*,*/*;q=0.8' },
+              // Crucial : accepter les certificats invalides/expirés.
+              // Limité à cette route (pas un flag global TLS) → on n'élargit pas la
+              // surface d'attaque au reste de l'app.
+              ...(isHttps ? { rejectUnauthorized: false } : {}),
+            };
+
+            const upstreamReq = lib.request(opts, (upstreamRes: IncomingMessage) => {
+              const status = upstreamRes.statusCode ?? 502;
+
+              // Redirections (jusqu'à 3 hops)
+              if (
+                [301, 302, 303, 307, 308].includes(status) &&
+                upstreamRes.headers.location &&
+                attempts < 3
+              ) {
+                attempts++;
+                upstreamRes.resume(); // drainer pour libérer la socket
+                current = new URL(String(upstreamRes.headers.location), current).toString();
+                fire();
+                return;
+              }
+
+              if (status < 200 || status >= 300) {
+                upstreamRes.resume();
+                if (!res.headersSent) { res.statusCode = status; res.end(); }
+                return;
+              }
+
+              const ct = (upstreamRes.headers['content-type'] as string | undefined) ?? 'image/jpeg';
+              res.statusCode = 200;
+              res.setHeader('Content-Type', ct);
+              // Cache 1 jour : les icônes IPTV changent rarement et représentent
+              // un volume non négligeable de requêtes lors du scroll.
+              res.setHeader('Cache-Control', 'public, max-age=86400');
+              upstreamRes.pipe(res);
+              upstreamRes.on('error', () => { try { res.end(); } catch { /* */ } });
+            });
+            activeReq = upstreamReq;
+            upstreamReq.on('error', () => {
+              if (!res.headersSent) { res.statusCode = 502; res.end(); }
+            });
+            upstreamReq.setTimeout(15_000, () => {
+              try { upstreamReq.destroy(); } catch { /* */ }
+              if (!res.headersSent) { res.statusCode = 504; res.end(); }
+            });
+            upstreamReq.end();
+          };
+
+          fire();
           return;
         }
 

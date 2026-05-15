@@ -76,6 +76,14 @@ export function Live() {
 
   const handlePlay = (stream: LiveStream) => {
     if (!credentials) return;
+    // Snapshot de la liste actuellement visible (catégorie ou recherche)
+    // pour permettre le switch prev/next depuis le lecteur.
+    const liveChannels = filtered.map((s) => ({
+      stream_id: s.stream_id,
+      name: s.name,
+      stream_icon: s.stream_icon,
+    }));
+    const liveIndex = filtered.findIndex((s) => s.stream_id === stream.stream_id);
     const state: PlayerState = {
       url: xtreamService.getLiveStreamUrl(credentials, stream.stream_id),
       // Fallback : MPEG-TS continu si le serveur ne sert pas le live en HLS
@@ -83,6 +91,8 @@ export function Live() {
       title: stream.name,
       type: 'live',
       poster: stream.stream_icon,
+      liveChannels,
+      liveIndex,
     };
     navigate('/player', { state });
   };

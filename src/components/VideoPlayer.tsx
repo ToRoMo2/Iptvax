@@ -18,6 +18,11 @@ interface Props {
   mediaUrl?: string;
   onFallback?: () => void;
   onError?: () => void;
+  // Mode live : navigation prev/next dans la liste de chaînes. Si undefined,
+  // le bouton correspondant n'est pas affiché et la touche flèche est ignorée.
+  onPrevChannel?: () => void;
+  onNextChannel?: () => void;
+  channelPosition?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -56,7 +61,19 @@ function saveSubPrefs(prefs: SubPrefs) {
   try { localStorage.setItem(SUB_PREFS_KEY, JSON.stringify(prefs)); } catch { /* */ }
 }
 
-export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, mediaUrl, onFallback, onError }: Props) {
+export function VideoPlayer({
+  url,
+  title,
+  poster,
+  isLiveType,
+  fallbackUrl,
+  mediaUrl,
+  onFallback,
+  onError,
+  onPrevChannel,
+  onNextChannel,
+  channelPosition,
+}: Props) {
   const player = usePlayer(url, mediaUrl);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
@@ -125,10 +142,22 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
           player.toggleMute();
           break;
         case 'ArrowRight':
-          if (!isLive) { e.preventDefault(); player.seek(player.currentTime + 10); }
+          // En live, repurpose ArrowRight pour passer à la chaîne suivante
+          // (le seek n'a pas de sens). En VOD/série : seek +10s.
+          if (isLive) {
+            if (onNextChannel) { e.preventDefault(); onNextChannel(); }
+          } else {
+            e.preventDefault();
+            player.seek(player.currentTime + 10);
+          }
           break;
         case 'ArrowLeft':
-          if (!isLive) { e.preventDefault(); player.seek(player.currentTime - 10); }
+          if (isLive) {
+            if (onPrevChannel) { e.preventDefault(); onPrevChannel(); }
+          } else {
+            e.preventDefault();
+            player.seek(player.currentTime - 10);
+          }
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -154,7 +183,7 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [player, isLive]);
+  }, [player, isLive, onPrevChannel, onNextChannel]);
 
   const progressPercent = !isLive && player.duration > 0
     ? (player.currentTime / player.duration) * 100
@@ -255,6 +284,9 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
         {/* Barre du haut */}
         <div className={styles.topBar}>
           {title && <span className={styles.title}>{title}</span>}
+          {isLive && channelPosition && (
+            <span className={styles.channelPos}>{channelPosition}</span>
+          )}
           {isLive && <span className={styles.liveBadge}>● EN DIRECT</span>}
         </div>
 
@@ -282,9 +314,31 @@ export function VideoPlayer({ url, title, poster, isLiveType, fallbackUrl, media
 
           {/* Barre du bas */}
           <div className={styles.bottomBar}>
+            {isLive && (onPrevChannel || onNextChannel) && (
+              <button
+                className={styles.controlBtn}
+                onClick={onPrevChannel}
+                disabled={!onPrevChannel}
+                title="Chaîne précédente (←)"
+              >
+                ⏮
+              </button>
+            )}
+
             <button className={styles.controlBtn} onClick={player.toggle} title="Lecture/Pause (Espace)">
               {isPlaying ? '⏸' : '▶'}
             </button>
+
+            {isLive && (onPrevChannel || onNextChannel) && (
+              <button
+                className={styles.controlBtn}
+                onClick={onNextChannel}
+                disabled={!onNextChannel}
+                title="Chaîne suivante (→)"
+              >
+                ⏭
+              </button>
+            )}
 
             {!isLive && (
               <>
