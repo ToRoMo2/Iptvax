@@ -1,15 +1,19 @@
 # CLAUDE.md — Corset cognitif IPTV App
 
 ## I. Finalité (métier)
-Client IPTV web connecté aux serveurs **Xtream Codes API**. Interface française. Trois domaines : Live (MPEG-TS), VOD (films), Séries (épisodes). Un seul écran de lecture (`/player`) pour les trois types.
+Client IPTV web connecté aux serveurs **Xtream Codes API**. Interface française. Trois domaines : Live (MPEG-TS), VOD (films), Séries (épisodes). Un seul écran de lecture (`/player`) pour les trois types. Compte utilisateur (Supabase) avec **profils IPTV multiples** par compte (style Netflix) — favoris et historique/reprise synchronisés cross-device, isolés par profil.
 
 ## II. Architecture
 ```
 SPA React 18 ──► React Router v7 ──► pages/components
-XtreamContext (auth) ──► services ──► /api/* (Vite plugin)
+SupabaseAuthContext (compte Google/Apple/mail)
+  └─► IptvProfileContext (profils IPTV multiples par compte)
+        └─► XtreamContext (creds du profil actif) ──► services ──► /api/* (Vite plugin)
+LibraryContext (favoris + historique/reprise) ──► Supabase (BDD, RLS par profil)
 Media pipeline : HLS.js | mpegts.js | ffmpeg fMP4 | ffprobe stdin
 ```
-Tout le "backend" vit dans `vite.config.ts`. Zéro serveur séparé en dev.
+Tout le "backend" média vit dans `vite.config.ts`. Zéro serveur séparé en dev.
+**Supabase est orthogonal au proxy `/api/*`** : auth + persistance via SDK frontend (`src/lib/supabase.ts`), jamais via une route `/api/*`.
 
 > ⚠️ **Modification architecturale ?** Lire d'abord [`docs/architecture.md`](./docs/architecture.md) — diagramme complet, règles de couplage par couche, catalogue des anti-patterns. Ne pas charger ce fichier pour des tâches courantes (bug fix, UI).
 
@@ -25,6 +29,7 @@ Tout le "backend" vit dans `vite.config.ts`. Zéro serveur séparé en dev.
 | ffmpeg | ffmpeg-static | 5.3.0 |
 | ffprobe | ffprobe-static | 3.1.0 |
 | Prod server | Express | 5.2.1 |
+| Auth + BDD | @supabase/supabase-js | 2.105.4 |
 | Lint | eslint + typescript-eslint | 9.13 / 8.11 |
 
 ## IV. Garde-Fous non négociables
@@ -39,6 +44,8 @@ Tout le "backend" vit dans `vite.config.ts`. Zéro serveur séparé en dev.
 9. **Live : URL après redirects** : la réécriture des manifests HLS DOIT utiliser `upstream.url` (URL finale après suivis de redirects), pas l'URL originale. Les serveurs Xtream/Cloudflare redirigent vers un CDN avec tokens — les segments doivent pointer vers l'origin du CDN, sinon 400 + CORS bloqué.
 10. **Live : stall recovery** : Chrome n'auto-resume PAS une vidéo live après buffer underrun. Un watchdog JS (`waiting`/`stalled` → seek au live edge après 4 s) est obligatoire dans `usePlayer.ts`. Utiliser `userPausedRef` pour ne pas écraser une pause utilisateur.
 11. **Live : pas de probe** : sauter `runProbe()` en mode live (pas de durée à afficher, pas de sous-titres attendus) → démarrage plus rapide, moins de bande passante.
+12. **Persistance Supabase** : favoris, historique/reprise et credentials Xtream vivent en BDD Supabase, **isolés par profil IPTV** (RLS `auth.uid()` + colonne `profile_id`). JAMAIS de favoris/historique en `localStorage` (le `storage.service` a été supprimé). Seul l'id du profil actif est persisté localement (`active_iptv_profile_id`) + les prefs visuelles de sous-titres.
+13. **Reprise = position + audio + sous-titres** : `LibraryContext.saveProgress` (toutes les 5 s + au démontage du lecteur) upsert sur `(profile_id, content_id, content_type)`. `VideoPlayer` applique la reprise UNE seule fois quand le lecteur est prêt, via l'API publique de `usePlayer` (`seek`/`setAudio`/`setSubtitle`) — ne jamais dupliquer la logique seek. Reprise ignorée si position < 10 s ou > 95 % (considéré terminé).
 
 ## V. Flux de Travail (TDD imposé)
 ```
@@ -60,6 +67,7 @@ npm run preview      # Aperçu du build prod
 - **Composants** : exports nommés, PascalCase, CSS Module co-localisé (`*.module.css`).
 - **Hooks** : `use*`, camelCase, dans `src/hooks/`. Dépendances `useCallback`/`useEffect` exhaustives.
 - **Services** : singleton exporté, `*.service.ts`, zéro état global mutable.
+- **Contextes** : providers transverses (compte/profil/bibliothèque) dans `src/contexts/` ; `src/context/` (sans `s`, legacy) ne contient que `XtreamContext`. Client Supabase singleton dans `src/lib/supabase.ts`.
 - **Types** : interfaces uniquement (`src/types/*.types.ts`), pas d'enums.
 - **Refs vs State** : valeurs lues dans les callbacks → `useRef`. Valeurs rendues dans le JSX → `useState`.
 - **Async** : toujours `AbortController` ou `AbortSignal.timeout()` sur les fetch longue durée.

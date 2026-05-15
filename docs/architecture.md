@@ -6,9 +6,13 @@
 
 ## 1. Vue d'ensemble
 
-L'application est une **SPA React 18** avec un backend embarqué dans le plugin Vite (`vite.config.ts`). Il n'existe pas de serveur Node.js séparé en développement — les 6 routes `/api/*` sont des middlewares Express-like injectés directement dans le dev server Vite.
+L'application est une **SPA React 18** avec un backend média embarqué dans le plugin Vite (`vite.config.ts`). Il n'existe pas de serveur Node.js séparé en développement — les 6 routes `/api/*` sont des middlewares Express-like injectés directement dans le dev server Vite.
 
 En production, `server/proxy.cjs` remplace le plugin Vite et sert les mêmes routes via Express 5.
+
+**Deux backends orthogonaux** :
+- **Proxy média `/api/*`** (Vite/Express) — streaming, probe, sous-titres, images. Sans état.
+- **Supabase** (auth + Postgres + RLS) — compte utilisateur, profils IPTV, favoris, historique/reprise. Accédé via le SDK frontend (`src/lib/supabase.ts`), **jamais** via `/api/*`. Les données sont isolées par profil IPTV (`profile_id`) sous RLS `auth.uid()`. Le profil actif persiste localement (`active_iptv_profile_id`) ; tout le reste est en BDD pour la synchro cross-device.
 
 Le pipeline média est hybride :
 - **HLS / live** → HLS.js ou mpegts.js (natif dans le navigateur)
@@ -23,33 +27,36 @@ Le pipeline média est hybride :
 ┌─────────────────────────────────────────────────────┐
 │  NAVIGATEUR                                          │
 │                                                      │
-│  pages/           (écrans : Home, Player, Series…)   │
+│  pages/           (écrans : Home, Player, ProfileSelect…) │
 │    ↓ importe                                         │
-│  components/      (VideoPlayer, Sidebar, MediaCard…) │
-│    ↓ importe                                         │
-│  hooks/           (usePlayer — toute la logique AV)  │
+│  components/      (VideoPlayer, TopNav, ProfilePanel…) │
 │    ↓ importe                        ↑ lit context    │
-│  context/         (XtreamContext — auth, creds)      │
+│  hooks/           (usePlayer — toute la logique AV)  │
 │    ↓ importe                                         │
-│  services/        (xtream.service, storage.service)  │
+│  contexts/        (SupabaseAuth → IptvProfile → Library) │
+│  context/         (XtreamContext — creds profil actif)│
 │    ↓ importe                                         │
-│  types/           (xtream.types, iptv.types)         │
+│  services/        (xtream.service, library.service)  │
+│  lib/             (supabase.ts — client singleton)   │
+│    ↓ importe                                         │
+│  types/           (xtream / profile / library .types)│
 │  utils/           (image.ts — fonctions pures)       │
 └─────────────────────────────────────────────────────┘
-            │ fetch /api/*
-            ▼
-┌─────────────────────────────────────────────────────┐
-│  VITE PLUGIN (vite.config.ts) — Node.js uniquement  │
-│                                                      │
-│  /api/xtream    → fetch Xtream Codes API             │
-│  /api/hlsproxy  → fetch (follow-redirects) + m3u8     │
-│  /api/liveproxy → fetch (follow-redirects) MPEG-TS    │
-│  /api/img       → node:https (rejectUnauthorized:false)│
-│  /api/probe     → spawn ffprobe (stdin pipe)         │
-│  /api/subtitle  → spawn ffmpeg → WebVTT (cache RAM)  │
-│  /api/streambase→ spawn ffmpeg 1-frame → PTS keyframe │
-│  /api/stream    → spawn ffmpeg fMP4 + Range seek     │
-└─────────────────────────────────────────────────────┘
+       │ fetch /api/*                  │ SDK Supabase
+       ▼                               ▼
+┌──────────────────────────────┐  ┌──────────────────────┐
+│  VITE PLUGIN (vite.config.ts)│  │  SUPABASE            │
+│  Node.js — proxy média       │  │  Auth (OAuth/mail)   │
+│                              │  │  Postgres + RLS      │
+│  /api/xtream    → Xtream API │  │  profiles            │
+│  /api/hlsproxy  → m3u8       │  │  iptv_profiles       │
+│  /api/liveproxy → MPEG-TS    │  │  favorites           │
+│  /api/img       → node:https │  │  watch_history       │
+│  /api/probe     → ffprobe    │  │  user_settings       │
+│  /api/subtitle  → ffmpeg VTT │  │  (toutes RLS         │
+│  /api/streambase→ keyframe   │  │   auth.uid() +       │
+│  /api/stream    → ffmpeg fMP4│  │   profile_id)        │
+└──────────────────────────────┘  └──────────────────────┘
 ```
 
 ---
@@ -60,14 +67,20 @@ Le pipeline média est hybride :
 |---|---|---|
 | `types/` | rien | tout le reste |
 | `utils/` | rien | tout le reste |
-| `services/` | `types/` | `hooks/`, `context/`, `components/`, `pages/` |
-| `context/` | `services/`, `types/` | `hooks/`, `components/`, `pages/` |
-| `hooks/` | `types/`, `utils/` | `services/` directement, `context/`, `pages/`, `components/` |
-| `components/` | `hooks/`, `types/`, `utils/`, `*.module.css` | `context/`, `services/`, `pages/` |
+| `lib/` | npm libs | `services/`, `context(s)/`, `hooks/`, `components/`, `pages/` |
+| `services/` | `lib/`, `types/` | `hooks/`, `context(s)/`, `components/`, `pages/` |
+| `context/` (legacy : `XtreamContext`) | `services/`, `types/` | `hooks/`, `components/`, `pages/` |
+| `contexts/` (Supabase/Profil/Library) | `lib/`, `services/`, `types/`, autres `contexts/` | `hooks/`, `components/`, `pages/` |
+| `hooks/` | `types/`, `utils/` | `services/` directement, `context(s)/`, `pages/`, `components/` |
+| `components/` | `hooks/`, `types/`, `utils/`, `*.module.css`, **hooks de context (`use*`) en lecture** | `services/`, `lib/`, `pages/` |
 | `pages/` | tout sauf `pages/` entre elles | import circulaire entre pages |
 | `vite.config.ts` | `node:*`, npm libs Node.js | tout `src/` |
 
 > **Règle des hooks** : un hook ne doit pas appeler `xtreamService` directement. Si un hook a besoin de credentials, il reçoit l'URL finale en paramètre (découplage). Seules les pages/context font le lien services ↔ hooks.
+>
+> **Composants ↔ context** : un composant peut *consommer* un context via son hook (`useXtream`, `useIptvProfile`, `useLibrary`…) — ex. `TopNav`, `ProfilePanel`. Il ne doit jamais importer un `*.service` ni `lib/` en direct.
+>
+> **Ordre des providers** (`App.tsx`) : `SupabaseAuthProvider` → `IptvProfileProvider` → (profil actif) → `XtreamProvider key={profileId}` → `LibraryProvider`. `LibraryProvider`/`XtreamProvider` sont remontés au changement de profil via la `key` → rechargement propre des données du nouveau profil.
 
 ---
 
@@ -89,6 +102,8 @@ Le pipeline média est hybride :
 | UA navigateur sur `/live/` | Xtream rejette et renvoie une page HTML d'erreur | UA `VLC/3.x` + pas de Referer/Origin |
 | Compter sur Chrome pour reprendre un live après buffer underrun | Chrome reste figé même quand le réseau revient | Watchdog JS : `waiting`/`stalled` 4 s → `seekToLiveEdge()` + `hls.startLoad()` |
 | `runProbe()` sur un flux live | Spawn ffprobe + 5 MB téléchargés pour rien (pas de durée, pas de sous-titres) | Skipper `runProbe` si live |
+| `runProbe()` réinitialise `currentAudio`/`currentAudioRef` à `0` inconditionnellement | ffprobe résout en **async**, souvent APRÈS un switch audio (reprise ou choix utilisateur) → l'UI repasse sur la piste par défaut alors que le flux ffmpeg joue déjà la bonne piste | Préserver la sélection si `currentAudioRef.current` est un index valide ; ne forcer `0` que sans sélection |
+| Appliquer la reprise (seek/audio/sous-titres) plus d'une fois ou re-dériver la logique de seek | Re-seeks en boucle, désync `seekOffset` | `VideoPlayer` applique chaque dimension UNE fois (refs `resume*Done`) via l'API publique `usePlayer` (`seek`/`setAudio`/`setSubtitle`) ; persistance via `LibraryContext.saveProgress` (5 s + démontage) |
 | `liveMaxLatencyDurationCount` sans `liveSyncDurationCount` explicite | hls.js 1.6 valide la relation → crash au boot | Soit définir les deux, soit s'appuyer sur le watchdog JS |
 | `<img src={url_xtream_https}>` direct | Beaucoup de serveurs d'icônes IPTV ont un cert HTTPS expiré → Chrome `ERR_CERT_DATE_INVALID` | Passer par `safeImgUrl()` → `/api/img` (Node ignore l'erreur cert, renvoie same-origin) |
 
@@ -104,6 +119,8 @@ Le pipeline média est hybride :
 | Image IPTV passée directement en `src` | Serveurs retournent des chemins relatifs → 404 | `safeImgUrl()` depuis `utils/image.ts` |
 | `useEffect` avec tableau vide `[]` et dépendances implicites | Fermeture stale non détectée par ESLint | Extraire la valeur via `useRef` ou ajouter la dep |
 | Recherche catalogue chargée paresseusement + repli sur catégorie courante | Avant fin du fetch global → résultats partiels trompeurs ; filtre + monte des milliers de `MediaCard` à chaque frappe → jank (surtout Films) | Précharger le dataset global au montage ; debounce ~200 ms ; `MIN_SEARCH_LEN` (3 car.) ; plafond `RESULT_LIMIT` (80) |
+| Favoris / historique / credentials Xtream en `localStorage` | Pas de synchro cross-device, pas d'isolation par profil — c'est la raison d'être de la BDD | Supabase scopé `profile_id` via `LibraryContext`/`IptvProfileContext` (RLS `auth.uid()`) ; localStorage réservé à l'id du profil actif + prefs sous-titres |
+| Lire favoris/historique de façon synchrone (`useState(() => get())`) | Les données arrivent en async de Supabase → état figé vide au 1er rendu | Charger dans le provider, exposer via context ; mises à jour optimistes + upsert async |
 
 ### HLS / Sous-titres
 
