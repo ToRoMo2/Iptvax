@@ -14,7 +14,13 @@
       "Bash(ffmpeg -version)",
       "Bash(npm install *)",
       "Bash(node -e \"console.log\\(require\\('ffmpeg-static'\\)\\)\")",
-      "Bash(node -e \"const fp = require\\('ffprobe-static'\\); console.log\\(fp.path\\)\")"
+      "Bash(node -e \"const fp = require\\('ffprobe-static'\\); console.log\\(fp.path\\)\")",
+      "Bash(npm run *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --base main --title 'feat\\(live\\): channel switching from player + IPTV image proxy' --body ' *)",
+      "PowerShell(gh --version)"
     ]
   }
 }
