@@ -44,6 +44,7 @@ Le pipeline média est hybride :
 │  /api/xtream    → fetch Xtream Codes API             │
 │  /api/hlsproxy  → fetch (follow-redirects) + m3u8     │
 │  /api/liveproxy → fetch (follow-redirects) MPEG-TS    │
+│  /api/img       → node:https (rejectUnauthorized:false)│
 │  /api/probe     → spawn ffprobe (stdin pipe)         │
 │  /api/subtitle  → spawn ffmpeg → WebVTT (cache RAM)  │
 │  /api/stream    → spawn ffmpeg fMP4 + Range seek     │
@@ -87,6 +88,7 @@ Le pipeline média est hybride :
 | Compter sur Chrome pour reprendre un live après buffer underrun | Chrome reste figé même quand le réseau revient | Watchdog JS : `waiting`/`stalled` 4 s → `seekToLiveEdge()` + `hls.startLoad()` |
 | `runProbe()` sur un flux live | Spawn ffprobe + 5 MB téléchargés pour rien (pas de durée, pas de sous-titres) | Skipper `runProbe` si live |
 | `liveMaxLatencyDurationCount` sans `liveSyncDurationCount` explicite | hls.js 1.6 valide la relation → crash au boot | Soit définir les deux, soit s'appuyer sur le watchdog JS |
+| `<img src={url_xtream_https}>` direct | Beaucoup de serveurs d'icônes IPTV ont un cert HTTPS expiré → Chrome `ERR_CERT_DATE_INVALID` | Passer par `safeImgUrl()` → `/api/img` (Node ignore l'erreur cert, renvoie same-origin) |
 
 ### React / TypeScript
 
