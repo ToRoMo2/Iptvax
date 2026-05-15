@@ -42,8 +42,8 @@ Le pipeline média est hybride :
 │  VITE PLUGIN (vite.config.ts) — Node.js uniquement  │
 │                                                      │
 │  /api/xtream    → fetch Xtream Codes API             │
-│  /api/hlsproxy  → fetch upstream + réécriture m3u8  │
-│  /api/liveproxy → socket TCP pipe MPEG-TS            │
+│  /api/hlsproxy  → fetch (follow-redirects) + m3u8     │
+│  /api/liveproxy → fetch (follow-redirects) MPEG-TS    │
 │  /api/probe     → spawn ffprobe (stdin pipe)         │
 │  /api/subtitle  → spawn ffmpeg → WebVTT (cache RAM)  │
 │  /api/stream    → spawn ffmpeg fMP4 + Range seek     │
@@ -81,6 +81,12 @@ Le pipeline média est hybride :
 | `ffprobe` via connexion HTTP depuis child process | Windows firewall bloque le process enfant | stdin pipe (`pipe:0`) via `ffprobeFromStream()` |
 | Mettre en cache un VTT vide | Bloque tous les retries sur cette piste | Cacher uniquement si `cues.length > 0` |
 | `AbortSignal.timeout()` sur stream ffmpeg long | Tue le stream après N secondes | `AbortController` annulé sur `req.on('close')` |
+| `http.request` brut pour proxy live | Ne suit pas les redirects 30x → mpegts reçoit du HTML vide | `fetch` (suit redirects par défaut) |
+| `baseUrl = targetUrl` dans `rewriteM3u8` | Les segments tapent l'origine pré-redirect → 400 + pas de CORS | `baseUrl = upstream.url` (URL finale post-redirects) |
+| UA navigateur sur `/live/` | Xtream rejette et renvoie une page HTML d'erreur | UA `VLC/3.x` + pas de Referer/Origin |
+| Compter sur Chrome pour reprendre un live après buffer underrun | Chrome reste figé même quand le réseau revient | Watchdog JS : `waiting`/`stalled` 4 s → `seekToLiveEdge()` + `hls.startLoad()` |
+| `runProbe()` sur un flux live | Spawn ffprobe + 5 MB téléchargés pour rien (pas de durée, pas de sous-titres) | Skipper `runProbe` si live |
+| `liveMaxLatencyDurationCount` sans `liveSyncDurationCount` explicite | hls.js 1.6 valide la relation → crash au boot | Soit définir les deux, soit s'appuyer sur le watchdog JS |
 
 ### React / TypeScript
 

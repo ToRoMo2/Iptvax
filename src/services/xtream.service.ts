@@ -70,8 +70,17 @@ export const xtreamService = {
   // On force le format .m3u8 (HLS) pour maximiser la compatibilité navigateur.
   // La plupart des serveurs Xtream Codes supportent HLS pour tous les contenus.
 
+  // Live : HLS (.m3u8) en primaire — la plupart des serveurs Xtream Codes modernes
+  // ne supportent plus le `.ts` continu fiablement. HLS bénéficie aussi de la
+  // resync segment-par-segment et de la gestion CDN.
   getLiveStreamUrl(creds: XtreamCredentials, streamId: number): string {
-    // Stream MPEG-TS continu — contourne le système de tokens HLS /hls/{token}/*.ts
+    const m3u8 = `${creds.serverUrl}/live/${creds.username}/${creds.password}/${streamId}.m3u8`;
+    return `/api/hlsproxy?url=${encodeURIComponent(m3u8)}`;
+  },
+
+  // Fallback : stream MPEG-TS continu via mpegts.js — utilisé si le serveur ne
+  // sert pas le live en HLS (bascule automatique sur erreur HLS fatale).
+  getLiveStreamTsUrl(creds: XtreamCredentials, streamId: number): string {
     const direct = `${creds.serverUrl}/live/${creds.username}/${creds.password}/${streamId}.ts`;
     return `/api/liveproxy?url=${encodeURIComponent(direct)}`;
   },

@@ -512,6 +512,14 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       : extractUpstreamUrl(src);
     mediaUrlRef.current = probeSource;
 
+    // Détection live : pilote la tuning HLS (retries, buffer) et l'évitement
+    // du probe (inutile pour live — pas de durée, pas de sous-titres, économie
+    // de bande passante + démarrage plus rapide).
+    const isLiveStream =
+      src.startsWith('/api/liveproxy') ||
+      /\/live\//.test(extractUpstreamUrl(src)) ||
+      /\/live\//.test(probeSource);
+
     const tryPlay = () => {
       video.play().catch(() => {
         setStatus('paused');
@@ -527,7 +535,10 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         {
           enableWorker: true,
           enableStashBuffer: true,
-          stashInitialSize: 384 * 1024,
+          // Démarrage plus rapide : 128 KB suffisent pour un flux IPTV typique
+          // (~1-2 s de buffer initial vs 3-5 s à 384 KB). Le live latency chasing
+          // ci-dessous compense la marge de jitter restante.
+          stashInitialSize: 128 * 1024,
           autoCleanupSourceBuffer: true,
           autoCleanupMinBackwardDuration: 15,
           autoCleanupMaxBackwardDuration: 30,
@@ -555,17 +566,39 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     }
 
     if (isHlsUrl(src) && Hls.isSupported()) {
-      const hls = new Hls({
+      // Config HLS distincte pour live vs VOD :
+      // - VOD : peu de retries (échec rapide → bascule sur fichier direct), gros buffer
+      // - Live : retries généreux (3 s de tolérance réseau), buffer court (faible
+      //   latence), traitement infini, pas de prefetch (chaque seek=nouveau live)
+      const hls = new Hls(isLiveStream ? {
+        enableWorker: true,
+        liveDurationInfinity: true,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 30,
+        backBufferLength: 30,
+        // Note : `liveMaxLatencyDurationCount` peut paraître séduisant (saut
+        // auto au live edge si on dérive trop) mais hls.js 1.6 a une validation
+        // stricte vs `liveSyncDurationCount` qui plante au boot. Le watchdog JS
+        // ci-dessous couvre le même cas de manière plus robuste.
+        manifestLoadingMaxRetry: 6,
+        manifestLoadingRetryDelay: 500,
+        levelLoadingMaxRetry: 6,
+        levelLoadingRetryDelay: 500,
+        fragLoadingMaxRetry: 6,
+        fragLoadingRetryDelay: 500,
+        // Cap total : ne pas s'acharner plus de 8 s sur un même segment
+        maxLoadingDelay: 8,
+      } : {
         enableWorker: true,
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
         startFragPrefetch: true,
-        // 0 retry → échec immédiat → pas de double requête échouée dans la console
         manifestLoadingMaxRetry: 0,
         levelLoadingMaxRetry: 0,
         fragLoadingMaxRetry: 2,
       });
       hlsRef.current = hls;
+      if (isLiveStream) setIsLive(true);
 
       hls.loadSource(src);
       hls.attachMedia(video);
@@ -620,24 +653,46 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         }
       });
 
+      // Compteur de récupération auto sur erreur fatale (live uniquement).
+      // Au-delà, on bascule sur l'UI d'erreur (qui déclenchera le fallback .ts).
+      let liveRecoveryAttempts = 0;
+      const MAX_LIVE_RECOVERY = 2;
+
       hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          // MANIFEST_PARSING_ERROR est renvoyé volontairement par le proxy hlsproxy quand
-          // le serveur upstream répond avec une erreur (ex: 551 trop de connexions).
-          // On retourne un 200 avec contenu invalide pour éviter que Chrome ne log
-          // "Failed to load resource: 551" dans la console — HLS.js parse, échoue ici.
-          const isServerRejection = data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR;
-          setStatus('error');
-          setError(
-            isServerRejection
-              ? 'Flux indisponible (trop de connexions simultanées ou source inaccessible)'
-              : `Erreur HLS : ${data.details}`,
-          );
+        if (!data.fatal) return;
+
+        // MANIFEST_PARSING_ERROR : flux indisponible côté serveur (cf. hlsproxy).
+        // Le proxy renvoie un manifest vide volontairement quand l'upstream
+        // refuse — pas de recovery possible, on bascule directement.
+        const isServerRejection = data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR;
+
+        // Pour live : tenter une récupération auto avant de basculer sur le
+        // fallback .ts. HLS.js sait recoverer la plupart des erreurs réseau
+        // (segment perdu, glitch de manifest) et média (decoder hiccup).
+        if (isLiveStream && !isServerRejection && liveRecoveryAttempts < MAX_LIVE_RECOVERY) {
+          liveRecoveryAttempts++;
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            hls.startLoad();
+            return;
+          }
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+            return;
+          }
         }
+
+        setStatus('error');
+        setError(
+          isServerRejection
+            ? 'Flux indisponible (trop de connexions simultanées ou source inaccessible)'
+            : `Erreur HLS : ${data.details}`,
+        );
       });
 
-      // Probe systématique : détection des pistes de sous-titres depuis le fichier source
-      runProbe(probeSource);
+      // Probe : SAUTÉ pour live (pas de durée à afficher, pas de sous-titres
+      // attendus, pas de switch audio fréquent → économie ffprobe + bande
+      // passante + démarrage plus rapide).
+      if (!isLiveStream) runProbe(probeSource);
       return;
     }
 
@@ -765,12 +820,84 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
 
   // --- Contrôles ---
 
+  // Saut au live edge — utilisé après un stall ou un long onglet inactif
+  // pour ne pas reprendre 30 s en retard. `minBehind` configure le seuil
+  // au-dessus duquel on saute, sinon on respecte la position courante.
+  const seekToLiveEdge = useCallback((minBehind = 3) => {
+    const video = videoRef.current;
+    if (!video || video.seekable.length === 0) return;
+    const edge = video.seekable.end(video.seekable.length - 1);
+    if (edge - video.currentTime > minBehind) {
+      video.currentTime = Math.max(0, edge - 2);
+    }
+  }, []);
+
+  // Distingue pause utilisateur (intentionnelle) vs pause système (buffer vide).
+  // Chrome peut firer 'pause' sur un buffer underrun → sans ce flag, le watchdog
+  // ne pourrait pas distinguer et soit relancerait l'utilisateur (mauvais), soit
+  // ne récupérerait jamais le stall (mauvais aussi).
+  const userPausedRef = useRef(false);
+
   const toggle = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) video.play().catch(() => {});
-    else video.pause();
-  }, []);
+    if (video.paused) {
+      userPausedRef.current = false;
+      // Live : rejoindre le live edge si on a accumulé du retard
+      // (cas typique : reprise après un stall ou un onglet inactif).
+      if (isLive) {
+        seekToLiveEdge(3);
+        try { hlsRef.current?.startLoad(); } catch { /* */ }
+      }
+      video.play().catch(() => {});
+    } else {
+      userPausedRef.current = true;
+      video.pause();
+    }
+  }, [isLive, seekToLiveEdge]);
+
+  // Watchdog stall pour le live : si la vidéo reste bloquée (waiting/stalled)
+  // pendant 4 s, sauter au live edge et redemander à HLS de charger.
+  // Évite le scénario : coupure réseau brève → buffer vide → vidéo gelée
+  // alors que le live a continué d'avancer côté serveur.
+  useEffect(() => {
+    if (!isLive) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const recover = () => {
+      // Ne pas écraser une pause intentionnelle de l'utilisateur.
+      if (userPausedRef.current) return;
+      seekToLiveEdge(3);
+      try { hlsRef.current?.startLoad(); } catch { /* */ }
+      video.play().catch(() => {/* tab inactive — ignore */});
+    };
+
+    const armStall = () => {
+      if (userPausedRef.current) return; // l'utilisateur contrôle
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(recover, 4000);
+    };
+    const cancelStall = () => {
+      if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
+    };
+
+    // 'waiting' = buffer vide, 'stalled' = chargement bloqué.
+    // On NE cancel PAS sur 'pause' : Chrome peut firer 'pause' en cas
+    // d'underrun ; on cancel uniquement quand la lecture redémarre vraiment.
+    video.addEventListener('waiting', armStall);
+    video.addEventListener('stalled', armStall);
+    video.addEventListener('playing', cancelStall);
+
+    return () => {
+      cancelStall();
+      video.removeEventListener('waiting', armStall);
+      video.removeEventListener('stalled', armStall);
+      video.removeEventListener('playing', cancelStall);
+    };
+  }, [isLive, seekToLiveEdge]);
 
   const seek = useCallback((time: number) => {
     const video = videoRef.current;
