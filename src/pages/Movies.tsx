@@ -8,6 +8,9 @@ import { CategoryBar } from '../components/CategoryBar';
 import type { VodCategory, VodStream, PlayerState } from '../types/xtream.types';
 import styles from './Browse.module.css';
 
+const MIN_SEARCH_LEN = 3;
+const RESULT_LIMIT = 80;
+
 export function Movies() {
   const { credentials } = useXtream();
   const navigate = useNavigate();
@@ -16,12 +19,13 @@ export function Movies() {
   const [streams, setStreams] = useState<VodStream[]>([]);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<string[]>(() => storageService.getFavorites());
 
-  // Global search — chargé paresseusement à la première recherche
+  // Global search — préchargé au montage pour une recherche instantanée
   const [allStreams, setAllStreams] = useState<VodStream[] | null>(null);
   const [loadingAll, setLoadingAll] = useState(false);
   const allLoadedRef = useRef(false);
@@ -51,27 +55,37 @@ export function Movies() {
       .finally(() => setLoadingStreams(false));
   }, [credentials, selectedCat]);
 
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    if (val && !allLoadedRef.current && !loadingAll && credentials) {
-      allLoadedRef.current = true;
-      setLoadingAll(true);
-      xtreamService
-        .getVodStreams(credentials)
-        .then((all) => { setAllStreams(all); })
-        .catch(() => { allLoadedRef.current = false; })
-        .finally(() => setLoadingAll(false));
-    }
-  };
+  useEffect(() => {
+    if (!credentials || allLoadedRef.current) return;
+    allLoadedRef.current = true;
+    setLoadingAll(true);
+    xtreamService
+      .getVodStreams(credentials)
+      .then((all) => { setAllStreams(all); })
+      .catch(() => { allLoadedRef.current = false; })
+      .finally(() => setLoadingAll(false));
+  }, [credentials]);
 
-  const isGlobalSearch = search.trim().length > 0;
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search.trim()), 200);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
   const filtered = useMemo(() => {
     if (!isGlobalSearch) return streams;
-    const q = search.toLowerCase();
-    const source = allStreams ?? streams;
-    return source.filter((s) => s.name.toLowerCase().includes(q));
-  }, [streams, allStreams, search, isGlobalSearch]);
+    if (!allStreams) return [];
+    const q = query.toLowerCase();
+    const out: VodStream[] = [];
+    for (const s of allStreams) {
+      if (s.name.toLowerCase().includes(q)) {
+        out.push(s);
+        if (out.length >= RESULT_LIMIT) break;
+      }
+    }
+    return out;
+  }, [streams, allStreams, query, isGlobalSearch]);
 
   const handlePlay = (vod: VodStream) => {
     if (!credentials) return;
@@ -104,12 +118,15 @@ export function Movies() {
             type="search"
             placeholder="Rechercher dans tous les films…"
             value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
+          <span className={styles.searchBadge}>Tapez au moins {MIN_SEARCH_LEN} caractères…</span>
+        )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll ? '⏳ Chargement…' : `${filtered.length} résultat${filtered.length !== 1 ? 's' : ''}`}
+            {loadingAll ? '⏳ Chargement…' : `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${filtered.length !== 1 ? 's' : ''}`}
           </span>
         )}
       </header>
@@ -128,7 +145,7 @@ export function Movies() {
         )
       )}
 
-      {loadingStreams && !isGlobalSearch ? (
+      {(loadingStreams && !isGlobalSearch) || (isGlobalSearch && !allStreams) ? (
         <div className={styles.gridLoading}>
           {Array.from({ length: 15 }).map((_, i) => (
             <div key={i} className={`${styles.skeleton} ${styles.skeletonPoster}`} />

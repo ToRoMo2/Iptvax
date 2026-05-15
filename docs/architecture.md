@@ -103,6 +103,7 @@ Le pipeline média est hybride :
 | Couleurs hardcodées en CSS | Casse le design system Aurora | Toujours `var(--accent)`, `var(--bg-1)`, etc. |
 | Image IPTV passée directement en `src` | Serveurs retournent des chemins relatifs → 404 | `safeImgUrl()` depuis `utils/image.ts` |
 | `useEffect` avec tableau vide `[]` et dépendances implicites | Fermeture stale non détectée par ESLint | Extraire la valeur via `useRef` ou ajouter la dep |
+| Recherche catalogue chargée paresseusement + repli sur catégorie courante | Avant fin du fetch global → résultats partiels trompeurs ; filtre + monte des milliers de `MediaCard` à chaque frappe → jank (surtout Films) | Précharger le dataset global au montage ; debounce ~200 ms ; `MIN_SEARCH_LEN` (3 car.) ; plafond `RESULT_LIMIT` (80) |
 
 ### HLS / Sous-titres
 

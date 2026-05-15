@@ -8,6 +8,9 @@ import { CategoryBar } from '../components/CategoryBar';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
 import styles from './Browse.module.css';
 
+const MIN_SEARCH_LEN = 3;
+const RESULT_LIMIT = 80;
+
 export function Series() {
   const { credentials } = useXtream();
   const navigate = useNavigate();
@@ -16,12 +19,13 @@ export function Series() {
   const [series, setSeries] = useState<SeriesItem[]>([]);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<string[]>(() => storageService.getFavorites());
 
-  // Global search — chargé paresseusement à la première recherche
+  // Global search — préchargé au montage pour une recherche instantanée
   const [allSeries, setAllSeries] = useState<SeriesItem[] | null>(null);
   const [loadingAll, setLoadingAll] = useState(false);
   const allLoadedRef = useRef(false);
@@ -51,27 +55,37 @@ export function Series() {
       .finally(() => setLoadingItems(false));
   }, [credentials, selectedCat]);
 
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    if (val && !allLoadedRef.current && !loadingAll && credentials) {
-      allLoadedRef.current = true;
-      setLoadingAll(true);
-      xtreamService
-        .getSeries(credentials)
-        .then((all) => { setAllSeries(all); })
-        .catch(() => { allLoadedRef.current = false; })
-        .finally(() => setLoadingAll(false));
-    }
-  };
+  useEffect(() => {
+    if (!credentials || allLoadedRef.current) return;
+    allLoadedRef.current = true;
+    setLoadingAll(true);
+    xtreamService
+      .getSeries(credentials)
+      .then((all) => { setAllSeries(all); })
+      .catch(() => { allLoadedRef.current = false; })
+      .finally(() => setLoadingAll(false));
+  }, [credentials]);
 
-  const isGlobalSearch = search.trim().length > 0;
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search.trim()), 200);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
   const filtered = useMemo(() => {
     if (!isGlobalSearch) return series;
-    const q = search.toLowerCase();
-    const source = allSeries ?? series;
-    return source.filter((s) => s.name.toLowerCase().includes(q));
-  }, [series, allSeries, search, isGlobalSearch]);
+    if (!allSeries) return [];
+    const q = query.toLowerCase();
+    const out: SeriesItem[] = [];
+    for (const s of allSeries) {
+      if (s.name.toLowerCase().includes(q)) {
+        out.push(s);
+        if (out.length >= RESULT_LIMIT) break;
+      }
+    }
+    return out;
+  }, [series, allSeries, query, isGlobalSearch]);
 
   const handleFavorite = (id: string) => {
     storageService.toggleFavorite(id);
@@ -91,12 +105,15 @@ export function Series() {
             type="search"
             placeholder="Rechercher dans toutes les séries…"
             value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
+          <span className={styles.searchBadge}>Tapez au moins {MIN_SEARCH_LEN} caractères…</span>
+        )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll ? '⏳ Chargement…' : `${filtered.length} résultat${filtered.length !== 1 ? 's' : ''}`}
+            {loadingAll ? '⏳ Chargement…' : `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${filtered.length !== 1 ? 's' : ''}`}
           </span>
         )}
       </header>
@@ -115,7 +132,7 @@ export function Series() {
         )
       )}
 
-      {loadingItems && !isGlobalSearch ? (
+      {(loadingItems && !isGlobalSearch) || (isGlobalSearch && !allSeries) ? (
         <div className={styles.gridLoading}>
           {Array.from({ length: 15 }).map((_, i) => (
             <div key={i} className={`${styles.skeleton} ${styles.skeletonPoster}`} />
