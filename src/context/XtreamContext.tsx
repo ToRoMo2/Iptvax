@@ -2,13 +2,12 @@ import {
   createContext,
   useContext,
   useState,
-  useCallback,
   useEffect,
   type ReactNode,
 } from 'react';
 import type { XtreamCredentials, XtreamUserInfo } from '../types/xtream.types';
+import type { IptvProfile } from '../types/profile.types';
 import { xtreamService } from '../services/xtream.service';
-import { supabase } from '../lib/supabase';
 
 interface XtreamContextValue {
   credentials: XtreamCredentials | null;
@@ -16,87 +15,56 @@ interface XtreamContextValue {
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   authError: string | null;
-  login: (creds: XtreamCredentials) => Promise<void>;
-  logout: () => void;
 }
 
 const XtreamContext = createContext<XtreamContextValue | null>(null);
 
 interface XtreamProviderProps {
   children: ReactNode;
-  userId: string;
+  profile: IptvProfile;
 }
 
-export function XtreamProvider({ children, userId }: XtreamProviderProps) {
-  const [credentials, setCredentials] = useState<XtreamCredentials | null>(null);
+export function XtreamProvider({ children, profile }: XtreamProviderProps) {
+  const credentials: XtreamCredentials = {
+    serverUrl: profile.xtream_server_url,
+    username: profile.xtream_username,
+    password: profile.xtream_password,
+  };
+
   const [userInfo, setUserInfo] = useState<XtreamUserInfo | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const authenticate = useCallback(async (creds: XtreamCredentials): Promise<void> => {
+  // Authentifie le profil IPTV actif (le composant est remonté via `key`
+  // dans App.tsx à chaque changement de profil → re-auth automatique).
+  useEffect(() => {
+    let cancelled = false;
     setIsAuthenticating(true);
     setAuthError(null);
-    try {
-      const response = await xtreamService.authenticate(creds);
-      if (!response?.user_info || response.user_info.auth === 0) {
-        throw new Error('Identifiants incorrects');
-      }
-      setUserInfo(response.user_info);
-      setCredentials(creds);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erreur de connexion';
-      setAuthError(msg);
-      throw new Error(msg);
-    } finally {
-      setIsAuthenticating(false);
-    }
-  }, []);
 
-  // Au démarrage : charge les credentials Xtream depuis le profil Supabase
-  useEffect(() => {
-    async function loadFromProfile() {
-      const { data } = await supabase
-        .from('profiles')
-        .select('xtream_server_url, xtream_username, xtream_password')
-        .eq('id', userId)
-        .single();
+    xtreamService
+      .authenticate(credentials)
+      .then((response) => {
+        if (cancelled) return;
+        if (!response?.user_info || response.user_info.auth === 0) {
+          throw new Error('Identifiants incorrects');
+        }
+        setUserInfo(response.user_info);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setAuthError(e instanceof Error ? e.message : 'Erreur de connexion');
+        setUserInfo(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsAuthenticating(false);
+      });
 
-      if (data?.xtream_server_url && data.xtream_username && data.xtream_password) {
-        const creds: XtreamCredentials = {
-          serverUrl: data.xtream_server_url as string,
-          username: data.xtream_username as string,
-          password: data.xtream_password as string,
-        };
-        await authenticate(creds).catch(() => {
-          // Credentials invalides (abonnement expiré, serveur down…)
-          setIsAuthenticating(false);
-        });
-      } else {
-        setIsAuthenticating(false);
-      }
-    }
-
-    void loadFromProfile();
-  }, [userId, authenticate]);
-
-  const login = useCallback(
-    async (creds: XtreamCredentials) => {
-      await authenticate(creds);
-      // Sauvegarde dans le profil Supabase pour la reconnexion cross-device
-      await supabase.from('profiles').update({
-        xtream_server_url: creds.serverUrl,
-        xtream_username: creds.username,
-        xtream_password: creds.password,
-      }).eq('id', userId);
-    },
-    [authenticate, userId],
-  );
-
-  const logout = useCallback(() => {
-    setCredentials(null);
-    setUserInfo(null);
-    setAuthError(null);
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.id]);
 
   return (
     <XtreamContext.Provider
@@ -106,8 +74,6 @@ export function XtreamProvider({ children, userId }: XtreamProviderProps) {
         isAuthenticated: !!userInfo,
         isAuthenticating,
         authError,
-        login,
-        logout,
       }}
     >
       {children}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useXtream } from '../context/XtreamContext';
+import { useIptvProfile } from '../contexts/IptvProfileContext';
 import styles from './Settings.module.css';
 
 type Tab = 'account' | 'playback' | 'about';
@@ -70,7 +71,8 @@ const TABS: { id: Tab; label: string; Icon: () => JSX.Element }[] = [
 ];
 
 export function Settings() {
-  const { userInfo, credentials, logout } = useXtream();
+  const { userInfo, credentials } = useXtream();
+  const { activeProfile, clearActiveProfile } = useIptvProfile();
   const [tab, setTab] = useState<Tab>('account');
 
   // Playback settings (stored in state — could persist to localStorage)
@@ -141,15 +143,16 @@ export function Settings() {
               )}
 
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Session</div>
+                <div className={styles.sectionLabel}>Profil</div>
+                {activeProfile && <InfoRow label="Profil actif" value={`${activeProfile.avatar}  ${activeProfile.name}`} />}
                 <div className={styles.row}>
                   <div className={styles.rowText}>
-                    <div className={styles.rowLabel}>Se déconnecter</div>
-                    <div className={styles.rowDesc}>Met fin à la session Xtream Codes en cours</div>
+                    <div className={styles.rowLabel}>Changer de profil</div>
+                    <div className={styles.rowDesc}>Revenir à l'écran de sélection des profils IPTV</div>
                   </div>
-                  <button className={styles.logoutBtn} onClick={logout}>
+                  <button className={styles.logoutBtn} onClick={clearActiveProfile}>
                     <IconLogout />
-                    Se déconnecter
+                    Changer de profil
                   </button>
                 </div>
               </section>

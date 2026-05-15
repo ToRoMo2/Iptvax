@@ -23,6 +23,10 @@ interface Props {
   onPrevChannel?: () => void;
   onNextChannel?: () => void;
   channelPosition?: string;
+  // Reprise de lecture : position + pistes du dernier arrêt (non-live).
+  resume?: { time: number; audio?: number; subtitle?: number };
+  // Sauvegarde périodique de la progression (position + pistes).
+  onPersist?: (p: { position: number; duration: number; audio: number; subtitle: number }) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -73,6 +77,8 @@ export function VideoPlayer({
   onPrevChannel,
   onNextChannel,
   channelPosition,
+  resume,
+  onPersist,
 }: Props) {
   const player = usePlayer(url, mediaUrl);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -109,6 +115,65 @@ export function VideoPlayer({
     }
     if (!hasError) prevErrorRef.current = false;
   }, [hasError, fallbackUrl, onError]);
+
+  // ── Reprise de lecture : applique position + pistes une seule fois ────────
+  const resumeSeekDone = useRef(false);
+  const resumeAudioDone = useRef(false);
+  const resumeSubDone = useRef(false);
+
+  // Position : dès que la lecture démarre réellement (média prêt) on saute.
+  useEffect(() => {
+    if (isLive || !resume || resumeSeekDone.current) return;
+    if (player.status === 'playing' || player.status === 'paused') {
+      resumeSeekDone.current = true;
+      if (resume.time > 1) player.seek(resume.time);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, resume, player.status, player.seek]);
+
+  // Piste audio : quand la liste est connue et l'index valide/différent.
+  useEffect(() => {
+    if (isLive || !resume || resumeAudioDone.current) return;
+    const idx = resume.audio;
+    if (typeof idx !== 'number' || idx < 0) return;
+    if (player.audioTracks.length === 0 || idx >= player.audioTracks.length) return;
+    resumeAudioDone.current = true;
+    if (idx !== player.currentAudio) player.setAudio(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, resume, player.audioTracks, player.currentAudio, player.setAudio]);
+
+  // Sous-titres : index UI 0-based ; négatif = désactivé → rien à restaurer.
+  useEffect(() => {
+    if (isLive || !resume || resumeSubDone.current) return;
+    const idx = resume.subtitle;
+    if (typeof idx !== 'number' || idx < 0) return;
+    if (!player.subtitleTracks.some((t) => t.index === idx)) return;
+    resumeSubDone.current = true;
+    if (idx !== player.currentSubtitle) player.setSubtitle(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, resume, player.subtitleTracks, player.currentSubtitle, player.setSubtitle]);
+
+  // ── Sauvegarde périodique de la progression (5 s + au démontage) ─────────
+  const persistRef = useRef<() => void>(() => {});
+  persistRef.current = () => {
+    if (isLive || !onPersist) return;
+    const pos = player.currentTime;
+    if (!isFinite(pos) || pos <= 0) return;
+    onPersist({
+      position: pos,
+      duration: isFinite(player.duration) ? player.duration : 0,
+      audio: player.currentAudio,
+      subtitle: player.currentSubtitle,
+    });
+  };
+  useEffect(() => {
+    if (isLive || !onPersist) return;
+    const id = setInterval(() => persistRef.current(), 5000);
+    return () => {
+      clearInterval(id);
+      persistRef.current(); // sauvegarde finale en quittant le lecteur
+    };
+  }, [isLive, onPersist]);
 
   const resetHideTimer = useCallback(() => {
     setControlsVisible(true);

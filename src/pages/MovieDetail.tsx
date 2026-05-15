@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
-import { storageService } from '../services/storage.service';
+import { useLibrary } from '../contexts/LibraryContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
 import { safeImgUrl } from '../utils/image';
 import styles from './SeriesDetail.module.css';
@@ -16,6 +16,7 @@ export function MovieDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
+  const { addToHistory } = useLibrary();
 
   const passed = (location.state as LocationState)?.movie ?? null;
 
@@ -41,6 +42,7 @@ export function MovieDetail() {
 
   const handlePlay = () => {
     if (!credentials || !movie) return;
+    const historyId = `movie-${movie.stream_id}`;
     const state: PlayerState = {
       url: xtreamService.getVodStreamUrl(credentials, movie.stream_id, movie.container_extension),
       fallbackUrl: xtreamService.getVodDirectUrl(credentials, movie.stream_id, movie.container_extension),
@@ -48,9 +50,10 @@ export function MovieDetail() {
       type: 'movie',
       poster: movie.stream_icon,
       description: movie.plot,
+      historyId,
     };
-    storageService.addToWatchHistory({
-      id: `movie-${movie.stream_id}`,
+    addToHistory({
+      id: historyId,
       type: 'movie',
       title: movie.name,
       image: movie.stream_icon || '',

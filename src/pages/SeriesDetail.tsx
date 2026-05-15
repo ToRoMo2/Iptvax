@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { useLibrary } from '../contexts/LibraryContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import { safeImgUrl } from '../utils/image';
 import styles from './SeriesDetail.module.css';
@@ -15,6 +16,7 @@ export function SeriesDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
+  const { addToHistory } = useLibrary();
 
   const seriesMeta = (location.state as LocationState)?.series ?? null;
 
@@ -40,14 +42,28 @@ export function SeriesDetail() {
 
   const handlePlayEpisode = (episode: Episode) => {
     if (!credentials) return;
+    const seriesName = info?.info.name ?? seriesMeta?.name ?? '';
+    const epLabel = episode.title || `Épisode ${episode.episode_num}`;
+    const historyId = `episode-${episode.id}`;
+    const poster = episode.info.movie_image ?? info?.info.cover ?? seriesMeta?.cover;
     const state: PlayerState = {
       url: xtreamService.getSeriesStreamUrl(credentials, episode.id, episode.container_extension),
       fallbackUrl: xtreamService.getSeriesDirectUrl(credentials, episode.id, episode.container_extension),
-      title: `${info?.info.name ?? seriesMeta?.name ?? ''} – ${episode.title || `Épisode ${episode.episode_num}`}`,
+      title: `${seriesName} – ${epLabel}`,
       type: 'episode',
-      poster: episode.info.movie_image ?? info?.info.cover ?? seriesMeta?.cover,
+      poster,
       description: episode.info.plot,
+      historyId,
     };
+    addToHistory({
+      id: historyId,
+      type: 'series',
+      title: `${seriesName} – ${epLabel}`,
+      image: poster ?? '',
+      progress: 0,
+      subtitle: `S${episode.season} · É${episode.episode_num}`,
+      playerState: state,
+    });
     navigate('/player', { state });
   };
 

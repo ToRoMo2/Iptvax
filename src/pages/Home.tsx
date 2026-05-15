@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
-import { storageService, type WatchHistoryItem } from '../services/storage.service';
+import { useLibrary } from '../contexts/LibraryContext';
+import type { WatchHistoryItem } from '../types/library.types';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
 import { safeImgUrl } from '../utils/image';
@@ -84,13 +85,13 @@ function RowSkeleton({ type }: { type: 'cw' | 'channel' | 'poster' }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export function Home() {
   const { credentials } = useXtream();
+  const { history } = useLibrary();
   const navigate = useNavigate();
 
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
   const [heroIdx, setHeroIdx] = useState(0);
   const [heroLoading, setHeroLoading] = useState(true);
 
-  const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
   const [movies, setMovies] = useState<VodStream[]>([]);
   const [series, setSeries] = useState<SeriesItem[]>([]);
@@ -100,11 +101,6 @@ export function Home() {
   const [loadingSeries, setLoadingSeries] = useState(true);
 
   const heroTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // ── Load watch history ───────────────────────────────────────────────────
-  useEffect(() => {
-    setHistory(storageService.getWatchHistory());
-  }, []);
 
   // ── Auto-advance hero ────────────────────────────────────────────────────
   const startHeroTimer = useCallback(() => {

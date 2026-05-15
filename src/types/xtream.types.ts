@@ -161,6 +161,9 @@ export interface PlayerState {
   type: MediaType;
   poster?: string;
   description?: string;
+  // Clé d'historique pour la reprise de lecture (position + pistes).
+  // Absente pour le live (pas de reprise).
+  historyId?: string;
   // Live uniquement : snapshot de la liste affichée au moment du clic
   // + index courant, pour permettre prev/next depuis le player.
   liveChannels?: LiveChannelRef[];

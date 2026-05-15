@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { useLibrary } from '../contexts/LibraryContext';
 import type { PlayerState } from '../types/xtream.types';
 import styles from './Player.module.css';
 
@@ -10,6 +11,7 @@ export function Player() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
+  const { history, getResume, saveProgress } = useLibrary();
   const state = (location.state as PlayerState) ?? null;
 
   // Permet de basculer sur l'URL de fallback si le m3u8 échoue
@@ -73,6 +75,30 @@ export function Player() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [navigate]);
 
+  // ── Reprise de lecture ────────────────────────────────────────────────────
+  const historyId = state?.historyId;
+
+  // Reprise : recalculée quand l'historique du profil est chargé (async Supabase).
+  const resume = useMemo(() => {
+    if (!historyId || state?.type === 'live') return undefined;
+    return getResume(historyId);
+    // history en dépendance → recalcul dès que la liste arrive de Supabase
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyId, state?.type, getResume, history]);
+
+  const handlePersist = useCallback(
+    (p: { position: number; duration: number; audio: number; subtitle: number }) => {
+      if (!historyId || state?.type === 'live') return;
+      saveProgress(historyId, {
+        resumeTime: p.position,
+        durationSec: p.duration,
+        audioTrack: p.audio,
+        subtitleTrack: p.subtitle,
+      });
+    },
+    [historyId, state?.type, saveProgress],
+  );
+
   if (!state?.url) {
     return (
       <div className={styles.noMedia}>
@@ -103,6 +129,8 @@ export function Player() {
           channelPosition={
             hasChannelNav ? `${channelIndex! + 1} / ${channels!.length}` : undefined
           }
+          resume={resume}
+          onPersist={handlePersist}
         />
       </div>
       {state.description && (

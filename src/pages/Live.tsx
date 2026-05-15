@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
-import { storageService } from '../services/storage.service';
+import { useLibrary } from '../contexts/LibraryContext';
 import { MediaCard } from '../components/MediaCard';
 import { CategoryBar } from '../components/CategoryBar';
 import type { LiveCategory, LiveStream } from '../types/xtream.types';
@@ -14,6 +14,7 @@ const RESULT_LIMIT = 80;
 
 export function Live() {
   const { credentials } = useXtream();
+  const { isFavorite, toggleFavorite } = useLibrary();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<LiveCategory[]>([]);
@@ -24,7 +25,6 @@ export function Live() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>(() => storageService.getFavorites());
 
   // Global search — préchargé au montage pour une recherche instantanée
   const [allStreams, setAllStreams] = useState<LiveStream[] | null>(null);
@@ -111,10 +111,6 @@ export function Live() {
     navigate('/player', { state });
   };
 
-  const handleFavorite = (id: string) => {
-    storageService.toggleFavorite(id);
-    setFavorites(storageService.getFavorites());
-  };
 
   return (
     <div className={styles.page}>
@@ -178,9 +174,16 @@ export function Live() {
               image={stream.stream_icon}
               variant="channel"
               isLive
-              isFavorite={favorites.includes(String(stream.stream_id))}
+              isFavorite={isFavorite('live', String(stream.stream_id))}
               onClick={() => handlePlay(stream)}
-              onFavorite={() => handleFavorite(String(stream.stream_id))}
+              onFavorite={() =>
+                toggleFavorite({
+                  type: 'live',
+                  id: String(stream.stream_id),
+                  name: stream.name,
+                  image: stream.stream_icon ?? '',
+                })
+              }
             />
           ))}
         </div>

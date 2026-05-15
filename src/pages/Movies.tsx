@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
-import { storageService } from '../services/storage.service';
+import { useLibrary } from '../contexts/LibraryContext';
 import { MediaCard } from '../components/MediaCard';
 import { CategoryBar } from '../components/CategoryBar';
 import type { VodCategory, VodStream } from '../types/xtream.types';
@@ -13,6 +13,7 @@ const RESULT_LIMIT = 80;
 
 export function Movies() {
   const { credentials } = useXtream();
+  const { isFavorite, toggleFavorite } = useLibrary();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<VodCategory[]>([]);
@@ -23,7 +24,6 @@ export function Movies() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>(() => storageService.getFavorites());
 
   // Global search — préchargé au montage pour une recherche instantanée
   const [allStreams, setAllStreams] = useState<VodStream[] | null>(null);
@@ -93,10 +93,6 @@ export function Movies() {
     navigate(`/movie/${vod.stream_id}`, { state: { movie: vod } });
   };
 
-  const handleFavorite = (id: string) => {
-    storageService.toggleFavorite(id);
-    setFavorites(storageService.getFavorites());
-  };
 
   return (
     <div className={styles.page}>
@@ -161,9 +157,16 @@ export function Movies() {
               rating={vod.rating_5based}
               genre={vod.genre}
               variant="movie"
-              isFavorite={favorites.includes(String(vod.stream_id))}
+              isFavorite={isFavorite('movie', String(vod.stream_id))}
               onClick={() => handleOpen(vod)}
-              onFavorite={() => handleFavorite(String(vod.stream_id))}
+              onFavorite={() =>
+                toggleFavorite({
+                  type: 'movie',
+                  id: String(vod.stream_id),
+                  name: vod.name,
+                  image: vod.stream_icon ?? '',
+                })
+              }
             />
           ))}
         </div>

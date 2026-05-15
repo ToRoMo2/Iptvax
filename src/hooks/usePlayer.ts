@@ -464,8 +464,15 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
           language: t.language,
         }));
         setAudioTracks(tracks);
-        setCurrentAudio(0);
-        currentAudioRef.current = 0;
+        // Le probe résout de façon asynchrone (ffprobe lit le fichier) : il peut
+        // arriver APRÈS un changement de piste (reprise ou choix utilisateur).
+        // Ne pas réinitialiser à 0 si une sélection valide est déjà active,
+        // sinon l'UI repasse sur la piste par défaut alors que le flux ffmpeg
+        // joue déjà la bonne piste.
+        const sel = currentAudioRef.current;
+        const keep = sel >= 0 && sel < tracks.length;
+        setCurrentAudio(keep ? sel : 0);
+        currentAudioRef.current = keep ? sel : 0;
       }
 
       // Pistes de sous-titres : TOUJOURS depuis le probe (source de vérité unique)

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
-import { storageService } from '../services/storage.service';
+import { useLibrary } from '../contexts/LibraryContext';
 import { MediaCard } from '../components/MediaCard';
 import { CategoryBar } from '../components/CategoryBar';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
@@ -13,6 +13,7 @@ const RESULT_LIMIT = 80;
 
 export function Series() {
   const { credentials } = useXtream();
+  const { isFavorite, toggleFavorite } = useLibrary();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<SeriesCategory[]>([]);
@@ -23,7 +24,6 @@ export function Series() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>(() => storageService.getFavorites());
 
   // Global search — préchargé au montage pour une recherche instantanée
   const [allSeries, setAllSeries] = useState<SeriesItem[] | null>(null);
@@ -87,10 +87,6 @@ export function Series() {
     return out;
   }, [series, allSeries, query, isGlobalSearch]);
 
-  const handleFavorite = (id: string) => {
-    storageService.toggleFavorite(id);
-    setFavorites(storageService.getFavorites());
-  };
 
   return (
     <div className={styles.page}>
@@ -155,9 +151,16 @@ export function Series() {
               rating={s.rating_5based}
               genre={s.genre}
               variant="series"
-              isFavorite={favorites.includes(String(s.series_id))}
+              isFavorite={isFavorite('series', String(s.series_id))}
               onClick={() => navigate(`/series/${s.series_id}`, { state: { series: s } })}
-              onFavorite={() => handleFavorite(String(s.series_id))}
+              onFavorite={() =>
+                toggleFavorite({
+                  type: 'series',
+                  id: String(s.series_id),
+                  name: s.name,
+                  image: s.cover ?? '',
+                })
+              }
             />
           ))}
         </div>

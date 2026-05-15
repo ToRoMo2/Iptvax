@@ -81,6 +81,14 @@
   --radius-xl: 16px;
 
   --sidebar-width: 0px;
+
+  /* Palette des avatars de profil IPTV */
+  --profile-1: #00D4FF;
+  --profile-2: #A78BFA;
+  --profile-3: #FB7185;
+  --profile-4: #FBBF24;
+  --profile-5: #34D399;
+  --profile-6: #94A3B8;
 }
 
 *, *::before, *::after {

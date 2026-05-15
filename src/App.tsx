@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
+import { IptvProfileProvider, useIptvProfile } from './contexts/IptvProfileContext';
+import { LibraryProvider } from './contexts/LibraryContext';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
 import { Login } from './pages/Login';
-import { Auth } from './pages/Auth';
+import { ProfileSelect } from './pages/ProfileSelect';
 import { Home } from './pages/Home';
 import { Live } from './pages/Live';
 import { Movies } from './pages/Movies';
@@ -16,20 +18,35 @@ import { Favorites } from './pages/Favorites';
 import { Settings } from './pages/Settings';
 import './styles/app.css';
 
+function LoadingScreen({ label }: { label: string }) {
+  return (
+    <div className="loading-screen">
+      <div className="spinner" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 function AppContent() {
-  const { isAuthenticated, isAuthenticating } = useXtream();
+  const { isAuthenticated, isAuthenticating, authError } = useXtream();
+  const { activeProfile, clearActiveProfile } = useIptvProfile();
 
   if (isAuthenticating) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner" />
-        <span>Connexion en cours…</span>
-      </div>
-    );
+    return <LoadingScreen label="Connexion en cours…" />;
   }
 
   if (!isAuthenticated) {
-    return <Auth />;
+    return (
+      <div className="loading-screen">
+        <span>Impossible de se connecter au profil « {activeProfile?.name} ».</span>
+        <span style={{ color: 'var(--t-3)', fontSize: 13 }}>
+          {authError ?? 'Vérifiez les identifiants IPTV de ce profil.'}
+        </span>
+        <button className="btn btn-primary" onClick={clearActiveProfile}>
+          Changer de profil
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -63,24 +80,39 @@ function Shell() {
   );
 }
 
+function ProfileGate() {
+  const { activeProfile, loading } = useIptvProfile();
+
+  if (loading) {
+    return <LoadingScreen label="Chargement des profils…" />;
+  }
+
+  if (!activeProfile) {
+    return <ProfileSelect />;
+  }
+
+  return (
+    <XtreamProvider key={activeProfile.id} profile={activeProfile}>
+      <LibraryProvider>
+        <AppContent />
+      </LibraryProvider>
+    </XtreamProvider>
+  );
+}
+
 function AppGate() {
   const { user, loading } = useSupabaseAuth();
 
   if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner" />
-        <span>Chargement…</span>
-      </div>
-    );
+    return <LoadingScreen label="Chargement…" />;
   }
 
   if (!user) return <Login />;
 
   return (
-    <XtreamProvider userId={user.id}>
-      <AppContent />
-    </XtreamProvider>
+    <IptvProfileProvider>
+      <ProfileGate />
+    </IptvProfileProvider>
   );
 }
 

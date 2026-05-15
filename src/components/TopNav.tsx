@@ -1,7 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
-import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
-import { useProfile } from '../hooks/useProfile';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { ProfilePanel } from './ProfilePanel';
 import './TopNav.css';
 
@@ -43,8 +42,7 @@ const LINKS = [
 
 export function TopNav() {
   const navigate = useNavigate();
-  const { user } = useSupabaseAuth();
-  const { profile } = useProfile();
+  const { activeProfile } = useIptvProfile();
 
   const [scrolled, setScrolled] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -59,18 +57,10 @@ export function TopNav() {
     return () => main.removeEventListener('scroll', onScroll);
   }, []);
 
-  const displayName =
-    profile?.display_name ||
-    (user?.user_metadata?.full_name as string | undefined) ||
-    user?.email?.split('@')[0] ||
-    'Utilisateur';
-
-  const avatarUrl =
-    profile?.avatar_url ||
-    (user?.user_metadata?.avatar_url as string | undefined) ||
-    null;
-
-  const initial = displayName.charAt(0).toUpperCase();
+  const profileName = activeProfile?.name ?? 'Profil';
+  const avatarVar = {
+    '--pf': `var(--${activeProfile?.color ?? 'profile-1'})`,
+  } as CSSProperties;
 
   return (
     <header className={`topnav ${scrolled ? 'scrolled' : ''}`}>
@@ -109,23 +99,19 @@ export function TopNav() {
           <Ic.cast />
         </button>
 
-        {/* Profile button + panel */}
+        {/* Profil actif + panel */}
         <div className="profile-wrapper" ref={profileWrapperRef}>
           <button
             className="profile"
-            title={displayName}
+            title={profileName}
             onClick={() => setPanelOpen((o) => !o)}
           >
-            <div className="avatar-btn">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
-              ) : (
-                initial
-              )}
+            <div className="avatar-btn" style={avatarVar}>
+              <span className="avatar-emoji">{activeProfile?.avatar ?? '🎬'}</span>
             </div>
             <div className="who">
-              <span className="name">{displayName}</span>
-              <span className="plan">Mon compte</span>
+              <span className="name">{profileName}</span>
+              <span className="plan">Profil IPTV</span>
             </div>
           </button>
 
