@@ -1,8 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { Readable } from 'node:stream';
-import http from 'node:http';
-import https from 'node:https';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 const _require = createRequire(import.meta.url);
@@ -56,6 +54,12 @@ function rewriteM3u8(content: string, baseUrl: string): string {
 }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// Beaucoup de serveurs Xtream Codes bloquent les UA "navigateur" sur les routes
+// `/live/` et renvoient une page HTML d'erreur. Ils n'autorisent que les UA
+// de lecteurs médias (VLC, IPTVSmarters, Lavf…). On utilise VLC qui est le plus
+// universellement accepté.
+const UA_LIVE = 'VLC/3.0.20 LibVLC/3.0.20';
+const isLivePath = (u: string) => /\/live\//.test(u);
 
 // Cookie store par origine — les serveurs IPTV utilisent souvent des cookies de session
 // pour authentifier les requêtes de segments après avoir servi le manifest.
@@ -213,12 +217,13 @@ function iptvProxyPlugin(): Plugin {
           try {
             const origin = new URL(targetUrl).origin;
             const storedCookies = cookieStore.get(origin);
+            const isLive = isLivePath(targetUrl);
 
-            const upstreamHeaders: Record<string, string> = {
-              'User-Agent': UA,
-              'Referer': `${origin}/`,
-              'Origin': origin,
-            };
+            // Pour les routes /live/, mimer un lecteur média (VLC) — beaucoup
+            // de serveurs renvoient du HTML aux navigateurs sinon.
+            const upstreamHeaders: Record<string, string> = isLive
+              ? { 'User-Agent': UA_LIVE }
+              : { 'User-Agent': UA, 'Referer': `${origin}/`, 'Origin': origin };
             if (storedCookies) upstreamHeaders['Cookie'] = storedCookies;
             if (req.headers['range']) upstreamHeaders['Range'] = req.headers['range'] as string;
 
@@ -263,7 +268,14 @@ function iptvProxyPlugin(): Plugin {
 
             if (isManifest) {
               const text = await upstream.text();
-              const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+              // Crucial : utiliser l'URL FINALE (après redirects), pas targetUrl.
+              // Les serveurs Xtream Codes derrière Cloudflare redirigent vers un
+              // CDN/load-balancer (ex : 280360.org → 89.45.12.136). Les chemins
+              // relatifs ou absolus de la m3u8 doivent être résolus contre l'origin
+              // de réponse, sinon les segments tapent l'ancien domaine et échouent
+              // (400 Bad Request + pas de CORS).
+              const finalUrl = upstream.url || targetUrl;
+              const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
               const rewritten = rewriteM3u8(text, baseUrl);
               res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
               res.end(rewritten);
@@ -306,6 +318,10 @@ function iptvProxyPlugin(): Plugin {
         }
 
         // ── /api/liveproxy : stream MPEG-TS live continu ─────────────────
+        // ⚠ Utilise fetch (et non http.request brut) pour suivre les redirections
+        // 30x — les serveurs Xtream Codes redirigent souvent les URLs `.ts` vers
+        // un CDN / load-balancer. Sans cela, on recevait une 302 avec body vide
+        // et mpegts.js restait coincé en chargement.
         if (reqUrl.pathname === '/api/liveproxy') {
           const targetUrl = reqUrl.searchParams.get('url');
           if (!targetUrl) { res.statusCode = 400; res.end(); return; }
@@ -315,43 +331,64 @@ function iptvProxyPlugin(): Plugin {
             res.statusCode = 400; res.end(); return;
           }
 
-          const transport = parsed.protocol === 'https:' ? https : http;
-          const proxyReq = transport.request(
-            {
-              hostname: parsed.hostname,
-              port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-              path: parsed.pathname + parsed.search,
-              method: 'GET',
-              headers: {
-                'User-Agent': UA,
-                'Referer': `${parsed.origin}/`,
-                'Connection': 'keep-alive',
-              },
-            },
-            (proxyRes) => {
-              if (!proxyRes.statusCode || proxyRes.statusCode >= 400) {
-                console.warn(`[liveproxy] ${proxyRes.statusCode} ← ${targetUrl}`);
-                res.statusCode = proxyRes.statusCode ?? 502;
-                res.end();
-                return;
-              }
-              res.setHeader('Content-Type', proxyRes.headers['content-type'] ?? 'video/MP2T');
-              res.setHeader('Transfer-Encoding', 'chunked');
-              res.setHeader('Cache-Control', 'no-cache');
-              res.setHeader('X-Accel-Buffering', 'no');
-              proxyRes.pipe(res, { end: true });
-              proxyRes.on('error', () => { if (!res.headersSent) res.end(); });
-            },
-          );
+          const controller = new AbortController();
+          // Timeout uniquement pour l'établissement de la connexion (headers).
+          // Une fois les headers reçus, le body peut streamer indéfiniment.
+          const connTimeout = setTimeout(() => controller.abort(), 30_000);
+          req.on('close', () => controller.abort());
 
-          // Si le client (navigateur) se déconnecte, couper la connexion IPTV
-          req.on('close', () => proxyReq.destroy());
-          proxyReq.on('error', (err) => {
-            if ((err as NodeJS.ErrnoException).code !== 'ECONNRESET' && !res.headersSent) {
-              res.statusCode = 502; res.end();
+          try {
+            const storedCookies = cookieStore.get(parsed.origin);
+            // UA VLC obligatoire : les routes /live/ rejettent les UA navigateur
+            // (renvoient une page HTML d'erreur). Pas de Referer/Origin non plus.
+            const upstreamHeaders: Record<string, string> = {
+              'User-Agent': UA_LIVE,
+              'Connection': 'keep-alive',
+            };
+            if (storedCookies) upstreamHeaders['Cookie'] = storedCookies;
+
+            const upstream = await fetch(targetUrl, {
+              signal: controller.signal,
+              headers: upstreamHeaders,
+              // redirect: 'follow' est le défaut — capital pour Xtream Codes
+            });
+            clearTimeout(connTimeout);
+
+            const setCookie = upstream.headers.get('set-cookie');
+            if (setCookie) cookieStore.set(parsed.origin, mergeCookies(storedCookies, setCookie));
+
+            if (!upstream.ok) {
+              console.warn(`[liveproxy] ${upstream.status} ← ${targetUrl}`);
+              res.statusCode = upstream.status;
+              res.end();
+              return;
             }
-          });
-          proxyReq.end();
+
+            res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'video/MP2T');
+            res.setHeader('Transfer-Encoding', 'chunked');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('X-Accel-Buffering', 'no');
+
+            if (upstream.body) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const bodyStream = Readable.fromWeb(upstream.body as any);
+              bodyStream.on('error', () => { try { res.end(); } catch { /* */ } });
+              req.on('close', () => { try { bodyStream.destroy(); } catch { /* */ } });
+              bodyStream.pipe(res);
+            } else {
+              res.end();
+            }
+          } catch (err) {
+            clearTimeout(connTimeout);
+            const isAbort = (err as Error).name === 'AbortError' || (err as NodeJS.ErrnoException).code === 'ABORT_ERR';
+            if (!isAbort) {
+              console.error('[liveproxy]', (err as Error).message);
+            }
+            if (!res.headersSent) {
+              res.statusCode = isAbort ? 499 : 502;
+              res.end();
+            }
+          }
           return;
         }
 

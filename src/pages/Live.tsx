@@ -78,6 +78,8 @@ export function Live() {
     if (!credentials) return;
     const state: PlayerState = {
       url: xtreamService.getLiveStreamUrl(credentials, stream.stream_id),
+      // Fallback : MPEG-TS continu si le serveur ne sert pas le live en HLS
+      fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, stream.stream_id),
       title: stream.name,
       type: 'live',
       poster: stream.stream_icon,
