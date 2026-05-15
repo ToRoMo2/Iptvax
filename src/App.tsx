@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
+import { Login } from './pages/Login';
 import { Auth } from './pages/Auth';
 import { Home } from './pages/Home';
 import { Live } from './pages/Live';
@@ -30,8 +32,6 @@ function AppContent() {
     return <Auth />;
   }
 
-  // Le lecteur est un écran plein-écran immersif (design Vanta) : il vit hors du
-  // shell de navigation — pas de top-nav par-dessus la vidéo.
   return (
     <Routes>
       <Route path="/player" element={<Player />} />
@@ -63,12 +63,33 @@ function Shell() {
   );
 }
 
+function AppGate() {
+  const { user, loading } = useSupabaseAuth();
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <span>Chargement…</span>
+      </div>
+    );
+  }
+
+  if (!user) return <Login />;
+
+  return (
+    <XtreamProvider userId={user.id}>
+      <AppContent />
+    </XtreamProvider>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <XtreamProvider>
-        <AppContent />
-      </XtreamProvider>
+      <SupabaseAuthProvider>
+        <AppGate />
+      </SupabaseAuthProvider>
     </BrowserRouter>
   );
 }

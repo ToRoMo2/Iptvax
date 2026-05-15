@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { XtreamCredentials, XtreamUserInfo } from '../types/xtream.types';
 import { xtreamService } from '../services/xtream.service';
-import { storageService } from '../services/storage.service';
+import { supabase } from '../lib/supabase';
 
 interface XtreamContextValue {
   credentials: XtreamCredentials | null;
@@ -22,12 +22,15 @@ interface XtreamContextValue {
 
 const XtreamContext = createContext<XtreamContextValue | null>(null);
 
-export function XtreamProvider({ children }: { children: ReactNode }) {
-  const savedCreds = storageService.getCredentials();
+interface XtreamProviderProps {
+  children: ReactNode;
+  userId: string;
+}
 
-  const [credentials, setCredentials] = useState<XtreamCredentials | null>(savedCreds);
+export function XtreamProvider({ children, userId }: XtreamProviderProps) {
+  const [credentials, setCredentials] = useState<XtreamCredentials | null>(null);
   const [userInfo, setUserInfo] = useState<XtreamUserInfo | null>(null);
-  const [isAuthenticating, setIsAuthenticating] = useState(!!savedCreds);
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const authenticate = useCallback(async (creds: XtreamCredentials): Promise<void> => {
@@ -40,7 +43,6 @@ export function XtreamProvider({ children }: { children: ReactNode }) {
       }
       setUserInfo(response.user_info);
       setCredentials(creds);
-      storageService.saveCredentials(creds);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur de connexion';
       setAuthError(msg);
@@ -50,22 +52,47 @@ export function XtreamProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Ré-authentification automatique au démarrage si credentials sauvegardés
+  // Au démarrage : charge les credentials Xtream depuis le profil Supabase
   useEffect(() => {
-    if (!savedCreds) return;
-    authenticate(savedCreds).catch(() => {
-      setCredentials(null);
-      storageService.clearCredentials();
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    async function loadFromProfile() {
+      const { data } = await supabase
+        .from('profiles')
+        .select('xtream_server_url, xtream_username, xtream_password')
+        .eq('id', userId)
+        .single();
+
+      if (data?.xtream_server_url && data.xtream_username && data.xtream_password) {
+        const creds: XtreamCredentials = {
+          serverUrl: data.xtream_server_url as string,
+          username: data.xtream_username as string,
+          password: data.xtream_password as string,
+        };
+        await authenticate(creds).catch(() => {
+          // Credentials invalides (abonnement expiré, serveur down…)
+          setIsAuthenticating(false);
+        });
+      } else {
+        setIsAuthenticating(false);
+      }
+    }
+
+    void loadFromProfile();
+  }, [userId, authenticate]);
 
   const login = useCallback(
-    (creds: XtreamCredentials) => authenticate(creds),
-    [authenticate],
+    async (creds: XtreamCredentials) => {
+      await authenticate(creds);
+      // Sauvegarde dans le profil Supabase pour la reconnexion cross-device
+      await supabase.from('profiles').update({
+        xtream_server_url: creds.serverUrl,
+        xtream_username: creds.username,
+        xtream_password: creds.password,
+      }).eq('id', userId);
+    },
+    [authenticate, userId],
   );
 
   const logout = useCallback(() => {
-    storageService.clearCredentials();
     setCredentials(null);
     setUserInfo(null);
     setAuthError(null);

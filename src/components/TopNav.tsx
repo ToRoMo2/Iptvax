@@ -1,6 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { useXtream } from '../context/XtreamContext';
+import { useEffect, useRef, useState } from 'react';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
+import { useProfile } from '../hooks/useProfile';
+import { ProfilePanel } from './ProfilePanel';
 import './TopNav.css';
 
 /* ── Vanta line icons ────────────────────────────────────────────────────── */
@@ -32,17 +34,21 @@ const Ic = {
 };
 
 const LINKS = [
-  { to: '/',       label: 'Accueil', icon: Ic.home,   end: true },
-  { to: '/live',   label: 'Live TV', icon: Ic.tv,     end: false },
-  { to: '/movies', label: 'Films',   icon: Ic.film,   end: false },
-  { to: '/series', label: 'Séries',  icon: Ic.series, end: false },
+  { to: '/',        label: 'Accueil', icon: Ic.home,   end: true },
+  { to: '/live',    label: 'Live TV', icon: Ic.tv,     end: false },
+  { to: '/movies',  label: 'Films',   icon: Ic.film,   end: false },
+  { to: '/series',  label: 'Séries',  icon: Ic.series, end: false },
   { to: '/favorites', label: 'Favoris', icon: Ic.star, end: false },
 ];
 
 export function TopNav() {
   const navigate = useNavigate();
-  const { userInfo } = useXtream();
+  const { user } = useSupabaseAuth();
+  const { profile } = useProfile();
+
   const [scrolled, setScrolled] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const profileWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const main = document.querySelector('.main-content');
@@ -53,8 +59,18 @@ export function TopNav() {
     return () => main.removeEventListener('scroll', onScroll);
   }, []);
 
-  const username = userInfo?.username ?? 'User';
-  const initial = username.charAt(0).toUpperCase();
+  const displayName =
+    profile?.display_name ||
+    (user?.user_metadata?.full_name as string | undefined) ||
+    user?.email?.split('@')[0] ||
+    'Utilisateur';
+
+  const avatarUrl =
+    profile?.avatar_url ||
+    (user?.user_metadata?.avatar_url as string | undefined) ||
+    null;
+
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <header className={`topnav ${scrolled ? 'scrolled' : ''}`}>
@@ -92,17 +108,29 @@ export function TopNav() {
         <button className="icon-btn" title="Cast" type="button">
           <Ic.cast />
         </button>
-        <button
-          className="profile"
-          title={`${username} — Premium`}
-          onClick={() => navigate('/settings')}
-        >
-          <div className="avatar-btn">{initial}</div>
-          <div className="who">
-            <span className="name">{username}</span>
-            <span className="plan">Premium</span>
-          </div>
-        </button>
+
+        {/* Profile button + panel */}
+        <div className="profile-wrapper" ref={profileWrapperRef}>
+          <button
+            className="profile"
+            title={displayName}
+            onClick={() => setPanelOpen((o) => !o)}
+          >
+            <div className="avatar-btn">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
+              ) : (
+                initial
+              )}
+            </div>
+            <div className="who">
+              <span className="name">{displayName}</span>
+              <span className="plan">Mon compte</span>
+            </div>
+          </button>
+
+          {panelOpen && <ProfilePanel onClose={() => setPanelOpen(false)} />}
+        </div>
       </div>
     </header>
   );

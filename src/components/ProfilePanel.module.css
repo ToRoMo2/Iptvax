@@ -1,0 +1,206 @@
+/* ── ProfilePanel — carte d'identité flottante ──────────────────────────── */
+.panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 300px;
+  background: rgba(10, 10, 10, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 64px rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  animation: panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top right;
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: scale(0.94) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0,212,255,0.25), rgba(0,212,255,0.05));
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--t-1);
+  overflow: visible;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.avatarBadge {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #34c759;
+  border: 2px solid #0a0a0a;
+  box-shadow: 0 0 6px rgba(52, 199, 89, 0.6);
+}
+
+.identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nameBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--t-2);
+  transition: color var(--d-micro) var(--ease);
+}
+.nameBtn:hover { color: var(--accent); }
+.nameBtn svg { opacity: 0.5; flex-shrink: 0; }
+.nameBtn:hover svg { opacity: 1; }
+
+.displayName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--t-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameInput {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--t-1);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.12);
+}
+
+.email {
+  font-size: 12px;
+  color: var(--t-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Divider ────────────────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 16px 0;
+}
+
+/* ── Section IPTV ───────────────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--t-4);
+  margin-bottom: 2px;
+}
+
+.serverUrl {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.serverMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--t-3);
+}
+.metaChip svg { opacity: 0.6; flex-shrink: 0; }
+
+.changeServer {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.8;
+  transition: opacity var(--d-micro) var(--ease);
+}
+.changeServer:hover { opacity: 1; }
+
+/* ── Sign out ───────────────────────────────────────────────────────────── */
+.signOut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--t-2);
+  cursor: pointer;
+  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
+  text-align: left;
+}
+.signOut:hover {
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--live);
+}
