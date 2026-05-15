@@ -20,7 +20,21 @@
       "Bash(git add *)",
       "Bash(git push *)",
       "Bash(gh pr create --base main --title 'feat\\(live\\): channel switching from player + IPTV image proxy' --body ' *)",
-      "PowerShell(gh --version)"
+      "PowerShell(gh --version)",
+      "Bash(npx eslint *)",
+      "Bash(git commit -m ' *)",
+      "Bash(grep -E \"src\\\\\\\\\\\\\\\\pages\\\\\\\\\\\\\\\\\\(Series|Movies|Live\\)\")",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(mkdir -p /tmp/design-extract)",
+      "Bash(tar -tzf webfetch-1778854986858-3churh.bin)",
+      "Bash(mkdir -p design-extract)",
+      "Bash(tar -xzf webfetch-1778854986858-3churh.bin -C design-extract)",
+      "Bash(git --no-pager log --oneline -3)",
+      "Bash(git rm *)",
+      "Bash(git stash *)",
+      "Bash(git --no-pager diff HEAD -- src/components/VideoPlayer.tsx)",
+      "Bash(git --no-pager show HEAD:src/components/VideoPlayer.module.css)",
+      "Bash(git --no-pager show HEAD:src/App.tsx)"
     ]
   }
 }

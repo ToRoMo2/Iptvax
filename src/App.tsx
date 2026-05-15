@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
-import { Sidebar } from './components/Sidebar';
+import { TopNav } from './components/TopNav';
 import { Auth } from './pages/Auth';
 import { Home } from './pages/Home';
 import { Live } from './pages/Live';
 import { Movies } from './pages/Movies';
 import { Series } from './pages/Series';
 import { SeriesDetail } from './pages/SeriesDetail';
+import { MovieDetail } from './pages/MovieDetail';
 import { Player } from './pages/Player';
 import { Search } from './pages/Search';
 import { Favorites } from './pages/Favorites';
@@ -29,10 +30,21 @@ function AppContent() {
     return <Auth />;
   }
 
+  // Le lecteur est un écran plein-écran immersif (design Vanta) : il vit hors du
+  // shell de navigation — pas de top-nav par-dessus la vidéo.
+  return (
+    <Routes>
+      <Route path="/player" element={<Player />} />
+      <Route path="*" element={<Shell />} />
+    </Routes>
+  );
+}
+
+function Shell() {
   return (
     <div className="app-shell">
       <div className="layout">
-        <Sidebar />
+        <TopNav />
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Home />} />
@@ -40,7 +52,7 @@ function AppContent() {
             <Route path="/movies" element={<Movies />} />
             <Route path="/series" element={<Series />} />
             <Route path="/series/:id" element={<SeriesDetail />} />
-            <Route path="/player" element={<Player />} />
+            <Route path="/movie/:id" element={<MovieDetail />} />
             <Route path="/search" element={<Search />} />
             <Route path="/favorites" element={<Favorites />} />
             <Route path="/settings" element={<Settings />} />

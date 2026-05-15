@@ -1,88 +1,163 @@
-/* ── Aurora MediaCard ────────────────────────────────────────────────────── */
+/* ── Vanta MediaCard ─────────────────────────────────────────────────────── */
 /* IMPORTANT: .card must be display:block (default).
-   Never add display:flex here — it breaks padding-top:% height calculation. */
+   Never add display:flex here — it breaks aspect-ratio art layout. */
 
 .card {
   position: relative;
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-card);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 220ms var(--ease), border-color 220ms var(--ease), box-shadow 220ms var(--ease);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  outline: none;
+  transition: transform var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease);
   user-select: none;
 }
 
-.card:hover {
-  transform: translateY(-4px) scale(1.015);
-  border-color: rgba(108, 99, 255, 0.45);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(108,99,255,0.25);
-}
-
+.card:hover,
 .card:focus-visible {
-  outline: none;
-  border-color: rgba(108, 99, 255, 0.8);
-  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.4), 0 0 40px rgba(108, 99, 255, 0.3);
+  transform: scale(1.06);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92),
+              0 0 32px rgba(0, 0, 0, 0.8),
+              0 0 24px rgba(255, 255, 255, 0.06);
+  z-index: 5;
 }
 
-/* ── Thumbnail overlay ────────────────────────────────────────────────────── */
-.overlay {
+/* ── Art frames ───────────────────────────────────────────────────────────── */
+.artChannel,
+.artPoster {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.artChannel { aspect-ratio: 16 / 9; }
+.artPoster  { aspect-ratio: 2 / 3; }
+
+.img {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.8) 0%,
-    rgba(0, 0, 0, 0.25) 40%,
-    transparent 70%
-  );
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Channel placeholder (centered code + accent stripe) ──────────────────── */
+.chPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.chLogo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 220ms var(--ease);
+  gap: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--t-1);
+}
+
+.chStripe {
+  display: inline-block;
+  width: 3px;
+  height: 18px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ── Poster placeholder (subtle stripes + faint glyph + title) ────────────── */
+.poPlaceholder {
+  position: absolute;
+  inset: 0;
+  background: #0a0a0a;
+}
+
+.poPlaceholder::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.02) 0 1px,
+    transparent 1px 14px
+  );
+}
+
+.phTag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.22);
+  text-transform: uppercase;
   z-index: 2;
 }
 
-.card:hover .overlay {
-  opacity: 1;
+.phMark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(-10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.18;
+  z-index: 1;
 }
 
-.playBtn {
-  width: 52px;
-  height: 52px;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 20px;
-  color: #fff;
-  box-shadow: 0 8px 32px rgba(108, 99, 255, 0.55);
-  transform: scale(0.75);
-  transition: transform 220ms var(--ease);
+.phMark svg {
+  width: 32px;
+  height: 32px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.card:hover .playBtn {
-  transform: scale(1);
+.phMarkLabel {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-/* ── LIVE badge ───────────────────────────────────────────────────────────── */
+.phName {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 16px;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  z-index: 2;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── LIVE pill ────────────────────────────────────────────────────────────── */
 .livePill {
   position: absolute;
   top: 10px;
   left: 10px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: var(--live);
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--r-ui);
+  background: rgba(0, 0, 0, 0.6);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  color: white;
-  box-shadow: var(--live-glow);
+  letter-spacing: 0.14em;
+  color: #ffffff;
   z-index: 3;
 }
 
@@ -90,82 +165,47 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: white;
-  animation: livepulse 1.4s ease-in-out infinite;
-}
-
-@keyframes livepulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.4; transform: scale(0.65); }
+  background: var(--live);
+  box-shadow: 0 0 8px var(--live-glow-c);
+  animation: live-pulse 1.6s ease-in-out infinite;
 }
 
 /* ── Info section (below image) ──────────────────────────────────────────── */
 .info {
-  padding: 12px 14px 14px;
-}
-
-/* Grid lines on channel cards */
-.thumbGrid::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 14px),
-    repeating-linear-gradient(0deg,  rgba(255,255,255,0.02)  0 1px, transparent 1px 14px);
-  z-index: 0;
-  pointer-events: none;
+  padding: 12px 4px 0;
 }
 
 .title {
-  font-family: 'Outfit', sans-serif;
   font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 500;
+  color: var(--t-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.35;
-  letter-spacing: -0.005em;
 }
 
 .meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 5px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--t-3);
 }
 
 .rating {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--warning);
+  font-weight: 600;
+  color: var(--t-2);
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
 
 .genre {
-  font-size: 11px;
-  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.nowPlaying {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 3px;
-}
-
-.nowPlaying::before {
-  content: '● ';
-  color: var(--accent-2);
-  font-size: 8px;
-  vertical-align: middle;
 }
 
 /* ── Favourite button ────────────────────────────────────────────────────── */
@@ -173,36 +213,40 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 32px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.6);
-  border: none;
+  width: 30px;
+  height: 30px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--line);
   border-radius: 50%;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 15px;
+  color: var(--t-2);
+  font-size: 14px;
+  line-height: 1;
   display: grid;
   place-items: center;
   opacity: 0;
-  transition: opacity var(--transition), color var(--transition), background var(--transition);
-  backdrop-filter: blur(6px);
+  transition: opacity var(--d-micro) var(--ease),
+              color var(--d-micro) var(--ease),
+              border-color var(--d-micro) var(--ease);
   z-index: 4;
 }
 
-.card:hover .favBtn {
+.card:hover .favBtn,
+.card:focus-within .favBtn {
   opacity: 1;
 }
 
 .favBtn:hover {
-  background: rgba(0, 0, 0, 0.85);
-  color: #fff;
+  color: var(--t-1);
+  border-color: var(--line-strong);
 }
 
 .favActive {
-  opacity: 1 !important;
-  color: var(--warning) !important;
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent-faint);
 }
 
-/* Variant — kept for TS compatibility */
+/* Variant hooks — kept for TS/className compatibility */
 .channel {}
 .movie {}
 .series {}

@@ -95,7 +95,14 @@ export function Series() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Séries</h1>
+        <div className={styles.titleBlock}>
+          <h1 className={styles.title}>Séries</h1>
+          <p className={styles.pageSub}>
+            {isGlobalSearch
+              ? 'Recherche globale'
+              : `${filtered.length} série${filtered.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
         <div className={styles.searchWrapper}>
           <span className={styles.searchIcon}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="15" height="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>

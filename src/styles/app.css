@@ -1,57 +1,86 @@
-/* ── Aurora Design System ─────────────────────────────────────────────────── */
+/* ====================================================================
+   VANTA · OLED-First IPTV — Design Tokens
+   True black, single electric-cyan accent, glows instead of shadows.
+   Aurora token names kept as aliases so existing modules inherit Vanta.
+   ==================================================================== */
 :root {
-  /* Backgrounds */
-  --bg-0:        #07070b;
-  --bg-1:        #0a0a0f;
-  --bg-2:        #0d0d1a;
-  --bg-3:        #11111f;
-  --bg-card:     rgba(20, 20, 32, 0.55);
-  --bg-card-hover: rgba(28, 28, 44, 0.75);
-  --bg-sidebar:  rgba(13, 13, 26, 0.8);
+  /* Surfaces — true black only */
+  --bg:           #000000;
+  --bg-elev:      #080808;
+  --bg-card:      #080808;
+  --bg-card-hover:#0d0d0d;
+  --bg-input:     transparent;
+
+  /* Strokes — hairlines on black */
+  --line:         rgba(255, 255, 255, 0.08);
+  --line-soft:    rgba(255, 255, 255, 0.04);
+  --line-strong:  rgba(255, 255, 255, 0.16);
 
   /* Text */
-  --text-primary:   #f4f5fb;
-  --text-secondary: rgba(244, 245, 251, 0.78);
-  --text-muted:     rgba(244, 245, 251, 0.52);
-  --text-faint:     rgba(244, 245, 251, 0.32);
+  --t-1:          #FFFFFF;
+  --t-2:          #A0A0A0;
+  --t-3:          #606060;
+  --t-4:          #505050;
 
-  /* Borders */
-  --border:       rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.18);
+  /* Accent — one signature color, used sparingly */
+  --accent:       #00D4FF;
+  --accent-glow:  rgba(0, 212, 255, 0.45);
+  --accent-faint: rgba(0, 212, 255, 0.10);
 
-  /* Accent (electric violet → purple) */
-  --accent:       #6c63ff;
-  --accent-2:     #a855f7;
-  --accent-light: #a590ff;
-  --accent-dark:  #5048d4;
-  --accent-grad:  linear-gradient(135deg, #6c63ff 0%, #a855f7 100%);
-  --accent-glow:  0 0 0 3px rgba(108, 99, 255, 0.35);
-
-  /* Live */
-  --live:         #ff3b56;
-  --live-glow:    0 0 18px rgba(255, 59, 86, 0.55);
-
-  /* Status */
-  --success: #10b981;
-  --error:   #ef4444;
-  --warning: #ffd34d;
+  /* Live red */
+  --live:         #FF3B30;
+  --live-glow-c:  rgba(255, 59, 48, 0.45);
 
   /* Radii */
-  --radius:    10px;
-  --radius-lg: 14px;
-  --radius-xl: 22px;
-
-  /* Sidebar */
-  --sidebar-width: 232px;
+  --r-card:       8px;
+  --r-ui:         4px;
+  --r-pill:       999px;
 
   /* Motion */
-  --ease:       cubic-bezier(.2,.8,.2,1);
-  --transition: 180ms var(--ease);
+  --ease:         cubic-bezier(0.25, 0.1, 0.25, 1);
+  --d-micro:      150ms;
+  --d-page:       300ms;
+  --transition:   150ms var(--ease);
 
-  /* Compat aliases */
-  --bg-primary:   var(--bg-1);
-  --bg-secondary: var(--bg-2);
-  --text:         var(--text-primary);
+  /* Spacing scale */
+  --pad-edge:     56px;
+  --row-gap:      52px;
+
+  /* Floating capsule nav reserves vertical space, not a side column */
+  --topnav-h:     92px;
+
+  /* ── Aurora compatibility aliases → mapped to Vanta values ───────── */
+  --bg-0:         var(--bg);
+  --bg-1:         var(--bg);
+  --bg-2:         var(--bg-elev);
+  --bg-3:         var(--bg-elev);
+  --bg-sidebar:   var(--bg-elev);
+
+  --text-primary:   var(--t-1);
+  --text-secondary: var(--t-2);
+  --text-muted:     var(--t-3);
+  --text-faint:     var(--t-4);
+  --text:           var(--t-1);
+
+  --border:       var(--line);
+  --border-hover: var(--line-strong);
+
+  --accent-2:     var(--accent);
+  --accent-light: var(--accent);
+  --accent-dark:  var(--accent);
+  --accent-grad:  var(--accent);
+
+  --live-glow:    0 0 18px var(--live-glow-c);
+
+  --success: #00D4FF;
+  --error:   #FF3B30;
+  --warning: #FFB020;
+
+  --radius:    var(--r-ui);
+  --radius-lg: var(--r-card);
+  --radius-xl: 16px;
+
+  --sidebar-width: 0px;
 }
 
 *, *::before, *::after {
@@ -63,53 +92,50 @@
 html, body, #root {
   height: 100%;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg-1);
-  color: var(--text-primary);
-  font-size: 14px;
+  background: var(--bg);
+  color: var(--t-1);
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
 }
 
 a { color: inherit; text-decoration: none; }
-button { cursor: pointer; font-family: inherit; }
+button { cursor: pointer; font-family: inherit; border: 0; background: transparent; color: inherit; }
 input, button { font-size: 14px; }
+img { display: block; max-width: 100%; }
 
-/* Scrollbars */
+::selection { background: var(--accent); color: #000; }
+
+/* Scrollbars — minimal hairline on black */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
 
-/* ── App shell — cinematic atmosphere ────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* ── App shell — pure OLED black, no atmosphere gradient ───────────── */
 .app-shell {
   position: relative;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
   isolation: isolate;
-}
-.app-shell::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse 80% 60% at 15% 0%,  rgba(108, 99, 255, 0.16), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(168, 85, 247, 0.12), transparent 60%),
-    linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 60%, var(--bg-0) 100%);
+  background: var(--bg);
 }
 
-/* ── Main layout ─────────────────────────────────────────────────────────── */
+/* ── Main layout — single top-nav layout, no side column ───────────── */
 .layout {
-  display: flex;
+  display: block;
   height: 100vh;
   overflow: hidden;
 }
 
 .main-content {
-  flex: 1;
+  height: 100vh;
   overflow-y: auto;
   min-width: 0;
   scroll-behavior: smooth;
@@ -117,7 +143,11 @@ input, button { font-size: 14px; }
 .main-content::-webkit-scrollbar { width: 8px; }
 .main-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 4px; }
 
-/* ── Loading ─────────────────────────────────────────────────────────────── */
+/* First-child top spacing so the floating capsule never overlaps content.
+   Hero-like full-bleed sections opt back out via their own negative margins. */
+.main-content > * { position: relative; }
+
+/* ── Loading ───────────────────────────────────────────────────────── */
 .loading-screen {
   display: flex;
   flex-direction: column;
@@ -125,28 +155,76 @@ input, button { font-size: 14px; }
   justify-content: center;
   height: 100vh;
   gap: 16px;
-  background: var(--bg-0);
-  color: var(--text-muted);
-  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--t-2);
 }
 
 .spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(108,99,255,0.2);
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255,255,255,0.12);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+  box-shadow: 0 0 16px var(--accent-glow);
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Row-of (button groups) ──────────────────────────────────────────────── */
+/* ── Shared helpers ────────────────────────────────────────────────── */
 .row-of {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
-/* ── Generic muted text ──────────────────────────────────────────────────── */
-.muted { color: var(--text-muted); }
+.muted { color: var(--t-3); }
+
+/* ── Buttons (Vanta) ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: var(--r-ui);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--d-micro) var(--ease),
+              background var(--d-micro) var(--ease),
+              color var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease),
+              border-color var(--d-micro) var(--ease);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.95), 0 0 32px rgba(255,255,255,0.25);
+}
+.btn-primary { background: #FFFFFF; color: #000000; }
+.btn-primary:hover { transform: scale(1.02); box-shadow: 0 0 24px rgba(255,255,255,0.35); }
+.btn-secondary {
+  background: transparent;
+  color: #FFFFFF;
+  border: 1px solid rgba(255,255,255,0.45);
+}
+.btn-secondary:hover { border-color: #FFFFFF; background: rgba(255,255,255,0.04); }
+.btn-ghost {
+  background: transparent;
+  color: var(--t-2);
+  border: 1px solid var(--line);
+  height: 40px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.btn-ghost:hover { color: var(--t-1); border-color: var(--line-strong); }
+
+/* Live pulse — shared keyframes */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.92); }
+}

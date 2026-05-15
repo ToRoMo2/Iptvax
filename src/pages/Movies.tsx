@@ -5,7 +5,7 @@ import { xtreamService } from '../services/xtream.service';
 import { storageService } from '../services/storage.service';
 import { MediaCard } from '../components/MediaCard';
 import { CategoryBar } from '../components/CategoryBar';
-import type { VodCategory, VodStream, PlayerState } from '../types/xtream.types';
+import type { VodCategory, VodStream } from '../types/xtream.types';
 import styles from './Browse.module.css';
 
 const MIN_SEARCH_LEN = 3;
@@ -87,17 +87,10 @@ export function Movies() {
     return out;
   }, [streams, allStreams, query, isGlobalSearch]);
 
-  const handlePlay = (vod: VodStream) => {
-    if (!credentials) return;
-    const state: PlayerState = {
-      url: xtreamService.getVodStreamUrl(credentials, vod.stream_id, vod.container_extension),
-      fallbackUrl: xtreamService.getVodDirectUrl(credentials, vod.stream_id, vod.container_extension),
-      title: vod.name,
-      type: 'movie',
-      poster: vod.stream_icon,
-      description: vod.plot,
-    };
-    navigate('/player', { state });
+  // Un clic sur un film ouvre d'abord sa fiche détail (design Vanta) ;
+  // la lecture est lancée depuis le bouton « Lire le film ».
+  const handleOpen = (vod: VodStream) => {
+    navigate(`/movie/${vod.stream_id}`, { state: { movie: vod } });
   };
 
   const handleFavorite = (id: string) => {
@@ -108,7 +101,14 @@ export function Movies() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Films</h1>
+        <div className={styles.titleBlock}>
+          <h1 className={styles.title}>Films</h1>
+          <p className={styles.pageSub}>
+            {isGlobalSearch
+              ? 'Recherche globale'
+              : `${filtered.length} film${filtered.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
         <div className={styles.searchWrapper}>
           <span className={styles.searchIcon}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="15" height="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -162,7 +162,7 @@ export function Movies() {
               genre={vod.genre}
               variant="movie"
               isFavorite={favorites.includes(String(vod.stream_id))}
-              onClick={() => handlePlay(vod)}
+              onClick={() => handleOpen(vod)}
               onFavorite={() => handleFavorite(String(vod.stream_id))}
             />
           ))}

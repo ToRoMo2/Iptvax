@@ -1,46 +1,49 @@
+/* ── Vanta player page : écran plein-écran immersif (hors shell nav) ──
+   Layout flex éprouvé : .playerWrapper prend toute la hauteur restante,
+   garantit que la <video> a une taille réelle (pas seulement le son). */
 .page {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 12px 20px 16px;
+  width: 100vw;
   background: #000;
   overflow: hidden;
 }
 
 .backBtn {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: var(--radius);
-  color: rgba(255,255,255,0.7);
+  position: absolute;
+  top: 28px;
+  left: var(--pad-edge);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
-  padding: 7px 14px;
-  margin-bottom: 12px;
-  align-self: flex-start;
-  transition: background var(--transition), color var(--transition);
-  flex-shrink: 0;
+  font-weight: 500;
+  color: var(--t-2);
+  background: rgba(0, 0, 0, 0.35);
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
 }
 
 .backBtn:hover {
-  background: rgba(255,255,255,0.15);
-  color: #fff;
+  color: var(--t-1);
+  border-color: var(--line-strong);
 }
 
 .playerWrapper {
   flex: 1;
   min-height: 0;
-  border-radius: var(--radius-lg);
+  position: relative;
   overflow: hidden;
 }
 
+/* Description masquée en mode lecture plein écran Vanta */
 .description {
-  padding: 10px 4px 0;
-  font-size: 13px;
-  color: rgba(255,255,255,0.5);
-  flex-shrink: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: none;
 }
 
 .noMedia {
@@ -48,8 +51,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  gap: 16px;
-  color: var(--text-secondary);
-  background: var(--bg-primary);
+  height: 100vh;
+  gap: 18px;
+  color: var(--t-2);
+  background: var(--bg);
+}
+
+.noMedia .backBtn {
+  align-self: center;
 }

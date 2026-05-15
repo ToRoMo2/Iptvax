@@ -293,11 +293,20 @@ export function VideoPlayer({
 
         {/* Barre du haut */}
         <div className={styles.topBar}>
-          {title && <span className={styles.title}>{title}</span>}
+          {title && (
+            <span className={styles.crumb}>
+              <span className={styles.crumbNow}>{title}</span>
+            </span>
+          )}
           {isLive && channelPosition && (
             <span className={styles.channelPos}>{channelPosition}</span>
           )}
-          {isLive && <span className={styles.liveBadge}>● EN DIRECT</span>}
+          {isLive && (
+            <span className={styles.liveBadge}>
+              <span className={styles.livePulse} />
+              EN DIRECT
+            </span>
+          )}
         </div>
 
         {/* Section basse : barre de progression + contrôles */}
@@ -308,6 +317,7 @@ export function VideoPlayer({
               <div className={styles.progressTrack}>
                 <div className={styles.progressBuffered} style={{ width: `${bufferedPercent}%` }} />
                 <div className={styles.progressFilled} style={{ width: `${progressPercent}%` }} />
+                <div className={styles.progressKnob} style={{ left: `${progressPercent}%` }} />
                 <input
                   type="range"
                   className={styles.scrubber}
