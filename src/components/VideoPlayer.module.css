@@ -176,6 +176,37 @@
 .subColorCyan   .subtitleLine { color: #66e0ff; }
 .subColorGreen  .subtitleLine { color: #7eff7e; }
 
+/* ── Indicateur de chargement des sous-titres ── */
+.subtitleLoading {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.subtitleLoadingDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: subPulse 1s ease-in-out infinite;
+}
+
+@keyframes subPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1); }
+}
+
 /* ── Controls overlay ── */
 .controls {
   position: absolute;

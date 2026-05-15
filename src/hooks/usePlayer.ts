@@ -216,8 +216,11 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   const mediaUrlRef = useRef<string | null>(null);
   // Durée réelle du fichier (depuis ffprobe) — video.duration est Infinity pour les streams ffmpeg
   const probeDurationRef = useRef(0);
-  // Offset de seek : quand on redémarre ffmpeg à la position X, video.currentTime repart de 0
-  // mais on affiche currentTime + seekOffset pour montrer la vraie position dans le fichier
+  // Offset de seek : Chrome rebase à 0 la timeline d'un MP4 fragmenté servi
+  // via video.src → video.currentTime repart de 0 à chaque restart ffmpeg.
+  // Position réelle = video.currentTime + seekOffsetRef. Valeur posée de façon
+  // optimiste = position demandée, puis corrigée sur la VRAIE keyframe K de
+  // démarrage via /api/streambase (sinon barre/sous-titres en avance de ~1 GOP).
   const seekOffsetRef = useRef(0);
   // Refs pour accéder aux valeurs courantes dans les callbacks sans dépendances stales
   const currentAudioRef = useRef(0);
@@ -253,10 +256,13 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   const [currentAudio, setCurrentAudio] = useState(-1);
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
   const [currentSubtitle, setCurrentSubtitle] = useState(-1);
-  // Texte du sous-titre courant — calculé manuellement à partir du timecode réel
-  // (video.currentTime + seekOffset) car les cues WebVTT ont les timestamps d'origine
-  // alors que video.currentTime repart à 0 après chaque seek ffmpeg.
+  // Texte du sous-titre courant — calculé manuellement à partir du temps réel
+  // (video.currentTime + seekOffsetRef) car on rend les sous-titres via un
+  // overlay <div>, jamais via <track> natif.
   const [subtitleText, setSubtitleText] = useState('');
+  // Extraction VTT en cours (ffmpeg lit tout le fichier pour récupérer toutes
+  // les cues) — surfacé à l'UI pour un retour visuel sur les longs épisodes.
+  const [subtitleLoading, setSubtitleLoading] = useState(false);
   // Décalage des sous-titres ajustable par l'utilisateur (en secondes, +/- 10s)
   // Positif = apparaissent plus tôt (corrige les sous-titres en retard)
   const [subtitleOffset, setSubtitleOffsetState] = useState(0);
@@ -267,7 +273,9 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     if (!video) return;
 
     const onTimeUpdate = () => {
-      // Ajouter l'offset de seek : quand ffmpeg repart de 0, on affiche la vraie position
+      // video.currentTime repart de 0 après chaque restart ffmpeg (Chrome
+      // rebase le MP4 fragmenté) → on ajoute seekOffsetRef (= keyframe K
+      // réelle de démarrage, corrigée via /api/streambase) pour la vraie pos.
       const ct = video.currentTime + seekOffsetRef.current;
       setCurrentTime(ct);
       currentTimeRef.current = ct;
@@ -319,11 +327,17 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       if (src && !directSourceRef.current) {
         const pos = video.currentTime || 0;
         directSourceRef.current = src;
+        // Base optimiste = position courante (barre correcte). Chemin de
+        // repli rare (codec natif non supporté) → on ne raffine pas via
+        // /api/streambase ici, l'écart résiduel ≈ 1 GOP reste réglable g/h.
         seekOffsetRef.current = pos;
         currentTimeRef.current = pos;
         const audio = Math.max(0, currentAudioRef.current);
         const url = buildStreamUrl(src, audio, pos > 2 ? pos : undefined);
         setStatus('loading');
+        // Effacer le sous-titre courant : la frame affichée va être remplacée
+        // par le nouveau flux ffmpeg → éviter qu'un cue obsolète persiste.
+        setSubtitleText('');
         video.src = url;
         video.load();
         video.play().catch(() => setStatus('paused'));
@@ -489,6 +503,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     subtitleTracksRef.current = [];
     Array.from(video.querySelectorAll('track')).forEach((t) => t.remove());
     setSubtitleText('');
+    setSubtitleLoading(false);
 
     setStatus('loading');
     setError(null);
@@ -762,7 +777,9 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   // Identique en mode HLS ou ffmpeg direct → comportement déterministe.
   //
   // Temps réel = video.currentTime
-  //            + seekOffsetRef (compense les seeks ffmpeg qui repartent à 0)
+  //            + seekOffsetRef (keyframe K réelle de démarrage du flux ffmpeg,
+  //              corrigée via /api/streambase → aligné sur l'image ; 0 en
+  //              HLS / natif où la timeline est déjà absolue)
   //            + subOffsetRef (réglage utilisateur g/h pour corriger une désync)
   //
   // Recherche : binaire (O(log n)) → optimal même sur fichiers à milliers de cues.
@@ -819,6 +836,34 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   }, []);
 
   // --- Contrôles ---
+
+  // Après un restart ffmpeg avec seek, seekOffsetRef est posé de façon
+  // optimiste = position demandée (barre ≈ correcte immédiatement). Mais
+  // ffmpeg démarre en réalité à la keyframe K <= position (copie vidéo). On
+  // demande K au serveur (/api/streambase) et on corrige seekOffsetRef → image,
+  // barre et sous-titres parfaitement alignés. Garde-fou seekGen : si
+  // l'utilisateur a re-seeké entre-temps, la réponse obsolète est ignorée.
+  const correctSeekBase = useCallback((proxySrc: string, requestedPos: number, gen: number) => {
+    const upstream = extractUpstreamUrl(proxySrc);
+    const seekStr = requestedPos.toFixed(1); // même arrondi que buildStreamUrl
+    fetch(`/api/streambase?url=${encodeURIComponent(upstream)}&seek=${seekStr}`, {
+      signal: AbortSignal.timeout(20_000),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data: { base?: number }) => {
+        if (seekGenRef.current !== gen) return; // seek obsolète
+        const base = typeof data.base === 'number' && isFinite(data.base) ? data.base : 0;
+        if (base <= 0) return; // probe échoué → garder la base optimiste
+        seekOffsetRef.current = base;
+        const video = videoRef.current;
+        if (video) {
+          const ct = video.currentTime + base;
+          currentTimeRef.current = ct;
+          setCurrentTime(ct);
+        }
+      })
+      .catch(() => {/* garder la base optimiste (≈ position demandée) */});
+  }, [extractUpstreamUrl]);
 
   // Saut au live edge — utilisé après un stall ou un long onglet inactif
   // pour ne pas reprendre 30 s en retard. `minBehind` configure le seuil
@@ -909,11 +954,11 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       const maxTime = probeDurationRef.current;
       const clampedTime = Math.max(0, maxTime > 0 ? Math.min(time, maxTime) : time);
 
-      // Position dans le stream courant (= position absolue - seekOffset du dernier restart)
+      // Position dans le flux courant = position absolue - base du flux.
+      // video.buffered est 0-based sur la keyframe de départ → on compare
+      // dans ce repère. Si déjà bufferisé → seek natif instantané, pas de
+      // rechargement ffmpeg (couvre ±10s, petits ajustements, retours arrière).
       const targetVideoTime = clampedTime - seekOffsetRef.current;
-
-      // Si la cible est déjà dans le buffer → seek natif instantané, pas de rechargement.
-      // Couvre les ±10s, les petits ajustements, et même les retours en arrière récents.
       for (let i = 0; i < video.buffered.length; i++) {
         const start = video.buffered.start(i);
         const end = video.buffered.end(i);
@@ -923,15 +968,23 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         }
       }
 
-      // Sinon : redémarrer ffmpeg à la nouvelle position
+      // Sinon : redémarrer ffmpeg à la nouvelle position.
       const myGen = ++seekGenRef.current;
+      // Base optimiste = position demandée (barre ≈ correcte tout de suite),
+      // puis corrigée sur la vraie keyframe K via /api/streambase.
       seekOffsetRef.current = clampedTime;
       currentTimeRef.current = clampedTime;
       lastTimeRef.current = 0;
       setCurrentTime(clampedTime);
       setStatus('loading');
+      // Effacer le sous-titre courant : la frame à l'écran est encore l'ancienne
+      // position → éviter qu'un cue obsolète reste pendant le rechargement.
+      setSubtitleText('');
 
-      const url = buildStreamUrl(src, audio, clampedTime > 0.5 ? clampedTime : undefined);
+      const doSeek = clampedTime > 0.5;
+      const url = buildStreamUrl(src, audio, doSeek ? clampedTime : undefined);
+      if (doSeek) correctSeekBase(src, clampedTime, myGen);
+      else seekOffsetRef.current = 0; // pas de -ss côté serveur → flux à 0
       video.src = url;
       video.load();
       // Tenter play() immédiatement : les navigateurs modernes queuent l'appel
@@ -947,7 +1000,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     }
 
     video.currentTime = Math.max(0, Math.min(time, video.duration || 0));
-  }, []);
+  }, [correctSeekBase]);
 
   const setVolume = useCallback((v: number) => {
     const video = videoRef.current;
@@ -987,9 +1040,16 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       const currentPos = currentTimeRef.current;
       setCurrentAudio(index);
       currentAudioRef.current = index;
+      // Base optimiste = position courante, corrigée sur K via /api/streambase.
       seekOffsetRef.current = currentPos;
       setStatus('loading');
-      const streamUrl = buildStreamUrl(ffmpegSrc, index, currentPos > 2 ? currentPos : undefined);
+      // Effacer le sous-titre courant : ffmpeg redémarre à la keyframe la plus
+      // proche → la frame affichée va changer, ne pas laisser un cue obsolète.
+      setSubtitleText('');
+      const doSeek = currentPos > 2;
+      const streamUrl = buildStreamUrl(ffmpegSrc, index, doSeek ? currentPos : undefined);
+      if (doSeek) correctSeekBase(ffmpegSrc, currentPos, myGen);
+      else seekOffsetRef.current = 0;
       video.src = streamUrl;
       video.load();
       video.play().catch(() => {
@@ -1004,6 +1064,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     if (nativeSrc) {
       const video = videoRef.current;
       if (!video) return;
+      const myGen = ++seekGenRef.current;
       const currentPos = video.currentTime || 0;
       directSourceRef.current = nativeSrc;
       currentAudioRef.current = index;
@@ -1011,7 +1072,12 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       seekOffsetRef.current = currentPos;
       setCurrentAudio(index);
       setStatus('loading');
-      const streamUrl = buildStreamUrl(nativeSrc, index, currentPos > 2 ? currentPos : undefined);
+      // Effacer le sous-titre courant pendant la bascule natif → ffmpeg.
+      setSubtitleText('');
+      const doSeek = currentPos > 2;
+      const streamUrl = buildStreamUrl(nativeSrc, index, doSeek ? currentPos : undefined);
+      if (doSeek) correctSeekBase(nativeSrc, currentPos, myGen);
+      else seekOffsetRef.current = 0;
       video.src = streamUrl;
       video.load();
       video.play().catch(() => setStatus('paused'));
@@ -1031,7 +1097,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       }
     }
     setCurrentAudio(index);
-  }, []);
+  }, [correctSeekBase]);
 
   // Désactivation / sélection d'une piste de sous-titres.
   // index = -1 → désactivé. Sinon = index UI 0-based dans subtitleTracks.
@@ -1044,6 +1110,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     if (index < 0) {
       subCuesRef.current = [];
       setSubtitleText('');
+      setSubtitleLoading(false);
       return;
     }
 
@@ -1051,6 +1118,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     const track = subtitleTracksRef.current.find((t) => t.index === index);
     if (!track) {
       console.warn('[subtitle] piste introuvable pour index', index);
+      setSubtitleLoading(false);
       return;
     }
     const streamIdx = track.streamIndex;
@@ -1059,16 +1127,22 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     const cached = subCuesCacheRef.current.get(streamIdx);
     if (cached && cached.length > 0) {
       subCuesRef.current = cached;
+      setSubtitleLoading(false);
       return;
     }
 
     if (!mediaUrlRef.current) {
       console.warn('[subtitle] mediaUrl non défini — extraction impossible');
+      setSubtitleLoading(false);
       return;
     }
 
     subCuesRef.current = [];   // évite les cues de l'ancienne piste pendant le fetch
     setSubtitleText('');
+    // Indicateur de chargement : l'extraction VTT lit tout le fichier (cues
+    // réparties sur toute la durée) → peut prendre plusieurs secondes sur un
+    // long épisode. Sans retour visuel l'utilisateur croit que c'est cassé.
+    setSubtitleLoading(true);
 
     // Fetch + parse VTT côté JS. Le serveur extrait la piste demandée du fichier
     // source via ffmpeg et la convertit en WebVTT. La piste est référencée par
@@ -1083,10 +1157,14 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
           console.warn(`[subtitle] aucune cue parsée pour streamIndex=${streamIdx}`);
         }
         // Si l'utilisateur a changé de piste pendant le fetch, ne pas écraser
-        if (currentSubRef.current === index) subCuesRef.current = cues;
+        if (currentSubRef.current === index) {
+          subCuesRef.current = cues;
+          setSubtitleLoading(false);
+        }
       })
       .catch((err) => {
         console.warn('[subtitle] fetch échoué:', err);
+        if (currentSubRef.current === index) setSubtitleLoading(false);
       });
   }, []);
 
@@ -1135,6 +1213,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     subtitleTracks,
     currentSubtitle,
     subtitleText,
+    subtitleLoading,
     subtitleOffset,
     adjustSubtitleOffset,
     setSubtitleOffset,

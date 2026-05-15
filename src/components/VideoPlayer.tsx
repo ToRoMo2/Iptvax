@@ -243,6 +243,16 @@ export function VideoPlayer({
         </div>
       )}
 
+      {/* Indicateur de chargement des sous-titres (extraction VTT en cours).
+          Affiché tant qu'aucune cue n'est disponible — évite que l'utilisateur
+          croie les sous-titres cassés sur un long épisode. */}
+      {player.subtitleLoading && !subtitleText && (
+        <div className={styles.subtitleLoading}>
+          <span className={styles.subtitleLoadingDot} />
+          Chargement des sous-titres…
+        </div>
+      )}
+
       {/* Chargement */}
       {isLoading && (
         <div className={styles.centerOverlay}>

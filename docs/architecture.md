@@ -47,6 +47,7 @@ Le pipeline média est hybride :
 │  /api/img       → node:https (rejectUnauthorized:false)│
 │  /api/probe     → spawn ffprobe (stdin pipe)         │
 │  /api/subtitle  → spawn ffmpeg → WebVTT (cache RAM)  │
+│  /api/streambase→ spawn ffmpeg 1-frame → PTS keyframe │
 │  /api/stream    → spawn ffmpeg fMP4 + Range seek     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -76,7 +77,8 @@ Le pipeline média est hybride :
 
 | Anti-pattern | Pourquoi | Correctif |
 |---|---|---|
-| Lire `video.currentTime` seul pour la timeline | ffmpeg restart remet à 0 | `video.currentTime + seekOffsetRef.current` |
+| `seekOffsetRef = position demandée X` | `-c:v copy` force ffmpeg à démarrer à la keyframe K ≤ X ; X est faux de (X−K) ≈ 1 GOP → barre + sous-titres en avance de ~1 s | Base optimiste X puis corriger `seekOffsetRef` sur K via `/api/streambase` (probe 1 frame `showinfo -copyts`), gardé par `seekGen` |
+| Compter sur `-copyts` pour exposer le temps absolu via `video.src` | Chrome rebase quand même la timeline du fMP4 progressif à 0 → barre figée à 0 | Garder `-output_ts_offset -X` + `seekOffsetRef` côté JS |
 | Utiliser `<track>` ou `textTracks.mode='showing'` | Chrome ne charge pas les cues en mode HLS+hidden | Overlay `<div>` + parser JS `parseVtt()` |
 | `ffmpeg -map 0:s:N` (index relatif sous-titres) | Le probe filtre les codecs image → indices décalés | `ffmpeg -map 0:N` (streamIndex absolu) |
 | `ffprobe` via connexion HTTP depuis child process | Windows firewall bloque le process enfant | stdin pipe (`pipe:0`) via `ffprobeFromStream()` |

@@ -73,6 +73,12 @@ const cookieStore = new Map<string, string>();
 const subtitleCache = new Map<string, string>();
 const subtitleInFlight = new Map<string, Promise<string>>();
 
+// Cache de la base de seek réelle (clé = url+seek, valeur = timestamp K de la
+// keyframe où ffmpeg démarre vraiment avec -ss). Évite de relancer le probe
+// 1-frame quand l'utilisateur revient sur une position déjà visitée.
+const streamBaseCache = new Map<string, number>();
+const streamBaseInFlight = new Map<string, Promise<number>>();
+
 function mergeCookies(existing: string | undefined, setCookieHeader: string): string {
   const newPairs = setCookieHeader.split(',').map((c) => c.split(';')[0].trim());
   const map = new Map<string, string>();
@@ -585,6 +591,14 @@ function iptvProxyPlugin(): Plugin {
 
           const cookies = cookieStore.get(subOrigin);
           const ffArgs: string[] = [];
+          // Démarrage rapide : ne pas pré-scanner 5 MB / 5 s avant d'extraire.
+          // La piste est déjà identifiée par le probe (index absolu 0:N) → un
+          // scan minimal suffit. Réduit nettement la latence avant le 1er cue
+          // sur les longs épisodes (séries), où l'utilisateur attendait sans
+          // aucun retour visuel.
+          ffArgs.push('-fflags', '+fastseek');
+          ffArgs.push('-probesize', '1000000');       // 1 MB (vs 5 MB défaut)
+          ffArgs.push('-analyzeduration', '1000000'); // 1 s (vs 5 s défaut)
           ffArgs.push('-user_agent', UA);
           const headerLines = [`Referer: ${subOrigin}/`, `Origin: ${subOrigin}`];
           if (cookies) headerLines.push(`Cookie: ${cookies}`);
@@ -631,6 +645,83 @@ function iptvProxyPlugin(): Plugin {
             if (!res.headersSent) { res.statusCode = 502; res.end(); }
           } finally {
             subtitleInFlight.delete(cacheKey);
+          }
+          return;
+        }
+
+        // ── /api/streambase : PTS réel de la keyframe de démarrage ───────────
+        // /api/stream fait `-ss X -noaccurate_seek -c:v copy` → la vidéo NE PEUT
+        // démarrer qu'à la keyframe K <= X (impossible de couper une copie en
+        // plein GOP). Chrome rebase ensuite la timeline à 0, donc le JS ajoute
+        // seekOffsetRef. Or seekOffset = X est faux de (X - K) ≈ 1 GOP → barre
+        // et sous-titres en avance sur l'image. Ce endpoint décode UNE frame à
+        // la même position (mêmes options de seek) et renvoie son PTS absolu
+        // (K, via -copyts) → le client cale seekOffsetRef sur K = alignement
+        // exact image / barre / sous-titres. Rapide : byte-seek + 1 frame.
+        if (reqUrl.pathname === '/api/streambase') {
+          const targetUrl = reqUrl.searchParams.get('url');
+          const seekSec   = reqUrl.searchParams.get('seek');
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          if (!targetUrl || !seekSec) { res.end(JSON.stringify({ base: 0 })); return; }
+
+          let baseOrigin: string;
+          try { baseOrigin = new URL(targetUrl).origin; } catch {
+            res.end(JSON.stringify({ base: 0 })); return;
+          }
+
+          const cacheKey = `${targetUrl}#${seekSec}`;
+          const cachedBase = streamBaseCache.get(cacheKey);
+          if (cachedBase !== undefined) { res.end(JSON.stringify({ base: cachedBase })); return; }
+          const inFlightBase = streamBaseInFlight.get(cacheKey);
+          if (inFlightBase) {
+            try { res.end(JSON.stringify({ base: await inFlightBase })); }
+            catch { res.end(JSON.stringify({ base: 0 })); }
+            return;
+          }
+
+          const baseCookies = cookieStore.get(baseOrigin);
+          const baseArgs: string[] = [];
+          baseArgs.push('-user_agent', UA);
+          const baseHeaders = [`Referer: ${baseOrigin}/`, `Origin: ${baseOrigin}`];
+          if (baseCookies) baseHeaders.push(`Cookie: ${baseCookies}`);
+          baseArgs.push('-headers', baseHeaders.join('\r\n') + '\r\n');
+          baseArgs.push('-multiple_requests', '1');
+          // Mêmes options de seek que /api/stream → MÊME keyframe K.
+          baseArgs.push('-ss', seekSec, '-noaccurate_seek');
+          baseArgs.push('-i', targetUrl);
+          baseArgs.push('-map', '0:v:0');
+          baseArgs.push('-vf', 'showinfo');   // imprime pts_time sur stderr
+          baseArgs.push('-frames:v', '1');    // 1 frame → ffmpeg quitte aussitôt
+          baseArgs.push('-copyts');           // pts_time = PTS source absolu (= K)
+          baseArgs.push('-an', '-sn');
+          baseArgs.push('-f', 'null', '-');
+
+          const basePromise = new Promise<number>((resolve) => {
+            const ff = spawn(ffmpegPath, baseArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
+            let errBuf = '';
+            ff.stderr.on('data', (d: Buffer) => {
+              errBuf += d.toString();
+              if (errBuf.length > 20000) errBuf = errBuf.slice(-10000);
+            });
+            ff.on('error', () => resolve(0));
+            ff.on('close', () => {
+              // showinfo : "[Parsed_showinfo_0 @ …] n:0 pts:… pts_time:123.456 …"
+              const m = errBuf.match(/pts_time:\s*([0-9]+(?:\.[0-9]+)?)/);
+              const k = m ? parseFloat(m[1]) : NaN;
+              const base = isFinite(k) && k >= 0 ? k : 0;
+              if (base > 0) streamBaseCache.set(cacheKey, base);
+              resolve(base);
+            });
+            req.on('close', () => ff.kill('SIGTERM'));
+          });
+          streamBaseInFlight.set(cacheKey, basePromise);
+          try {
+            res.end(JSON.stringify({ base: await basePromise }));
+          } catch {
+            if (!res.headersSent) res.end(JSON.stringify({ base: 0 }));
+          } finally {
+            streamBaseInFlight.delete(cacheKey);
           }
           return;
         }
@@ -697,7 +788,15 @@ function iptvProxyPlugin(): Plugin {
             '-b:a', '128k',         // qualité standard, encode plus vite que 192k
           );
           if (seekSec) {
-            // Décale la sortie pour démarrer à 0 (le seekOffset côté JS compense)
+            // Rebase la sortie à ~0 : Chrome normalise de toute façon la
+            // timeline d'un MP4 fragmenté progressif à 0 (impossible d'exposer
+            // un PTS absolu via video.src — testé : -copyts ne suffit pas).
+            // video.currentTime repart donc de 0 → le JS recompose la position
+            // réelle via seekOffsetRef. La VRAIE valeur de seekOffset n'est PAS
+            // seekSec mais la keyframe K <= seekSec où ffmpeg démarre réellement
+            // (-c:v copy ne peut couper qu'à une keyframe) : le client la
+            // récupère via /api/streambase et corrige seekOffsetRef → image,
+            // barre et sous-titres alignés (sinon avance de seekSec - K ≈ 1 GOP).
             ffArgs.push('-output_ts_offset', `-${seekSec}`);
           }
           ffArgs.push(
