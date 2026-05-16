@@ -37,14 +37,16 @@ function rowToHistory(r: HistoryRow): WatchHistoryItem {
 
 export const libraryService = {
   // ── Favoris ───────────────────────────────────────────────────────────────
-  async listFavorites(profileId: string): Promise<{ type: ContentType; id: string }[]> {
+  async listFavorites(profileId: string): Promise<FavoriteItem[]> {
     const { data } = await supabase
       .from('favorites')
-      .select('content_type, content_id')
+      .select('content_type, content_id, content_name, content_image')
       .eq('profile_id', profileId);
     return (data ?? []).map((r) => ({
       type: r.content_type as ContentType,
       id: r.content_id as string,
+      name: (r.content_name as string) ?? '',
+      image: (r.content_image as string) ?? '',
     }));
   },
 

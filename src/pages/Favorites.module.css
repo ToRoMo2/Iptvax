@@ -24,3 +24,32 @@
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 20px;
 }
+
+/* ── Sections par type (chaînes / films / séries) ────────────────────────── */
+.section {
+  margin-bottom: 44px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--t-1);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sectionCount {
+  font-size: 13px;
+  color: var(--t-3);
+}

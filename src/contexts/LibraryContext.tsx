@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useCallback,
   useRef,
@@ -15,6 +16,7 @@ import type { FavoriteItem, WatchHistoryItem, ContentType } from '../types/libra
 interface LibraryContextValue {
   loading: boolean;
   history: WatchHistoryItem[];
+  favorites: FavoriteItem[];
   isFavorite: (type: ContentType, id: string) => boolean;
   toggleFavorite: (fav: FavoriteItem) => void;
   addToHistory: (item: Omit<WatchHistoryItem, 'watchedAt'>) => void;
@@ -38,9 +40,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const userId = user?.id ?? null;
   const profileId = activeProfile?.id ?? null;
 
-  const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Set d'index pour un `isFavorite` O(1) — dérivé de la liste (source unique).
+  const favoriteKeys = useMemo(
+    () => new Set(favorites.map((f) => favKey(f.type, f.id))),
+    [favorites],
+  );
 
   // Garde la dernière liste d'historique accessible dans les callbacks
   const historyRef = useRef<WatchHistoryItem[]>([]);
@@ -58,7 +66,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       libraryService.listHistory(profileId),
     ]).then(([favs, hist]) => {
       if (cancelled) return;
-      setFavoriteKeys(new Set(favs.map((f) => favKey(f.type, f.id))));
+      setFavorites(favs);
       setHistory(hist);
       setLoading(false);
     });
@@ -78,13 +86,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const key = favKey(fav.type, fav.id);
       const wasFav = favoriteKeys.has(key);
 
-      // Mise à jour optimiste
-      setFavoriteKeys((prev) => {
-        const next = new Set(prev);
-        if (wasFav) next.delete(key);
-        else next.add(key);
-        return next;
-      });
+      // Mise à jour optimiste : nouveaux favoris en tête de liste.
+      setFavorites((prev) =>
+        wasFav
+          ? prev.filter((f) => favKey(f.type, f.id) !== key)
+          : [fav, ...prev],
+      );
 
       const op = wasFav
         ? libraryService.removeFavorite(profileId, fav.type, fav.id)
@@ -92,12 +99,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       op.catch(() => {
         // Revert en cas d'échec réseau
-        setFavoriteKeys((prev) => {
-          const next = new Set(prev);
-          if (wasFav) next.add(key);
-          else next.delete(key);
-          return next;
-        });
+        setFavorites((prev) =>
+          wasFav
+            ? [fav, ...prev.filter((f) => favKey(f.type, f.id) !== key)]
+            : prev.filter((f) => favKey(f.type, f.id) !== key),
+        );
       });
     },
     [userId, profileId, favoriteKeys],
@@ -170,6 +176,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       value={{
         loading,
         history,
+        favorites,
         isFavorite,
         toggleFavorite,
         addToHistory,
