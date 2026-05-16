@@ -136,7 +136,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         resumeTime: data.resumeTime,
         durationSec: data.durationSec,
         audioTrack: data.audioTrack,
-        subtitleTrack: data.subtitleTrack,
+        subtitleTrack: data.subtitleTrack >= 0
+            ? data.subtitleTrack
+            : (entry.subtitleTrack !== undefined && entry.subtitleTrack >= 0
+                ? entry.subtitleTrack
+                : data.subtitleTrack),
         progress:
           data.durationSec > 0
             ? Math.min(100, Math.round((data.resumeTime / data.durationSec) * 100))

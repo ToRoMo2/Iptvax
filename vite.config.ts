@@ -68,6 +68,10 @@ const isLivePath = (u: string) => /\/live\//.test(u);
 // pour authentifier les requêtes de segments après avoir servi le manifest.
 const cookieStore = new Map<string, string>();
 
+// Cache du résultat probe (clé = url, valeur = JSON sérialisé).
+// Évite de relancer ffprobe à chaque ouverture du même fichier.
+const probeCache = new Map<string, string>();
+
 // Cache des sous-titres extraits (clé = url+track, valeur = WebVTT).
 // Évite de relancer ffmpeg sur tout le fichier à chaque clic utilisateur.
 const subtitleCache = new Map<string, string>();
@@ -500,6 +504,9 @@ function iptvProxyPlugin(): Plugin {
             res.end(JSON.stringify({ audio: [], subtitles: [] })); return;
           }
 
+          const probeCached = probeCache.get(targetUrl);
+          if (probeCached) { res.end(probeCached); return; }
+
           const probeCookies = cookieStore.get(probeOrigin);
           const probeHeaders: Record<string, string> = {
             'User-Agent': UA, 'Referer': `${probeOrigin}/`, 'Origin': probeOrigin,
@@ -552,7 +559,9 @@ function iptvProxyPlugin(): Plugin {
               }));
             // Durée réelle du fichier (en secondes) — depuis les métadonnées du conteneur
             const duration = parseFloat(info.format?.duration ?? '0') || 0;
-            res.end(JSON.stringify({ audio, subtitles, duration }));
+            const probeResult = JSON.stringify({ audio, subtitles, duration });
+            probeCache.set(targetUrl, probeResult);
+            res.end(probeResult);
           } catch (err) {
             process.stderr.write(`[probe] ${(err as Error).message}\n`);
             res.end(JSON.stringify({ audio: [], subtitles: [], error: (err as Error).message }));

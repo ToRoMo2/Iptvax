@@ -237,6 +237,9 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   const subOffsetRef = useRef(0);
   // Liste courante des pistes de sous-titres — ref pour lookup streamIndex sans re-render
   const subtitleTracksRef = useRef<SubtitleTrack[]>([]);
+  // Timer pour retarder l'indicateur de chargement des sous-titres.
+  // Si le cache est chaud, la réponse arrive en <150 ms → le spinner n'apparaît jamais.
+  const subLoadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Dernière video.currentTime observée — sert à détecter si la vidéo avance vraiment
   // pour débloquer un statut "buffering" qui resterait coincé après-coup.
   const lastTimeRef = useRef(0);
@@ -484,7 +487,27 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
           name: t.title || t.language || `Sous-titres ${t.index + 1}`,
           language: t.language,
         }));
+        // Mise à jour SYNCHRONE du ref avant le setState : garantit que setSubtitle()
+        // appelé depuis l'effet de reprise trouve toujours le ref à jour, même si le
+        // useEffect de sync (subtitleTracksRef.current = subtitleTracks) court après
+        // l'effet de reprise dans le même cycle de rendu (timing serré avec probe cachée).
+        subtitleTracksRef.current = subTracks;
         setSubtitleTracks(subTracks);
+
+        // Prefetch silencieux des pistes de sous-titres → remplit le cache client
+        // avant que l'utilisateur clique ou que la reprise se déclenche.
+        // setSubtitle() trouvera alors un cache hit → pas de spinner.
+        for (const track of subTracks) {
+          const streamIdx = track.streamIndex;
+          if (subCuesCacheRef.current.has(streamIdx)) continue;
+          fetch(`/api/subtitle?url=${encodeURIComponent(probeSource)}&track=${streamIdx}`)
+            .then((r) => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
+            .then((text) => {
+              const cues = parseVtt(text);
+              if (cues.length > 0) subCuesCacheRef.current.set(streamIdx, cues);
+            })
+            .catch(() => { /* prefetch silencieux */ });
+        }
       }
     }).catch(() => {/* probe échoue silencieusement — fallback sur les pistes natives */});
   }, []);
@@ -1133,6 +1156,10 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     // Cache hit (clé = streamIndex absolu, ne cache PAS les VTT vides)
     const cached = subCuesCacheRef.current.get(streamIdx);
     if (cached && cached.length > 0) {
+      if (subLoadingTimerRef.current !== null) {
+        clearTimeout(subLoadingTimerRef.current);
+        subLoadingTimerRef.current = null;
+      }
       subCuesRef.current = cached;
       setSubtitleLoading(false);
       return;
@@ -1146,10 +1173,18 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
 
     subCuesRef.current = [];   // évite les cues de l'ancienne piste pendant le fetch
     setSubtitleText('');
-    // Indicateur de chargement : l'extraction VTT lit tout le fichier (cues
-    // réparties sur toute la durée) → peut prendre plusieurs secondes sur un
-    // long épisode. Sans retour visuel l'utilisateur croit que c'est cassé.
-    setSubtitleLoading(true);
+
+    // Annule tout timer de chargement précédent (changement de piste rapide)
+    if (subLoadingTimerRef.current !== null) {
+      clearTimeout(subLoadingTimerRef.current);
+      subLoadingTimerRef.current = null;
+    }
+    // Délai avant d'afficher le spinner : si le cache serveur est chaud la réponse
+    // arrive en <150 ms → l'utilisateur ne voit jamais l'indicateur.
+    subLoadingTimerRef.current = setTimeout(() => {
+      subLoadingTimerRef.current = null;
+      if (currentSubRef.current === index) setSubtitleLoading(true);
+    }, 150);
 
     // Fetch + parse VTT côté JS. Le serveur extrait la piste demandée du fichier
     // source via ffmpeg et la convertit en WebVTT. La piste est référencée par
@@ -1165,13 +1200,23 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         }
         // Si l'utilisateur a changé de piste pendant le fetch, ne pas écraser
         if (currentSubRef.current === index) {
+          if (subLoadingTimerRef.current !== null) {
+            clearTimeout(subLoadingTimerRef.current);
+            subLoadingTimerRef.current = null;
+          }
           subCuesRef.current = cues;
           setSubtitleLoading(false);
         }
       })
       .catch((err) => {
         console.warn('[subtitle] fetch échoué:', err);
-        if (currentSubRef.current === index) setSubtitleLoading(false);
+        if (currentSubRef.current === index) {
+          if (subLoadingTimerRef.current !== null) {
+            clearTimeout(subLoadingTimerRef.current);
+            subLoadingTimerRef.current = null;
+          }
+          setSubtitleLoading(false);
+        }
       });
   }, []);
 
