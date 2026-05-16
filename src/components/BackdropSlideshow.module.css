@@ -1,0 +1,54 @@
+.wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: #050505;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center top;
+  opacity: 0;
+  transition: opacity 1.1s var(--ease);
+  will-change: opacity;
+}
+
+.active {
+  opacity: 1;
+}
+
+.nav {
+  position: absolute;
+  top: 42%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--t-1);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--line);
+  opacity: 0.5;
+  transition: opacity var(--d-micro) var(--ease), color var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+
+.nav:hover {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.prev {
+  left: 22px;
+}
+
+.next {
+  right: 22px;
+}

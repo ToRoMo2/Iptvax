@@ -10,10 +10,12 @@ SupabaseAuthContext (compte Google/Apple/mail)
   └─► IptvProfileContext (profils IPTV multiples par compte)
         └─► XtreamContext (creds du profil actif) ──► services ──► /api/* (Vite plugin)
 LibraryContext (favoris + historique/reprise) ──► Supabase (BDD, RLS par profil)
+TMDB (images paysage / casting / note / synopsis / vignettes épisodes) ──► tmdb.service (HTTP direct)
 Media pipeline : HLS.js | mpegts.js | ffmpeg fMP4 | ffprobe stdin
 ```
 Tout le "backend" média vit dans `vite.config.ts`. Zéro serveur séparé en dev.
 **Supabase est orthogonal au proxy `/api/*`** : auth + persistance via SDK frontend (`src/lib/supabase.ts`), jamais via une route `/api/*`.
+**TMDB est orthogonal au proxy `/api/*`** : enrichissement métadonnées via `src/services/tmdb.service.ts` (HTTP direct, CORS TMDB), jamais via une route `/api/*`. **Purement additif et jamais bloquant** : sans `VITE_TMDB_API_KEY` ou en cas d'échec, l'UI retombe sur les données Xtream sans régression. Doublons IPTV (langues/qualités) fusionnés en une carte via `src/utils/catalog.ts` (titre canonique) + sélecteur de version sur les fiches détail.
 
 > ⚠️ **Modification architecturale ?** Lire d'abord [`docs/architecture.md`](./docs/architecture.md) — diagramme complet, règles de couplage par couche, catalogue des anti-patterns. Ne pas charger ce fichier pour des tâches courantes (bug fix, UI).
 

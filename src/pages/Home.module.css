@@ -3,10 +3,13 @@
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
-  height: 52vh;
-  min-height: 480px;
+  height: 60vh;
+  min-height: 560px;
+  max-height: 820px;
   overflow: hidden;
-  margin: var(--topnav-h) var(--pad-edge) 48px;
+  margin: var(--topnav-h) auto 48px;
+  max-width: 1640px;
+  width: calc(100% - var(--pad-edge) * 2);
   border-radius: 16px;
   background: #050505;
 }
@@ -263,11 +266,49 @@
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
 }
 
+/* Flèches de navigation hero */
+.heroNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--t-1);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--line);
+  opacity: 0.55;
+  transition: opacity var(--d-micro) var(--ease), color var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+
+.heroNav:hover {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.heroNavPrev {
+  left: 24px;
+}
+
+.heroNavNext {
+  right: 24px;
+}
+
 /* Hero loading skeleton */
 .heroSkeleton {
-  height: 52vh;
-  min-height: 480px;
-  margin: var(--topnav-h) var(--pad-edge) 48px;
+  height: 60vh;
+  min-height: 560px;
+  max-height: 820px;
+  margin: var(--topnav-h) auto 48px;
+  max-width: 1640px;
+  width: calc(100% - var(--pad-edge) * 2);
   border-radius: 16px;
   background: linear-gradient(90deg, #0a0a0a 0%, #131313 50%, #0a0a0a 100%);
   background-size: 200% 100%;
@@ -288,7 +329,7 @@
   align-items: baseline;
   justify-content: space-between;
   padding: 0 var(--pad-edge);
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 
 .rowTitle {
@@ -322,12 +363,16 @@
 
 .rowRail {
   display: flex;
-  gap: 12px;
+  gap: 20px;
   padding: 28px var(--pad-edge);
   margin: -28px 0;
   overflow-x: auto;
   overflow-y: visible;
   scroll-snap-type: x proximity;
+  /* Sans ça, quand le rail déborde, le snap colle la 1re carte au bord du
+     scrollport (boîte de padding) → la marge gauche est mangée et le rail
+     n'est plus aligné avec l'en-tête. Le snapport est inseté du gutter. */
+  scroll-padding-inline: var(--pad-edge);
   scrollbar-width: none;
 }
 

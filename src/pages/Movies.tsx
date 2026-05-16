@@ -6,6 +6,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { MediaCard } from '../components/MediaCard';
 import { CategoryBar } from '../components/CategoryBar';
 import type { VodCategory, VodStream } from '../types/xtream.types';
+import { groupByTitle } from '../utils/catalog';
 import styles from './Browse.module.css';
 
 const MIN_SEARCH_LEN = 3;
@@ -87,10 +88,18 @@ export function Movies() {
     return out;
   }, [streams, allStreams, query, isGlobalSearch]);
 
+  // Fusion des doublons (langues / qualités) en une seule carte. La meilleure
+  // note devient la variante primaire ; les autres restent jouables via le
+  // sélecteur de version sur la fiche détail.
+  const groups = useMemo(
+    () => groupByTitle(filtered, (v) => v.name, (v) => v.rating_5based ?? 0),
+    [filtered],
+  );
+
   // Un clic sur un film ouvre d'abord sa fiche détail (design Vanta) ;
   // la lecture est lancée depuis le bouton « Lire le film ».
-  const handleOpen = (vod: VodStream) => {
-    navigate(`/movie/${vod.stream_id}`, { state: { movie: vod } });
+  const handleOpen = (vod: VodStream, variants: VodStream[]) => {
+    navigate(`/movie/${vod.stream_id}`, { state: { movie: vod, variants } });
   };
 
 
@@ -102,7 +111,7 @@ export function Movies() {
           <p className={styles.pageSub}>
             {isGlobalSearch
               ? 'Recherche globale'
-              : `${filtered.length} film${filtered.length !== 1 ? 's' : ''}`}
+              : `${groups.length} film${groups.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className={styles.searchWrapper}>
@@ -122,7 +131,7 @@ export function Movies() {
         )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll ? '⏳ Chargement…' : `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${filtered.length !== 1 ? 's' : ''}`}
+            {loadingAll ? '⏳ Chargement…' : `${groups.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${groups.length !== 1 ? 's' : ''}`}
           </span>
         )}
       </header>
@@ -149,22 +158,22 @@ export function Movies() {
         </div>
       ) : (
         <div className={`${styles.grid} ${styles.gridPoster}`}>
-          {filtered.map((vod) => (
+          {groups.map((g) => (
             <MediaCard
-              key={vod.stream_id}
-              title={vod.name}
-              image={vod.stream_icon}
-              rating={vod.rating_5based}
-              genre={vod.genre}
+              key={g.primary.stream_id}
+              title={g.title}
+              image={g.primary.stream_icon}
+              rating={g.primary.rating_5based}
+              genre={g.primary.genre}
               variant="movie"
-              isFavorite={isFavorite('movie', String(vod.stream_id))}
-              onClick={() => handleOpen(vod)}
+              isFavorite={isFavorite('movie', String(g.primary.stream_id))}
+              onClick={() => handleOpen(g.primary, g.variants)}
               onFavorite={() =>
                 toggleFavorite({
                   type: 'movie',
-                  id: String(vod.stream_id),
-                  name: vod.name,
-                  image: vod.stream_icon ?? '',
+                  id: String(g.primary.stream_id),
+                  name: g.title,
+                  image: g.primary.stream_icon ?? '',
                 })
               }
             />

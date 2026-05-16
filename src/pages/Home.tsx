@@ -2,10 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import type { WatchHistoryItem } from '../types/library.types';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
+import type { TmdbTrendingItem } from '../types/tmdb.types';
+import { groupByTitle, cleanTitle, titleKey, type TitleGroup } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
 import styles from './Home.module.css';
 
@@ -93,20 +96,35 @@ export function Home() {
   const [heroLoading, setHeroLoading] = useState(true);
 
   const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
-  const [movies, setMovies] = useState<VodStream[]>([]);
-  const [series, setSeries] = useState<SeriesItem[]>([]);
+  const [movies, setMovies] = useState<TitleGroup<VodStream>[]>([]);
+  const [series, setSeries] = useState<TitleGroup<SeriesItem>[]>([]);
 
   const [loadingLive, setLoadingLive] = useState(true);
   const [loadingMovies, setLoadingMovies] = useState(true);
   const [loadingSeries, setLoadingSeries] = useState(true);
 
+  // Backdrop paysage TMDB par item d'historique, résolu au rendu → corrige
+  // rétroactivement les anciennes entrées « Reprendre » stockées en poster
+  // portrait (pas de migration BDD). id historique → URL brute.
+  const [cwBackdrops, setCwBackdrops] = useState<Record<string, string>>({});
+
+  // Note TMDB (sur 10) par titleKey → remplace le rating Xtream sur les cartes.
+  const [tmdbRatings, setTmdbRatings] = useState<Record<string, number>>({});
+
   const heroTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heroLenRef = useRef(0);
+
+  // Catalogue dédupliqué COMPLET (pour matcher les tendances TMDB) + tendances.
+  const movieGroupsRef = useRef<TitleGroup<VodStream>[]>([]);
+  const seriesGroupsRef = useRef<TitleGroup<SeriesItem>[]>([]);
+  const trendingRef = useRef<{ movies: TmdbTrendingItem[]; series: TmdbTrendingItem[] } | null>(null);
+  const trendingDone = useRef(false);
 
   // ── Auto-advance hero ────────────────────────────────────────────────────
   const startHeroTimer = useCallback(() => {
     if (heroTimer.current) clearInterval(heroTimer.current);
     heroTimer.current = setInterval(() => {
-      setHeroIdx((i) => (i + 1) % 3);
+      setHeroIdx((i) => (i + 1) % Math.max(heroLenRef.current, 1));
     }, 7000);
   }, []);
 
@@ -119,6 +137,165 @@ export function Home() {
     setHeroIdx(i);
     startHeroTimer();
   };
+
+  const stepSlide = (dir: 1 | -1) => {
+    setHeroIdx((i) => {
+      const n = Math.max(heroLenRef.current, 1);
+      return (i + dir + n) % n;
+    });
+    startHeroTimer();
+  };
+
+  // ── Compose rows : tendances TMDB → Films populaires + Séries tendances ──
+  // Appelé quand catalog ET trending sont prêts. Threshold de 6 matches requis
+  // pour remplacer le fallback Xtream (évite des lignes quasi-vides).
+  const composeRows = useCallback(() => {
+    const trending = trendingRef.current;
+    if (!trending) return;
+    const movieGroups = movieGroupsRef.current;
+    const seriesGroups = seriesGroupsRef.current;
+
+    const mMap = new Map(movieGroups.map((g) => [g.key, g] as const));
+    const matchedMovies: TitleGroup<VodStream>[] = [];
+    for (const t of trending.movies) {
+      const g = mMap.get(titleKey(t.title));
+      if (g) matchedMovies.push(g);
+      if (matchedMovies.length >= 18) break;
+    }
+    if (matchedMovies.length >= 6) setMovies(matchedMovies);
+
+    const sMap = new Map(seriesGroups.map((g) => [g.key, g] as const));
+    const matchedSeries: TitleGroup<SeriesItem>[] = [];
+    for (const t of trending.series) {
+      const g = sMap.get(titleKey(t.title));
+      if (g) matchedSeries.push(g);
+      if (matchedSeries.length >= 18) break;
+    }
+    if (matchedSeries.length >= 6) setSeries(matchedSeries);
+  }, []);
+
+  // ── Compose hero : tendances TMDB filtrées au catalogue (sinon top note) ──
+  // Appelé quand chaque source (films, séries, tendances) est prête ; la
+  // dernière à arriver produit le hero « Tendance ». Repli garanti non vide.
+  const composeHero = useCallback(() => {
+    if (!credentials) return;
+    const movieGroups = movieGroupsRef.current;
+    const seriesGroups = seriesGroupsRef.current;
+    if (movieGroups.length === 0 && seriesGroups.length === 0) return;
+
+    const mMap = new Map(movieGroups.map((g) => [g.key, g] as const));
+    const sMap = new Map(seriesGroups.map((g) => [g.key, g] as const));
+    const trending = trendingRef.current;
+    const slides: HeroSlide[] = [];
+
+    if (trending) {
+      const movieSlides: HeroSlide[] = [];
+      for (const t of trending.movies) {
+        const g = mMap.get(titleKey(t.title));
+        if (!g) continue;
+        const m = g.primary;
+        movieSlides.push({
+          id: String(m.stream_id),
+          title: g.title,
+          genre: m.genre ?? 'Film',
+          rating: t.rating?.toFixed(1) ?? (m.rating || '—'),
+          description: t.overview ?? m.plot ?? '',
+          eyebrow: 'Tendance · Film',
+          bgImage: t.backdrop ?? m.backdrop_path?.[0] ?? m.stream_icon,
+          artTag: 'BACKDROP · 16:9',
+          playerState: {
+            url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
+            fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
+            title: g.title,
+            type: 'movie',
+            poster: m.stream_icon,
+            description: t.overview ?? m.plot,
+          },
+        });
+        if (movieSlides.length >= 4) break;
+      }
+      const seriesSlides: HeroSlide[] = [];
+      for (const t of trending.series) {
+        const g = sMap.get(titleKey(t.title));
+        if (!g) continue;
+        const s = g.primary;
+        seriesSlides.push({
+          id: `s${s.series_id}`,
+          title: g.title,
+          genre: s.genre ?? 'Série',
+          rating: t.rating?.toFixed(1) ?? (s.rating || '—'),
+          description: t.overview ?? s.plot ?? '',
+          eyebrow: 'Tendance · Série',
+          bgImage: t.backdrop ?? s.cover,
+          artTag: 'BACKDROP · 16:9',
+          playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: t.overview ?? s.plot },
+        });
+        if (seriesSlides.length >= 3) break;
+      }
+      const n = Math.max(movieSlides.length, seriesSlides.length);
+      for (let i = 0; i < n; i++) {
+        if (movieSlides[i]) slides.push(movieSlides[i]);
+        if (seriesSlides[i]) slides.push(seriesSlides[i]);
+      }
+    }
+
+    // Repli : pas de tendance matchée → top note (le hero n'est jamais vide).
+    if (slides.length === 0) {
+      const topMovies = [...movieGroups]
+        .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0))
+        .slice(0, 3);
+      for (const g of topMovies) {
+        const m = g.primary;
+        slides.push({
+          id: String(m.stream_id),
+          title: g.title,
+          genre: m.genre ?? 'Film',
+          rating: m.rating || (m.rating_5based ? (m.rating_5based * 2).toFixed(1) : '—'),
+          description: m.plot ?? '',
+          eyebrow: 'Film · À la une',
+          bgImage: m.backdrop_path?.[0] ?? m.stream_icon,
+          artTag: 'BACKDROP · 16:9',
+          playerState: {
+            url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
+            fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
+            title: g.title,
+            type: 'movie',
+            poster: m.stream_icon,
+            description: m.plot,
+          },
+        });
+      }
+    }
+
+    // Repli ultime : catalogue sans films → top séries (hero jamais vide).
+    if (slides.length === 0) {
+      const topSeries = [...seriesGroups]
+        .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0))
+        .slice(0, 3);
+      for (const g of topSeries) {
+        const s = g.primary;
+        slides.push({
+          id: `s${s.series_id}`,
+          title: g.title,
+          genre: s.genre ?? 'Série',
+          rating: s.rating || '—',
+          description: s.plot ?? '',
+          eyebrow: 'Série · À la une',
+          bgImage: s.cover,
+          artTag: 'BACKDROP · 16:9',
+          playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: s.plot },
+        });
+      }
+    }
+
+    if (slides.length === 0) return;
+    const final = slides.slice(0, 6);
+    heroLenRef.current = final.length;
+    setHeroSlides(final);
+    setHeroIdx(0);
+    setHeroLoading(false);
+    startHeroTimer();
+  }, [credentials, startHeroTimer]);
 
   // ── Fetch live streams ───────────────────────────────────────────────────
   useEffect(() => {
@@ -138,36 +315,18 @@ export function Home() {
     xtreamService
       .getVodStreams(credentials)
       .then((all) => {
-        const sorted = [...all].sort((a, b) => (b.rating_5based ?? 0) - (a.rating_5based ?? 0));
-        setMovies(sorted.slice(0, 18));
-
-        // Build hero from top 3 movies
-        const heroItems = sorted.slice(0, 3).map((m): HeroSlide => ({
-          id: String(m.stream_id),
-          title: m.name,
-          genre: m.genre ?? 'Film',
-          rating: m.rating || (m.rating_5based ? (m.rating_5based * 2).toFixed(1) : '—'),
-          description: m.plot ?? '',
-          eyebrow: 'Film · À la une',
-          bgImage: safeImgUrl(m.stream_icon) ?? safeImgUrl(m.backdrop_path?.[0]),
-          artTag: 'BACKDROP · 16:9',
-          playerState: {
-            url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
-            fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
-            title: m.name,
-            type: 'movie',
-            poster: m.stream_icon,
-            description: m.plot,
-          },
-        }));
-        setHeroSlides(heroItems);
-        setHeroLoading(false);
+        const grouped = groupByTitle(all, (v) => v.name, (v) => v.rating_5based ?? 0)
+          .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0));
+        movieGroupsRef.current = grouped;
+        setMovies(grouped.slice(0, 18));
+        composeHero();
+        composeRows();
       })
       .catch(() => {
         setHeroLoading(false);
       })
       .finally(() => setLoadingMovies(false));
-  }, [credentials]);
+  }, [credentials, composeHero, composeRows]);
 
   // ── Fetch series ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -176,41 +335,69 @@ export function Home() {
     xtreamService
       .getSeries(credentials)
       .then((all) => {
-        const sorted = [...all].sort((a, b) => (b.rating_5based ?? 0) - (a.rating_5based ?? 0));
-        setSeries(sorted.slice(0, 18));
-
-        // If hero still has no slides, build from series
-        setHeroSlides((prev) => {
-          if (prev.length > 0) return prev;
-          return sorted.slice(0, 3).map((s): HeroSlide => ({
-            id: `s${s.series_id}`,
-            title: s.name,
-            genre: s.genre ?? 'Série',
-            rating: s.rating || '—',
-            description: s.plot ?? '',
-            eyebrow: 'Série · À la une',
-            bgImage: safeImgUrl(s.cover),
-            artTag: 'BACKDROP · 16:9',
-            playerState: {
-              url: '',
-              title: s.name,
-              type: 'episode',
-              poster: s.cover,
-              description: s.plot,
-            },
-          }));
-        });
-        setHeroLoading(false);
+        const grouped = groupByTitle(all, (s) => s.name, (s) => s.rating_5based ?? 0)
+          .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0));
+        seriesGroupsRef.current = grouped;
+        setSeries(grouped.slice(0, 18));
+        composeHero();
+        composeRows();
       })
       .catch(() => {})
       .finally(() => setLoadingSeries(false));
-  }, [credentials]);
+  }, [credentials, composeHero, composeRows]);
+
+  // ── Fetch tendances TMDB (films + séries de la semaine) ──────────────────
+  useEffect(() => {
+    if (trendingDone.current || !tmdbService.isEnabled()) return;
+    trendingDone.current = true;
+    Promise.all([tmdbService.getTrending('movie'), tmdbService.getTrending('tv')])
+      .then(([movies_, series_]) => {
+        trendingRef.current = { movies: movies_, series: series_ };
+        // Construire la map de ratings TMDB pour les cartes (score /10).
+        const ratings: Record<string, number> = {};
+        for (const t of movies_) if (t.rating) ratings[titleKey(t.title)] = t.rating;
+        for (const t of series_) if (t.rating) ratings[titleKey(t.title)] = t.rating;
+        setTmdbRatings(ratings);
+        composeHero();
+        composeRows();
+      })
+      .catch(() => { trendingDone.current = false; });
+  }, [composeHero, composeRows]);
+
+  // ── Reprendre : backdrop paysage TMDB (corrige les anciennes vignettes) ──
+  const cwRequestedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!tmdbService.isEnabled() || history.length === 0) return;
+    let alive = true;
+    history.forEach((item) => {
+      if (item.type === 'live' || cwRequestedRef.current.has(item.id)) return;
+      cwRequestedRef.current.add(item.id);
+      // Épisode : le titre est "Série – Épisode X" → on requête la série.
+      const base = item.type === 'series' ? item.title.split(' – ')[0] : item.title;
+      const q = cleanTitle(base);
+      if (!q) return;
+      const p =
+        item.type === 'series'
+          ? tmdbService.enrichSeries(q)
+          : tmdbService.enrichMovie(q);
+      p.then((res) => {
+        if (alive && res?.backdrop) {
+          setCwBackdrops((prev) => ({ ...prev, [item.id]: res.backdrop! }));
+        }
+      });
+    });
+    return () => { alive = false; };
+  }, [history]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   // Un clic sur un film ouvre sa fiche détail (design Vanta) ; la lecture est
   // lancée depuis cette page.
-  const openMovie = (m: VodStream) => {
-    navigate(`/movie/${m.stream_id}`, { state: { movie: m } });
+  const openMovie = (g: TitleGroup<VodStream>) => {
+    navigate(`/movie/${g.primary.stream_id}`, { state: { movie: g.primary, variants: g.variants } });
+  };
+
+  const openSeries = (g: TitleGroup<SeriesItem>) => {
+    navigate(`/series/${g.primary.series_id}`, { state: { series: g.primary, variants: g.variants } });
   };
 
   const playLive = (s: LiveStream) => {
@@ -232,8 +419,8 @@ export function Home() {
     if (slide.playerState.url) {
       navigate('/player', { state: slide.playerState });
     } else {
-      // Series — navigate to series page
-      navigate('/series');
+      // Série en vedette → fiche détail (choix épisode + sélecteur version).
+      navigate(`/series/${slide.id.replace(/^s/, '')}`);
     }
   };
 
@@ -310,6 +497,26 @@ export function Home() {
             </div>
           ))}
 
+          {/* Flèches de navigation */}
+          {heroSlides.length > 1 && (
+            <>
+              <button
+                className={`${styles.heroNav} ${styles.heroNavPrev}`}
+                onClick={() => stepSlide(-1)}
+                aria-label="Slide précédent"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <button
+                className={`${styles.heroNav} ${styles.heroNavNext}`}
+                onClick={() => stepSlide(1)}
+                aria-label="Slide suivant"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </>
+          )}
+
           {/* Rail indicator */}
           {heroSlides.length > 1 && (
             <div className={styles.heroDots}>
@@ -336,7 +543,9 @@ export function Home() {
               <span className={styles.rowTitle}>Reprendre</span>
             </div>
             <div className={styles.rowRail}>
-              {history.map((item) => (
+              {history.map((item) => {
+                const thumb = safeImgUrl(cwBackdrops[item.id] ?? item.image);
+                return (
                 <div
                   key={item.id}
                   className={`${styles.card} ${styles.cardWide}`}
@@ -345,9 +554,9 @@ export function Home() {
                   onKeyDown={(e) => { if (e.key === 'Enter') playHistory(item); }}
                 >
                   <div className={styles.artWide}>
-                    {safeImgUrl(item.image) ? (
+                    {thumb ? (
                       <img
-                        src={safeImgUrl(item.image)}
+                        src={thumb}
                         alt={item.title}
                         className={styles.artImg}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -369,7 +578,8 @@ export function Home() {
                     <div className={styles.cardMeta}>{item.subtitle}</div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -431,31 +641,34 @@ export function Home() {
             <RowSkeleton type="poster" />
           ) : (
             <div className={styles.rowRail}>
-              {movies.map((m) => (
+              {movies.map((g) => (
                 <div
-                  key={m.stream_id}
+                  key={g.primary.stream_id}
                   className={`${styles.card} ${styles.cardPoster}`}
                   tabIndex={0}
-                  onClick={() => openMovie(m)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') openMovie(m); }}
+                  onClick={() => openMovie(g)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') openMovie(g); }}
                 >
                   <div className={styles.artPoster}>
-                    {safeImgUrl(m.stream_icon) ? (
+                    {safeImgUrl(g.primary.stream_icon) ? (
                       <img
-                        src={safeImgUrl(m.stream_icon)}
-                        alt={m.name}
+                        src={safeImgUrl(g.primary.stream_icon)}
+                        alt={g.title}
                         className={styles.artImg}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
-                      <ArtPlaceholder tag="POSTER · 2:3" name={m.name} />
+                      <ArtPlaceholder tag="POSTER · 2:3" name={g.title} />
                     )}
                   </div>
                   <div className={styles.cardLabel}>
-                    <div className={styles.cardName}>{m.name}</div>
+                    <div className={styles.cardName}>{g.title}</div>
                     <div className={styles.cardMeta}>
-                      {m.releaseDate ? m.releaseDate.slice(0, 4) : 'Film'}
-                      {m.rating_5based > 0 && ` · ★ ${(m.rating_5based * 2).toFixed(1)}`}
+                      {g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Film')}
+                      {(() => {
+                        const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
+                        return r > 0 ? ` · ★ ${r.toFixed(1)}` : null;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -476,31 +689,34 @@ export function Home() {
             <RowSkeleton type="poster" />
           ) : (
             <div className={styles.rowRail}>
-              {series.map((s) => (
+              {series.map((g) => (
                 <div
-                  key={s.series_id}
+                  key={g.primary.series_id}
                   className={`${styles.card} ${styles.cardPoster}`}
                   tabIndex={0}
-                  onClick={() => navigate(`/series/${s.series_id}`)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/series/${s.series_id}`); }}
+                  onClick={() => openSeries(g)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') openSeries(g); }}
                 >
                   <div className={styles.artPoster}>
-                    {safeImgUrl(s.cover) ? (
+                    {safeImgUrl(g.primary.cover) ? (
                       <img
-                        src={safeImgUrl(s.cover)}
-                        alt={s.name}
+                        src={safeImgUrl(g.primary.cover)}
+                        alt={g.title}
                         className={styles.artImg}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
-                      <ArtPlaceholder tag="POSTER · 2:3" name={s.name} />
+                      <ArtPlaceholder tag="POSTER · 2:3" name={g.title} />
                     )}
                   </div>
                   <div className={styles.cardLabel}>
-                    <div className={styles.cardName}>{s.name}</div>
+                    <div className={styles.cardName}>{g.title}</div>
                     <div className={styles.cardMeta}>
-                      {s.releaseDate ? s.releaseDate.slice(0, 4) : 'Série'}
-                      {s.rating_5based > 0 && ` · ★ ${(s.rating_5based * 2).toFixed(1)}`}
+                      {g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Série')}
+                      {(() => {
+                        const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
+                        return r > 0 ? ` · ★ ${r.toFixed(1)}` : null;
+                      })()}
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { MediaCard } from '../components/MediaCard';
 import { CategoryBar } from '../components/CategoryBar';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
+import { groupByTitle } from '../utils/catalog';
 import styles from './Browse.module.css';
 
 const MIN_SEARCH_LEN = 3;
@@ -87,6 +88,11 @@ export function Series() {
     return out;
   }, [series, allSeries, query, isGlobalSearch]);
 
+  // Fusion des doublons (langues / qualités) — voir Movies.tsx.
+  const groups = useMemo(
+    () => groupByTitle(filtered, (s) => s.name, (s) => s.rating_5based ?? 0),
+    [filtered],
+  );
 
   return (
     <div className={styles.page}>
@@ -96,7 +102,7 @@ export function Series() {
           <p className={styles.pageSub}>
             {isGlobalSearch
               ? 'Recherche globale'
-              : `${filtered.length} série${filtered.length !== 1 ? 's' : ''}`}
+              : `${groups.length} série${groups.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className={styles.searchWrapper}>
@@ -116,7 +122,7 @@ export function Series() {
         )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll ? '⏳ Chargement…' : `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${filtered.length !== 1 ? 's' : ''}`}
+            {loadingAll ? '⏳ Chargement…' : `${groups.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${groups.length !== 1 ? 's' : ''}`}
           </span>
         )}
       </header>
@@ -143,22 +149,22 @@ export function Series() {
         </div>
       ) : (
         <div className={`${styles.grid} ${styles.gridPoster}`}>
-          {filtered.map((s) => (
+          {groups.map((g) => (
             <MediaCard
-              key={s.series_id}
-              title={s.name}
-              image={s.cover}
-              rating={s.rating_5based}
-              genre={s.genre}
+              key={g.primary.series_id}
+              title={g.title}
+              image={g.primary.cover}
+              rating={g.primary.rating_5based}
+              genre={g.primary.genre}
               variant="series"
-              isFavorite={isFavorite('series', String(s.series_id))}
-              onClick={() => navigate(`/series/${s.series_id}`, { state: { series: s } })}
+              isFavorite={isFavorite('series', String(g.primary.series_id))}
+              onClick={() => navigate(`/series/${g.primary.series_id}`, { state: { series: g.primary, variants: g.variants } })}
               onFavorite={() =>
                 toggleFavorite({
                   type: 'series',
-                  id: String(s.series_id),
-                  name: s.name,
-                  image: s.cover ?? '',
+                  id: String(g.primary.series_id),
+                  name: g.title,
+                  image: g.primary.cover ?? '',
                 })
               }
             />

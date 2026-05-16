@@ -12,7 +12,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 18px;
-  margin-bottom: 28px;
+  margin-bottom: 38px;
 }
 
 .titleBlock {
@@ -98,25 +98,25 @@
 .grid {
   display: grid;
   align-content: start;
-  gap: 20px;
+  gap: 32px 28px;
 }
 
 /* Channels: 16:9 cards */
 .gridChannel {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
 /* Movies / Series: portrait 2:3 poster cards */
 .gridPoster {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
 }
 
 /* ── Loading skeletons ── */
 .gridLoading {
   display: grid;
   align-content: start;
-  gap: 20px;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 32px 28px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
 }
 
 .skeleton {

@@ -43,8 +43,8 @@
   --transition:   150ms var(--ease);
 
   /* Spacing scale */
-  --pad-edge:     56px;
-  --row-gap:      52px;
+  --pad-edge:     72px;
+  --row-gap:      68px;
 
   /* Floating capsule nav reserves vertical space, not a side column */
   --topnav-h:     92px;

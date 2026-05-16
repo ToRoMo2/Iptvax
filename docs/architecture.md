@@ -10,9 +10,10 @@ L'application est une **SPA React 18** avec un backend média embarqué dans le 
 
 En production, `server/proxy.cjs` remplace le plugin Vite et sert les mêmes routes via Express 5.
 
-**Deux backends orthogonaux** :
+**Backends orthogonaux** :
 - **Proxy média `/api/*`** (Vite/Express) — streaming, probe, sous-titres, images. Sans état.
 - **Supabase** (auth + Postgres + RLS) — compte utilisateur, profils IPTV, favoris, historique/reprise. Accédé via le SDK frontend (`src/lib/supabase.ts`), **jamais** via `/api/*`. Les données sont isolées par profil IPTV (`profile_id`) sous RLS `auth.uid()`. Le profil actif persiste localement (`active_iptv_profile_id`) ; tout le reste est en BDD pour la synchro cross-device.
+- **TMDB** (enrichissement métadonnées) — `src/services/tmdb.service.ts`, HTTP direct (CORS TMDB), **jamais** via `/api/*`. Couche `services/` standard (importe `types/` only). **Strictement additif** : clé absente (`VITE_TMDB_API_KEY`) ou échec réseau → `null`/`{}`, l'UI retombe sur Xtream, aucun `console.error`. Cache mémoire de session (Map, partage des Promises concurrentes). La déduplication des doublons IPTV est un pur util (`src/utils/catalog.ts`, zéro import) consommé par les pages.
 
 Le pipeline média est hybride :
 - **HLS / live** → HLS.js ou mpegts.js (natif dans le navigateur)

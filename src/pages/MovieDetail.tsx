@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
+import type { TmdbEnrichment } from '../types/tmdb.types';
+import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
+import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import styles from './SeriesDetail.module.css';
 
 interface LocationState {
   movie?: VodStream;
+  variants?: VodStream[];
 }
 
 export function MovieDetail() {
@@ -19,8 +24,12 @@ export function MovieDetail() {
   const { addToHistory } = useLibrary();
 
   const passed = (location.state as LocationState)?.movie ?? null;
+  const passedVariants = (location.state as LocationState)?.variants ?? null;
 
   const [movie, setMovie] = useState<VodStream | null>(passed);
+  const [variants, setVariants] = useState<VodStream[]>(passedVariants ?? (passed ? [passed] : []));
+  const [selected, setSelected] = useState<VodStream | null>(passed);
+  const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
   const [loading, setLoading] = useState(!passed);
   const [error, setError] = useState<string | null>(null);
   const [inList, setInList] = useState(false);
@@ -35,52 +44,87 @@ export function MovieDetail() {
         const found = all.find((v) => String(v.stream_id) === id) ?? null;
         if (!found) setError('Film introuvable.');
         setMovie(found);
+        setSelected(found);
+        setVariants(found ? [found] : []);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [passed, credentials, id]);
 
+  const displayTitle = movie ? cleanTitle(movie.name) : '';
+  const year = useMemo(
+    () => (movie ? extractYear(movie.name) ?? (movie.releaseDate ? movie.releaseDate.slice(0, 4) : undefined) : undefined),
+    [movie],
+  );
+
+  // Enrichissement TMDB — purement additif : échec/clé absente → données Xtream.
+  useEffect(() => {
+    setTmdb(null);
+    if (!movie || !tmdbService.isEnabled()) return;
+    let alive = true;
+    tmdbService.enrichMovie(displayTitle, year).then((res) => {
+      if (alive) setTmdb(res);
+    });
+    return () => { alive = false; };
+  }, [movie, displayTitle, year]);
+
   const handlePlay = () => {
     if (!credentials || !movie) return;
-    const historyId = `movie-${movie.stream_id}`;
+    const target = selected ?? movie;
+    const historyId = `movie-${target.stream_id}`;
+    // Image paysage (16:9) pour la vignette « Reprendre » + le poster vidéo —
+    // évite le crop moche d'une affiche portrait. URLs BRUTES : safeImgUrl est
+    // appliqué au rendu (Home / VideoPlayer), jamais stocké pré-proxifié.
+    const landscape =
+      tmdb?.backdrop ?? movie.backdrop_path?.[0] ?? tmdb?.poster ?? target.stream_icon;
     const state: PlayerState = {
-      url: xtreamService.getVodStreamUrl(credentials, movie.stream_id, movie.container_extension),
-      fallbackUrl: xtreamService.getVodDirectUrl(credentials, movie.stream_id, movie.container_extension),
-      title: movie.name,
+      url: xtreamService.getVodStreamUrl(credentials, target.stream_id, target.container_extension),
+      fallbackUrl: xtreamService.getVodDirectUrl(credentials, target.stream_id, target.container_extension),
+      title: displayTitle,
       type: 'movie',
-      poster: movie.stream_icon,
-      description: movie.plot,
+      poster: landscape,
+      description: tmdb?.overview ?? target.plot,
       historyId,
     };
     addToHistory({
       id: historyId,
       type: 'movie',
-      title: movie.name,
-      image: movie.stream_icon || '',
+      title: displayTitle,
+      image: landscape || '',
       progress: 0,
-      subtitle: movie.releaseDate ? movie.releaseDate.slice(0, 4) : 'Film',
+      subtitle: year ?? 'Film',
       playerState: state,
     });
     navigate('/player', { state });
   };
 
-  const heroImg = safeImgUrl(movie?.backdrop_path?.[0]) || safeImgUrl(movie?.stream_icon);
-  const year = movie?.releaseDate ? movie.releaseDate.slice(0, 4) : undefined;
-  const rating = movie?.rating && movie.rating !== '0' ? movie.rating : undefined;
-  const castList = (movie?.cast ?? '')
+  // Diaporama de tous les fonds d'écran TMDB ; repli sur l'unique backdrop
+  // Xtream / poster si TMDB indisponible. URLs BRUTES (slideshow proxifie).
+  const backdrops = useMemo(() => {
+    if (tmdb?.backdrops.length) return tmdb.backdrops;
+    const fb = movie?.backdrop_path?.[0] || tmdb?.poster || movie?.stream_icon;
+    return fb ? [fb] : [];
+  }, [tmdb, movie]);
+  const genre = movie?.genre;
+  const ratingNum = tmdb?.rating ?? (movie?.rating && movie.rating !== '0' ? Number(movie.rating) : undefined);
+  const rating = ratingNum && !Number.isNaN(ratingNum) ? ratingNum.toFixed(1) : undefined;
+  const synopsis = tmdb?.overview ?? movie?.plot;
+  const xtreamCast = (movie?.cast ?? '')
     .split(',')
     .map((c) => c.trim())
     .filter(Boolean);
+  const showVariants = variants.length > 1;
 
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
-        <div
-          className={`${styles.art} ${heroImg ? '' : styles.artPlaceholder}`}
-          style={heroImg ? { backgroundImage: `url(${heroImg})` } : undefined}
-        >
-          {!heroImg && <span className={styles.artTag}>// BACKDROP · 16:9</span>}
-        </div>
+        {backdrops.length > 0 ? (
+          <BackdropSlideshow images={backdrops} />
+        ) : (
+          <div className={`${styles.art} ${styles.artPlaceholder}`}>
+            <span className={styles.artTag}>// BACKDROP · 16:9</span>
+          </div>
+        )}
         <div className={styles.overlayBottom} />
         <button className={styles.back} onClick={() => navigate(-1)}>
           ← Retour
@@ -103,12 +147,12 @@ export function MovieDetail() {
                 <span className={styles.catDot} />
                 Film
               </div>
-              <h1 className={styles.title}>{movie.name}</h1>
+              <h1 className={styles.title}>{displayTitle}</h1>
 
               <div className={styles.meta}>
                 {year && <span>{year}</span>}
-                {year && movie.genre && <span className={styles.metaSep} />}
-                {movie.genre && <span>{movie.genre}</span>}
+                {year && genre && <span className={styles.metaSep} />}
+                {genre && <span>{genre}</span>}
                 {rating && <span className={styles.metaSep} />}
                 {rating && <span>★ {rating}</span>}
               </div>
@@ -122,29 +166,70 @@ export function MovieDetail() {
                 </button>
               </div>
 
-              {movie.plot && <p className={styles.synopsis}>{movie.plot}</p>}
+              {showVariants && (
+                <div className={styles.versionBlock}>
+                  <div className={styles.sectionLabel}>Version</div>
+                  <div className={styles.versionBtns}>
+                    {variants.map((v, i) => (
+                      <button
+                        key={v.stream_id}
+                        className={`${styles.versionBtn} ${selected?.stream_id === v.stream_id ? styles.versionActive : ''}`}
+                        onClick={() => setSelected(v)}
+                      >
+                        {versionLabel(v.name, `Source ${i + 1}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {castList.length > 0 && (
+              {synopsis && <p className={styles.synopsis}>{synopsis}</p>}
+
+              {tmdb && tmdb.cast.length > 0 ? (
                 <div className={styles.castBlock}>
                   <div className={styles.sectionLabel}>Casting</div>
                   <div className={styles.castGrid}>
-                    {castList.map((name) => (
-                      <div key={name} className={styles.castRow}>
-                        <span className={styles.castName}>{name}</span>
-                        <span className={styles.castRole}>Acteur</span>
+                    {tmdb.cast.map((c) => (
+                      <div key={`${c.name}-${c.character}`} className={styles.castRow}>
+                        {c.profile ? (
+                          <img src={safeImgUrl(c.profile)} alt={c.name} className={styles.castAvatar} />
+                        ) : (
+                          <div className={styles.castAvatarPh}>
+                            {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                          </div>
+                        )}
+                        <span className={styles.castName}>{c.name}</span>
+                        <span className={styles.castRole}>{c.character}</span>
                       </div>
                     ))}
                   </div>
                 </div>
+              ) : (
+                xtreamCast.length > 0 && (
+                  <div className={styles.castBlock}>
+                    <div className={styles.sectionLabel}>Casting</div>
+                    <div className={styles.castGrid}>
+                      {xtreamCast.map((name) => (
+                        <div key={name} className={styles.castRow}>
+                          <div className={styles.castAvatarPh}>
+                            {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                          </div>
+                          <span className={styles.castName}>{name}</span>
+                          <span className={styles.castRole}>Acteur</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               )}
             </div>
 
             <aside className={styles.side}>
               <h4 className={styles.sideTitle}>À propos</h4>
-              {movie.genre && (
+              {genre && (
                 <div className={styles.factRow}>
                   <span className={styles.factKey}>Genre</span>
-                  <span className={styles.factVal}>{movie.genre}</span>
+                  <span className={styles.factVal}>{genre}</span>
                 </div>
               )}
               {movie.releaseDate && (
@@ -165,9 +250,15 @@ export function MovieDetail() {
                   <span className={styles.factVal}>★ {rating}</span>
                 </div>
               )}
+              {showVariants && (
+                <div className={styles.factRow}>
+                  <span className={styles.factKey}>Versions</span>
+                  <span className={styles.factVal}>{variants.length}</span>
+                </div>
+              )}
               <div className={styles.factRow}>
                 <span className={styles.factKey}>Format</span>
-                <span className={styles.factVal}>{movie.container_extension?.toUpperCase() || '—'}</span>
+                <span className={styles.factVal}>{(selected ?? movie).container_extension?.toUpperCase() || '—'}</span>
               </div>
             </aside>
           </div>

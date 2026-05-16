@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
+import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
+import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
+import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import styles from './SeriesDetail.module.css';
 
 interface LocationState {
   series?: SeriesItem;
+  variants?: SeriesItem[];
 }
 
 export function SeriesDetail() {
@@ -19,18 +24,26 @@ export function SeriesDetail() {
   const { addToHistory } = useLibrary();
 
   const seriesMeta = (location.state as LocationState)?.series ?? null;
+  const passedVariants = (location.state as LocationState)?.variants ?? null;
 
+  const [variants] = useState<SeriesItem[]>(passedVariants ?? (seriesMeta ? [seriesMeta] : []));
+  const [variant, setVariant] = useState<SeriesItem | null>(seriesMeta);
   const [info, setInfo] = useState<SeriesInfo | null>(null);
+  const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
+  const [stills, setStills] = useState<TmdbEpisodeStills>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>('1');
   const [inList, setInList] = useState(false);
 
+  const seriesId = variant?.series_id ?? (id ? parseInt(id) : NaN);
+
   useEffect(() => {
-    if (!credentials || !id) return;
+    if (!credentials || Number.isNaN(seriesId)) return;
     setLoading(true);
+    setInfo(null);
     xtreamService
-      .getSeriesInfo(credentials, parseInt(id))
+      .getSeriesInfo(credentials, seriesId)
       .then((data) => {
         setInfo(data);
         const firstSeason = Object.keys(data.episodes).sort((a, b) => Number(a) - Number(b))[0];
@@ -38,28 +51,65 @@ export function SeriesDetail() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [credentials, id]);
+  }, [credentials, seriesId]);
+
+  const title = info?.info.name ?? variant?.name ?? seriesMeta?.name ?? 'Série';
+  const displayTitle = cleanTitle(title);
+  const releaseDate = info?.info.releaseDate;
+  const year = useMemo(
+    () => extractYear(title) ?? (releaseDate ? releaseDate.slice(0, 4) : undefined),
+    [title, releaseDate],
+  );
+
+  // Enrichissement TMDB (image paysage / casting / note / synopsis).
+  useEffect(() => {
+    setTmdb(null);
+    if (!tmdbService.isEnabled() || displayTitle === 'Série') return;
+    let alive = true;
+    tmdbService.enrichSeries(displayTitle, year).then((res) => {
+      if (alive) setTmdb(res);
+    });
+    return () => { alive = false; };
+  }, [displayTitle, year]);
+
+  // Vignettes d'épisodes TMDB pour la saison sélectionnée.
+  useEffect(() => {
+    setStills({});
+    if (!tmdb?.tmdbId) return;
+    let alive = true;
+    tmdbService.getEpisodeStills(tmdb.tmdbId, Number(selectedSeason)).then((map) => {
+      if (alive) setStills(map);
+    });
+    return () => { alive = false; };
+  }, [tmdb, selectedSeason]);
 
   const handlePlayEpisode = (episode: Episode) => {
     if (!credentials) return;
-    const seriesName = info?.info.name ?? seriesMeta?.name ?? '';
     const epLabel = episode.title || `Épisode ${episode.episode_num}`;
     const historyId = `episode-${episode.id}`;
-    const poster = episode.info.movie_image ?? info?.info.cover ?? seriesMeta?.cover;
+    // Image paysage (16:9) pour « Reprendre » + poster vidéo : le still
+    // d'épisode TMDB est déjà du 16:9 → idéal. URLs BRUTES (safeImgUrl est
+    // appliqué au rendu Home / VideoPlayer, jamais stocké pré-proxifié).
+    const landscape =
+      episode.info.movie_image ||
+      stills[episode.episode_num] ||
+      tmdb?.backdrop ||
+      info?.info.cover ||
+      variant?.cover;
     const state: PlayerState = {
       url: xtreamService.getSeriesStreamUrl(credentials, episode.id, episode.container_extension),
       fallbackUrl: xtreamService.getSeriesDirectUrl(credentials, episode.id, episode.container_extension),
-      title: `${seriesName} – ${epLabel}`,
+      title: `${displayTitle} – ${epLabel}`,
       type: 'episode',
-      poster,
+      poster: landscape,
       description: episode.info.plot,
       historyId,
     };
     addToHistory({
       id: historyId,
       type: 'series',
-      title: `${seriesName} – ${epLabel}`,
-      image: poster ?? '',
+      title: `${displayTitle} – ${epLabel}`,
+      image: landscape ?? '',
       progress: 0,
       subtitle: `S${episode.season} · É${episode.episode_num}`,
       playerState: state,
@@ -74,32 +124,37 @@ export function SeriesDetail() {
 
   const seasons = info ? Object.keys(info.episodes).sort((a, b) => Number(a) - Number(b)) : [];
   const episodes: Episode[] = info?.episodes[selectedSeason] ?? [];
-  const cover = info?.info.cover ?? seriesMeta?.cover;
-  const backdrop = info?.info.backdrop_path?.[0];
-  const heroImg = safeImgUrl(backdrop) || safeImgUrl(cover);
-  const title = info?.info.name ?? seriesMeta?.name ?? 'Série';
-  const genre = info?.info.genre ?? seriesMeta?.genre;
-  const rating = info?.info.rating ?? seriesMeta?.rating;
-  const releaseDate = info?.info.releaseDate;
-  const year = releaseDate ? releaseDate.slice(0, 4) : undefined;
-  const plot = info?.info.plot;
-  const castList = (info?.info.cast ?? '')
+  // Diaporama de tous les fonds d'écran TMDB ; repli sur backdrop/cover
+  // Xtream. URLs BRUTES (le slideshow applique safeImgUrl au rendu).
+  const backdrops = useMemo(() => {
+    if (tmdb?.backdrops.length) return tmdb.backdrops;
+    const fb = info?.info.backdrop_path?.[0] || info?.info.cover || variant?.cover;
+    return fb ? [fb] : [];
+  }, [tmdb, info, variant]);
+  const genre = info?.info.genre ?? variant?.genre;
+  const ratingRaw = info?.info.rating ?? variant?.rating;
+  const ratingNum = tmdb?.rating ?? (ratingRaw && ratingRaw !== '0' ? Number(ratingRaw) : undefined);
+  const rating = ratingNum && !Number.isNaN(ratingNum) ? ratingNum.toFixed(1) : undefined;
+  const synopsis = tmdb?.overview ?? info?.info.plot;
+  const xtreamCast = (info?.info.cast ?? '')
     .split(',')
     .map((c) => c.trim())
     .filter(Boolean);
   const director = info?.info.director;
   const episodeCount = seasons.reduce((acc, s) => acc + (info?.episodes[s]?.length ?? 0), 0);
+  const showVariants = variants.length > 1;
 
   return (
     <div className={styles.page}>
       {/* Hero banner */}
       <section className={styles.hero}>
-        <div
-          className={`${styles.art} ${heroImg ? '' : styles.artPlaceholder}`}
-          style={heroImg ? { backgroundImage: `url(${heroImg})` } : undefined}
-        >
-          {!heroImg && <span className={styles.artTag}>// BACKDROP · 16:9</span>}
-        </div>
+        {backdrops.length > 0 ? (
+          <BackdropSlideshow images={backdrops} />
+        ) : (
+          <div className={`${styles.art} ${styles.artPlaceholder}`}>
+            <span className={styles.artTag}>// BACKDROP · 16:9</span>
+          </div>
+        )}
         <div className={styles.overlayBottom} />
         <button className={styles.back} onClick={() => navigate(-1)}>
           ← Retour
@@ -123,7 +178,7 @@ export function SeriesDetail() {
                 <span className={styles.catDot} />
                 Série
               </div>
-              <h1 className={styles.title}>{title}</h1>
+              <h1 className={styles.title}>{displayTitle}</h1>
 
               <div className={styles.meta}>
                 {year && <span>{year}</span>}
@@ -146,25 +201,63 @@ export function SeriesDetail() {
                 <button className="btn btn-secondary" onClick={() => setInList((v) => !v)}>
                   {inList ? '✓ Dans ma liste' : '+ Ma liste'}
                 </button>
-                <button className={styles.iconBtn} title="Plus d'infos">
-                  i
-                </button>
               </div>
 
-              {plot && <p className={styles.synopsis}>{plot}</p>}
+              {showVariants && (
+                <div className={styles.versionBlock}>
+                  <div className={styles.sectionLabel}>Version</div>
+                  <div className={styles.versionBtns}>
+                    {variants.map((v, i) => (
+                      <button
+                        key={v.series_id}
+                        className={`${styles.versionBtn} ${variant?.series_id === v.series_id ? styles.versionActive : ''}`}
+                        onClick={() => setVariant(v)}
+                      >
+                        {versionLabel(v.name, `Source ${i + 1}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {castList.length > 0 && (
+              {synopsis && <p className={styles.synopsis}>{synopsis}</p>}
+
+              {tmdb && tmdb.cast.length > 0 ? (
                 <div className={styles.castBlock}>
                   <div className={styles.sectionLabel}>Casting</div>
                   <div className={styles.castGrid}>
-                    {castList.map((name) => (
-                      <div key={name} className={styles.castRow}>
-                        <span className={styles.castName}>{name}</span>
-                        <span className={styles.castRole}>Acteur</span>
+                    {tmdb.cast.map((c) => (
+                      <div key={`${c.name}-${c.character}`} className={styles.castRow}>
+                        {c.profile ? (
+                          <img src={safeImgUrl(c.profile)} alt={c.name} className={styles.castAvatar} />
+                        ) : (
+                          <div className={styles.castAvatarPh}>
+                            {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                          </div>
+                        )}
+                        <span className={styles.castName}>{c.name}</span>
+                        <span className={styles.castRole}>{c.character}</span>
                       </div>
                     ))}
                   </div>
                 </div>
+              ) : (
+                xtreamCast.length > 0 && (
+                  <div className={styles.castBlock}>
+                    <div className={styles.sectionLabel}>Casting</div>
+                    <div className={styles.castGrid}>
+                      {xtreamCast.map((name) => (
+                        <div key={name} className={styles.castRow}>
+                          <div className={styles.castAvatarPh}>
+                            {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                          </div>
+                          <span className={styles.castName}>{name}</span>
+                          <span className={styles.castRole}>Acteur</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               )}
 
               {/* Seasons / Episodes */}
@@ -186,22 +279,25 @@ export function SeriesDetail() {
                 )}
 
                 <div className={styles.episodeList}>
-                  {episodes.map((ep) => (
-                    <div key={ep.id} className={styles.episode} onClick={() => handlePlayEpisode(ep)}>
-                      {safeImgUrl(ep.info.movie_image) ? (
-                        <img src={safeImgUrl(ep.info.movie_image)} alt={ep.title} className={styles.epThumb} />
-                      ) : (
-                        <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
-                      )}
-                      <div className={styles.epInfo}>
-                        <span className={styles.epNum}>Épisode {ep.episode_num}</span>
-                        <span className={styles.epTitle}>{ep.title || `Épisode ${ep.episode_num}`}</span>
-                        {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
-                        {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
+                  {episodes.map((ep) => {
+                    const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stills[ep.episode_num]);
+                    return (
+                      <div key={ep.id} className={styles.episode} onClick={() => handlePlayEpisode(ep)}>
+                        {thumb ? (
+                          <img src={thumb} alt={ep.title} className={styles.epThumb} />
+                        ) : (
+                          <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
+                        )}
+                        <div className={styles.epInfo}>
+                          <span className={styles.epNum}>Épisode {ep.episode_num}</span>
+                          <span className={styles.epTitle}>{ep.title || `Épisode ${ep.episode_num}`}</span>
+                          {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
+                          {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
+                        </div>
+                        <div className={styles.epPlay}>▶</div>
                       </div>
-                      <div className={styles.epPlay}>▶</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -240,6 +336,12 @@ export function SeriesDetail() {
                 <div className={styles.factRow}>
                   <span className={styles.factKey}>Épisodes</span>
                   <span className={styles.factVal}>{episodeCount}</span>
+                </div>
+              )}
+              {showVariants && (
+                <div className={styles.factRow}>
+                  <span className={styles.factKey}>Versions</span>
+                  <span className={styles.factVal}>{variants.length}</span>
                 </div>
               )}
             </aside>

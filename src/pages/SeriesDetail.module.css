@@ -6,10 +6,13 @@
 /* ── Hero ── */
 .hero {
   position: relative;
-  height: 50vh;
-  min-height: 480px;
+  height: 68vh;
+  min-height: 620px;
+  max-height: 900px;
   overflow: hidden;
-  margin: var(--topnav-h) var(--pad-edge) 0;
+  margin: var(--topnav-h) auto 0;
+  max-width: 1640px;
+  width: calc(100% - var(--pad-edge) * 2);
   border-radius: 16px;
 }
 
@@ -47,8 +50,18 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 70%;
-  background: linear-gradient(to bottom, transparent 0%, #000 95%);
+  height: 55%;
+  /* Fondu démarré plus bas : le haut/milieu du backdrop reste net,
+     seule la frange basse s'assombrit pour fondre vers la page. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.12) 42%,
+    rgba(0, 0, 0, 0.78) 82%,
+    #000 100%
+  );
+  /* Décoratif : laisse passer les clics vers les flèches du diaporama. */
+  pointer-events: none;
 }
 
 .back {
@@ -78,7 +91,7 @@
 .body {
   position: relative;
   padding: 0 var(--pad-edge) 96px;
-  margin-top: -120px;
+  margin-top: -188px;
   z-index: 2;
 }
 
@@ -192,6 +205,31 @@
 .castRow {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+}
+
+.castAvatar,
+.castAvatarPh {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.castAvatar {
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.castAvatarPh {
+  display: grid;
+  place-items: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t-3);
 }
 
 .castName {
@@ -204,6 +242,40 @@
   font-size: 12px;
   color: var(--t-3);
   margin-top: 2px;
+}
+
+/* ── Sélecteur de version (doublons fusionnés) ── */
+.versionBlock {
+  margin: 0 0 32px;
+}
+
+.versionBtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.versionBtn {
+  padding: 7px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--t-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+
+.versionBtn:hover {
+  color: var(--t-1);
+  border-color: var(--line-strong);
+}
+
+.versionActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-faint);
 }
 
 .sectionLabel {
