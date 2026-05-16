@@ -246,6 +246,19 @@
   border-color: var(--accent-faint);
 }
 
+/* ── Selected (chaîne active dans le panneau Live) ────────────────────────── */
+.selected,
+.selected:hover,
+.selected:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent),
+              0 0 28px var(--accent-glow);
+  z-index: 5;
+}
+
+.selected:not(:hover) {
+  transform: none;
+}
+
 /* Variant hooks — kept for TS/className compatibility */
 .channel {}
 .movie {}

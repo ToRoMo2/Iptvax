@@ -144,6 +144,23 @@ export interface SeriesInfo {
   seasons: Array<{ season_number: number; name: string; cover: string; air_date: string }> | null;
 }
 
+// Programme EPG renvoyé par `get_short_epg`. `title`/`description` sont
+// encodés en base64 côté serveur Xtream → décodés à l'affichage.
+export interface EpgListing {
+  id: string;
+  epg_id: string;
+  title: string;
+  lang: string;
+  start: string;
+  end: string;
+  description: string;
+  channel_id: string;
+  start_timestamp: string;
+  stop_timestamp: string;
+  now_playing: number;
+  has_archive: number;
+}
+
 export type MediaType = 'live' | 'movie' | 'episode';
 
 // Référence minimale d'une chaîne live, utilisée pour la navigation

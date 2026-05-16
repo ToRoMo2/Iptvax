@@ -8,6 +8,7 @@ import type {
   SeriesCategory,
   SeriesItem,
   SeriesInfo,
+  EpgListing,
 } from '../types/xtream.types';
 
 // ─── API Xtream (via proxy CORS) ──────────────────────────────────────────
@@ -64,6 +65,16 @@ export const xtreamService = {
 
   getSeriesInfo: (creds: XtreamCredentials, seriesId: number) =>
     apiFetch<SeriesInfo>(creds, { action: 'get_series_info', series_id: String(seriesId) }),
+
+  // EPG court (programme en cours + suivants) d'une chaîne live.
+  // Renvoie `epg_listings` (titre/description en base64). Tolère un serveur
+  // sans EPG : la liste est alors vide et l'UI retombe sur le nom de chaîne.
+  getShortEpg: (creds: XtreamCredentials, streamId: number, limit = 12) =>
+    apiFetch<{ epg_listings?: EpgListing[] }>(creds, {
+      action: 'get_short_epg',
+      stream_id: String(streamId),
+      limit: String(limit),
+    }),
 
   // ─── URLs de stream ────────────────────────────────────────────────────
   // Tous les streams passent par /api/hlsproxy pour éviter les erreurs CORS.

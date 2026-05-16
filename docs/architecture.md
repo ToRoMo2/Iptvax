@@ -122,6 +122,9 @@ Le pipeline média est hybride :
 | Recherche catalogue chargée paresseusement + repli sur catégorie courante | Avant fin du fetch global → résultats partiels trompeurs ; filtre + monte des milliers de `MediaCard` à chaque frappe → jank (surtout Films) | Précharger le dataset global au montage ; debounce ~200 ms ; `MIN_SEARCH_LEN` (3 car.) ; plafond `RESULT_LIMIT` (80) |
 | Favoris / historique / credentials Xtream en `localStorage` | Pas de synchro cross-device, pas d'isolation par profil — c'est la raison d'être de la BDD | Supabase scopé `profile_id` via `LibraryContext`/`IptvProfileContext` (RLS `auth.uid()`) ; localStorage réservé à l'id du profil actif + prefs sous-titres |
 | Lire favoris/historique de façon synchrone (`useState(() => get())`) | Les données arrivent en async de Supabase → état figé vide au 1er rendu | Charger dans le provider, exposer via context ; mises à jour optimistes + upsert async |
+| Enfant `aspect-ratio` (aperçu vidéo) dans un flex column scrollable sans `flex-shrink: 0` | L'algo flexbox écrase à 0 px de haut l'élément sans contenu texte (les blocs de texte gardent leur taille) → aperçu invisible | `flex-shrink: 0` sur le conteneur ratio (`ChannelPreview`) |
+| Décoder les champs base64 EPG (`atob`+`TextDecoder`) dans le JSX du `.map` | ~3 décodages × N lignes **par rendu** du parent (frappe recherche, etc.) | Décoder + dédoublonner + calculer l'état « en cours » UNE fois dans un `useMemo([epg])` ; les panels Xtream renvoient souvent chaque créneau en double (clé = `start_timestamp`) |
+| Aperçu vidéo non muté / sans `key` par chaîne | Autoplay sans geste refusé si non muté ; réutilisation de l'instance au switch → frame figée de l'ancienne chaîne | `<video muted>` + propriété forcée sur `[src]` ; `key={stream_id}` côté parent pour un remount propre |
 
 ### HLS / Sous-titres
 

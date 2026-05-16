@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import styles from './MediaCard.module.css';
 import { safeImgUrl } from '../utils/image';
+import { channelCode } from '../utils/channel';
 
 type CardVariant = 'channel' | 'movie' | 'series';
 
@@ -12,6 +13,7 @@ interface Props {
   variant: CardVariant;
   isLive?: boolean;
   isFavorite?: boolean;
+  selected?: boolean;
   onClick: () => void;
   onFavorite?: () => void;
 }
@@ -24,6 +26,7 @@ export function MediaCard({
   variant,
   isLive,
   isFavorite,
+  selected,
   onClick,
   onFavorite,
 }: Props) {
@@ -33,19 +36,12 @@ export function MediaCard({
   const resolved = safeImgUrl(image);
   const showImage = Boolean(resolved) && !imgError;
   const isChannel = variant === 'channel';
-  const code = title
-    .replace(/[^a-zA-Z0-9 ]/g, '')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase() || title.charAt(0).toUpperCase();
+  const code = channelCode(title);
   const showRating = rating != null && rating > 0;
 
   return (
     <div
-      className={`${styles.card} ${styles[variant]}`}
+      className={`${styles.card} ${styles[variant]} ${selected ? styles.selected : ''}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
