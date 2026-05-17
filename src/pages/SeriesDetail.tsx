@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
@@ -8,9 +8,13 @@ import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtre
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
+import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
 import styles from './SeriesDetail.module.css';
+
+/** Focus key du bouton « Lire » — cible des redirections depuis le bouton Retour. */
+const SERIES_PLAY_FOCUS_KEY = 'rc-series-play';
 
 interface LocationState {
   series?: SeriesItem;
@@ -39,6 +43,10 @@ export function SeriesDetail() {
 
   const seriesId = variant?.series_id ?? (id ? parseInt(id) : NaN);
 
+  // Mémorise une intention « ↓ depuis Retour » arrivée pendant le chargement.
+  // Appliquée automatiquement dès que le contenu est rendu.
+  const downPending = useRef(false);
+
   useEffect(() => {
     if (!credentials || Number.isNaN(seriesId)) return;
     setLoading(true);
@@ -53,6 +61,16 @@ export function SeriesDetail() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [credentials, seriesId]);
+
+  // Quand le chargement se termine : si l'utilisateur avait déjà appuyé ↓
+  // depuis le bouton Retour, le focus atterrit maintenant sur « Lire ».
+  useEffect(() => {
+    if (!loading && downPending.current) {
+      downPending.current = false;
+      const id = setTimeout(() => setFocus(SERIES_PLAY_FOCUS_KEY), 80);
+      return () => clearTimeout(id);
+    }
+  }, [loading]);
 
   const title = info?.info.name ?? variant?.name ?? seriesMeta?.name ?? 'Série';
   const displayTitle = cleanTitle(title);
@@ -162,6 +180,19 @@ export function SeriesDetail() {
           onEnter={() => navigate(-1)}
           onClick={() => navigate(-1)}
           ariaLabel="Retour"
+          onArrow={(direction) => {
+            if (direction === 'down') {
+              if (!loading) {
+                // Contenu déjà là : focus direct sur le bouton Lire.
+                setFocus(SERIES_PLAY_FOCUS_KEY);
+              } else {
+                // Contenu pas encore rendu : mémorise l'intention.
+                downPending.current = true;
+              }
+              return false; // annule le déplacement géométrique norigin
+            }
+            return true;
+          }}
         >
           ← Retour
         </Focusable>
@@ -203,6 +234,7 @@ export function SeriesDetail() {
               <div className={styles.actions}>
                 <Focusable
                   className="btn btn-primary"
+                  focusKey={SERIES_PLAY_FOCUS_KEY}
                   onEnter={handlePlayFirst}
                   onClick={handlePlayFirst}
                 >
