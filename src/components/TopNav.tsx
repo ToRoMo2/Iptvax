@@ -47,7 +47,7 @@ export function TopNav() {
   // IMPORTANT : on utilise === (pas startsWith) pour les listes, sinon
   // /series/17103 matcherait /series et setFocus(SEARCH_FOCUS_KEY) partirait
   // dans le vide (pas de barre de recherche sur les pages de détail).
-  const browseRoute = ['/movies', '/series', '/live'].includes(location.pathname);
+  const browseRoute = ['/movies', '/series', '/live', '/search'].includes(location.pathname);
   const detailRoute =
     location.pathname.startsWith('/series/') ||
     location.pathname.startsWith('/movie/');
