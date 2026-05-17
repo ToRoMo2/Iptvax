@@ -4,6 +4,10 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { PreviewCard } from '../components/PreviewCard';
+import { Focusable } from '../components/Focusable';
+import { HERO_FOCUS_KEY } from '../components/RemoteControl';
 import type { WatchHistoryItem } from '../types/library.types';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
@@ -400,6 +404,16 @@ export function Home() {
     navigate(`/series/${g.primary.series_id}`, { state: { series: g.primary, variants: g.variants } });
   };
 
+  // Flèche haut depuis un rail haut (Reprendre / Live) → boutons du hero,
+  // quelle que soit la carte (la géométrie n'y menait que depuis la gauche).
+  const upToHero = (direction: string): boolean => {
+    if (direction === 'up') {
+      setFocus(HERO_FOCUS_KEY);
+      return false;
+    }
+    return true;
+  };
+
   const playLive = (s: LiveStream) => {
     if (!credentials) return;
     const state: PlayerState = {
@@ -486,12 +500,25 @@ export function Home() {
                   <p className={styles.heroDesc}>{slide.description}</p>
                 )}
                 <div className={styles.heroActions}>
-                  <button className={styles.heroPlayBtn} onClick={() => playHero(slide)}>
+                  <Focusable
+                    className={styles.heroPlayBtn}
+                    focusedClassName="rc-focused"
+                    focusKey={i === heroIdx ? HERO_FOCUS_KEY : undefined}
+                    disabled={i !== heroIdx}
+                    onEnter={() => playHero(slide)}
+                    onClick={() => playHero(slide)}
+                  >
                     <PlayIcon /> Regarder
-                  </button>
-                  <button className={styles.heroInfoBtn} onClick={() => infoHero(slide)}>
+                  </Focusable>
+                  <Focusable
+                    className={styles.heroInfoBtn}
+                    focusedClassName="rc-focused"
+                    disabled={i !== heroIdx}
+                    onEnter={() => infoHero(slide)}
+                    onClick={() => infoHero(slide)}
+                  >
                     <InfoIcon /> Plus d'infos
-                  </button>
+                  </Focusable>
                 </div>
               </div>
             </div>
@@ -546,12 +573,13 @@ export function Home() {
               {history.map((item) => {
                 const thumb = safeImgUrl(cwBackdrops[item.id] ?? item.image);
                 return (
-                <div
+                <Focusable
                   key={item.id}
                   className={`${styles.card} ${styles.cardWide}`}
-                  tabIndex={0}
+                  focusedClassName={styles.cardFocused}
                   onClick={() => playHistory(item)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') playHistory(item); }}
+                  onEnter={() => playHistory(item)}
+                  onArrow={upToHero}
                 >
                   <div className={styles.artWide}>
                     {thumb ? (
@@ -577,7 +605,7 @@ export function Home() {
                     <div className={styles.cardName}>{item.title}</div>
                     <div className={styles.cardMeta}>{item.subtitle}</div>
                   </div>
-                </div>
+                </Focusable>
                 );
               })}
             </div>
@@ -597,12 +625,13 @@ export function Home() {
           ) : (
             <div className={styles.rowRail}>
               {liveStreams.map((stream) => (
-                <div
+                <Focusable
                   key={stream.stream_id}
                   className={`${styles.card} ${styles.cardWide}`}
-                  tabIndex={0}
+                  focusedClassName={styles.cardFocused}
                   onClick={() => playLive(stream)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') playLive(stream); }}
+                  onEnter={() => playLive(stream)}
+                  onArrow={upToHero}
                 >
                   <div className={styles.artWide}>
                     {safeImgUrl(stream.stream_icon) ? (
@@ -623,7 +652,7 @@ export function Home() {
                   <div className={styles.cardLabel}>
                     <div className={styles.cardName}>{stream.name}</div>
                   </div>
-                </div>
+                </Focusable>
               ))}
             </div>
           )}
@@ -641,38 +670,25 @@ export function Home() {
             <RowSkeleton type="poster" />
           ) : (
             <div className={styles.rowRail}>
-              {movies.map((g) => (
-                <div
-                  key={g.primary.stream_id}
-                  className={`${styles.card} ${styles.cardPoster}`}
-                  tabIndex={0}
-                  onClick={() => openMovie(g)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') openMovie(g); }}
-                >
-                  <div className={styles.artPoster}>
-                    {safeImgUrl(g.primary.stream_icon) ? (
-                      <img
-                        src={safeImgUrl(g.primary.stream_icon)}
-                        alt={g.title}
-                        className={styles.artImg}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <ArtPlaceholder tag="POSTER · 2:3" name={g.title} />
-                    )}
-                  </div>
-                  <div className={styles.cardLabel}>
-                    <div className={styles.cardName}>{g.title}</div>
-                    <div className={styles.cardMeta}>
-                      {g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Film')}
-                      {(() => {
-                        const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
-                        return r > 0 ? ` · ★ ${r.toFixed(1)}` : null;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {movies.map((g) => {
+                const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
+                const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Film');
+                return (
+                  <PreviewCard
+                    key={g.primary.stream_id}
+                    className={styles.posterCell}
+                    title={g.title}
+                    image={g.primary.stream_icon}
+                    backdrop={g.primary.backdrop_path?.[0]}
+                    synopsis={g.primary.plot}
+                    meta={[yr, r > 0 ? `★ ${r.toFixed(1)}` : null].filter(Boolean).join(' · ')}
+                    variant="movie"
+                    trailerUrl={g.primary.youtube_trailer}
+                    resolveTrailer={() => tmdbService.getTrailer('movie', g.title, g.year)}
+                    onOpen={() => openMovie(g)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
@@ -689,38 +705,25 @@ export function Home() {
             <RowSkeleton type="poster" />
           ) : (
             <div className={styles.rowRail}>
-              {series.map((g) => (
-                <div
-                  key={g.primary.series_id}
-                  className={`${styles.card} ${styles.cardPoster}`}
-                  tabIndex={0}
-                  onClick={() => openSeries(g)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') openSeries(g); }}
-                >
-                  <div className={styles.artPoster}>
-                    {safeImgUrl(g.primary.cover) ? (
-                      <img
-                        src={safeImgUrl(g.primary.cover)}
-                        alt={g.title}
-                        className={styles.artImg}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <ArtPlaceholder tag="POSTER · 2:3" name={g.title} />
-                    )}
-                  </div>
-                  <div className={styles.cardLabel}>
-                    <div className={styles.cardName}>{g.title}</div>
-                    <div className={styles.cardMeta}>
-                      {g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Série')}
-                      {(() => {
-                        const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
-                        return r > 0 ? ` · ★ ${r.toFixed(1)}` : null;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {series.map((g) => {
+                const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
+                const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Série');
+                return (
+                  <PreviewCard
+                    key={g.primary.series_id}
+                    className={styles.posterCell}
+                    title={g.title}
+                    image={g.primary.cover}
+                    backdrop={g.primary.backdrop_path?.[0]}
+                    synopsis={g.primary.plot}
+                    meta={[yr, r > 0 ? `★ ${r.toFixed(1)}` : null].filter(Boolean).join(' · ')}
+                    variant="series"
+                    trailerUrl={g.primary.youtube_trailer}
+                    resolveTrailer={() => tmdbService.getTrailer('tv', g.title, g.year)}
+                    onOpen={() => openSeries(g)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

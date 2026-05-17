@@ -9,6 +9,7 @@ import type { TmdbEnrichment } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
+import { Focusable } from '../components/Focusable';
 import styles from './SeriesDetail.module.css';
 
 interface LocationState {
@@ -126,9 +127,14 @@ export function MovieDetail() {
           </div>
         )}
         <div className={styles.overlayBottom} />
-        <button className={styles.back} onClick={() => navigate(-1)}>
+        <Focusable
+          className={styles.back}
+          onEnter={() => navigate(-1)}
+          onClick={() => navigate(-1)}
+          ariaLabel="Retour"
+        >
           ← Retour
-        </button>
+        </Focusable>
       </section>
 
       <div className={styles.body}>
@@ -158,12 +164,20 @@ export function MovieDetail() {
               </div>
 
               <div className={styles.actions}>
-                <button className="btn btn-primary" onClick={handlePlay}>
+                <Focusable
+                  className="btn btn-primary"
+                  onEnter={handlePlay}
+                  onClick={handlePlay}
+                >
                   ▶ Lire le film
-                </button>
-                <button className="btn btn-secondary" onClick={() => setInList((v) => !v)}>
+                </Focusable>
+                <Focusable
+                  className="btn btn-secondary"
+                  onEnter={() => setInList((v) => !v)}
+                  onClick={() => setInList((v) => !v)}
+                >
                   {inList ? '✓ Dans ma liste' : '+ Ma liste'}
-                </button>
+                </Focusable>
               </div>
 
               {showVariants && (
@@ -171,13 +185,14 @@ export function MovieDetail() {
                   <div className={styles.sectionLabel}>Version</div>
                   <div className={styles.versionBtns}>
                     {variants.map((v, i) => (
-                      <button
+                      <Focusable
                         key={v.stream_id}
                         className={`${styles.versionBtn} ${selected?.stream_id === v.stream_id ? styles.versionActive : ''}`}
+                        onEnter={() => setSelected(v)}
                         onClick={() => setSelected(v)}
                       >
                         {versionLabel(v.name, `Source ${i + 1}`)}
-                      </button>
+                      </Focusable>
                     ))}
                   </div>
                 </div>

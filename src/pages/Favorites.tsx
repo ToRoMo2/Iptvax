@@ -2,8 +2,11 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import { MediaCard } from '../components/MediaCard';
+import { PreviewCard } from '../components/PreviewCard';
+import { cleanTitle } from '../utils/catalog';
 import type { FavoriteItem } from '../types/library.types';
 import type { LiveChannelRef, PlayerState } from '../types/xtream.types';
 import styles from './Browse.module.css';
@@ -120,13 +123,14 @@ export function Favorites() {
           </div>
           <div className={`${styles.grid} ${styles.gridPoster}`}>
             {movies.map((m) => (
-              <MediaCard
+              <PreviewCard
                 key={m.id}
                 title={m.name}
                 image={m.image}
                 variant="movie"
                 isFavorite={isFavorite('movie', m.id)}
-                onClick={() => navigate(`/movie/${m.id}`)}
+                resolveTrailer={() => tmdbService.getTrailer('movie', cleanTitle(m.name))}
+                onOpen={() => navigate(`/movie/${m.id}`)}
                 onFavorite={() => toggleFavorite(m)}
               />
             ))}
@@ -144,17 +148,19 @@ export function Favorites() {
           </div>
           <div className={`${styles.grid} ${styles.gridPoster}`}>
             {series.map((s) => (
-              <MediaCard
+              <PreviewCard
                 key={s.id}
                 title={s.name}
                 image={s.image}
                 variant="series"
                 isFavorite={isFavorite('series', s.id)}
-                onClick={() => navigate(`/series/${s.id}`)}
+                resolveTrailer={() => tmdbService.getTrailer('tv', cleanTitle(s.name))}
+                onOpen={() => navigate(`/series/${s.id}`)}
                 onFavorite={() => toggleFavorite(s)}
               />
             ))}
           </div>
+
         </section>
       )}
     </div>

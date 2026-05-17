@@ -23,6 +23,14 @@ export interface TmdbEnrichment {
   cast: TmdbCastMember[];
 }
 
+/** Bande-annonce + synopsis résolus à la demande (survol d'une carte). */
+export interface TmdbTrailer {
+  /** Identifiant de la vidéo YouTube (embed muet). */
+  youtubeKey: string;
+  /** Synopsis FR (fallback EN) récupéré dans la même requête détails. */
+  overview?: string;
+}
+
 /** Map `episode_num` → URL de vignette (still) pour une saison. */
 export type TmdbEpisodeStills = Record<number, string>;
 

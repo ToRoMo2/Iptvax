@@ -291,3 +291,49 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* ---- Déploiement au focus télécommande (norigin n'applique pas le focus
+   DOM → on réplique l'état :hover/:focus-within via la classe .rc-open) ---- */
+.topnav.rc-open {
+  padding: 4px 10px;
+  gap: 6px;
+  background: rgba(8, 8, 8, 0.78);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 12px 48px rgba(0, 0, 0, 0.5);
+}
+.topnav.rc-open .brand-name {
+  max-width: 110px;
+  margin-left: 10px;
+  opacity: 1;
+  transition-delay: 60ms;
+}
+.topnav.rc-open .nav-sep {
+  opacity: 1;
+  transform: scale(1);
+  transition-delay: 80ms;
+}
+.topnav.rc-open .link .lbl {
+  max-width: 100px;
+  margin-left: 8px;
+  opacity: 1;
+  transition-delay: 80ms;
+}
+.topnav.rc-open .link.active::after {
+  width: 14px;
+  border-radius: 2px;
+}
+.topnav.rc-open .nav-sep-right {
+  opacity: 1;
+  transition-delay: 100ms;
+}
+.topnav.rc-open .profile {
+  padding: 0 8px 0 6px;
+  gap: 8px;
+}
+.topnav.rc-open .profile .who {
+  max-width: 96px;
+  opacity: 1;
+  transition-delay: 100ms;
+}

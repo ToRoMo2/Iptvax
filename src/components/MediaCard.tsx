@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import styles from './MediaCard.module.css';
 import { safeImgUrl } from '../utils/image';
 import { channelCode } from '../utils/channel';
@@ -30,6 +31,13 @@ export function MediaCard({
   onClick,
   onFavorite,
 }: Props) {
+  const { ref, focused } = useFocusable({ onEnterPress: () => onClick() });
+  useEffect(() => {
+    if (focused) {
+      ref.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }
+  }, [focused, ref]);
+
   const [imgError, setImgError] = useState(false);
   // safeImgUrl rejette les URLs relatives (simples noms de fichier) renvoyées par certains
   // serveurs Xtream → évite les 404 dans la console du navigateur.
@@ -41,7 +49,8 @@ export function MediaCard({
 
   return (
     <div
-      className={`${styles.card} ${styles[variant]} ${selected ? styles.selected : ''}`}
+      ref={ref}
+      className={`${styles.card} ${styles[variant]} ${selected ? styles.selected : ''} ${focused ? styles.focused : ''}`}
       onClick={onClick}
       role="button"
       tabIndex={0}

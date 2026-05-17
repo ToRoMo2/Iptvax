@@ -406,6 +406,13 @@
   z-index: 5;
 }
 
+/* Focus télécommande : halo accent + zoom (bien visible sur TV). */
+.cardFocused {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 30px var(--accent-glow);
+  z-index: 5;
+}
+
 /* Wide card (16:9) — Continue + Live */
 .cardWide {
   width: 320px;
@@ -413,6 +420,11 @@
 
 /* Poster card (2:3) — Movies + Series */
 .cardPoster {
+  width: 200px;
+}
+
+/* Cellule PreviewCard dans un rail (largeur fixe comme .cardPoster). */
+.posterCell {
   width: 200px;
 }
 

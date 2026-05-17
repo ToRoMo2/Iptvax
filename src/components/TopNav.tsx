@@ -1,7 +1,11 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { ProfilePanel } from './ProfilePanel';
+import { Focusable } from './Focusable';
+import { FIRST_NAV_FOCUS_KEY, HERO_FOCUS_KEY } from './RemoteControl';
+import { SEARCH_FOCUS_KEY } from './RemoteSearch';
 import './TopNav.css';
 
 /* ── Vanta line icons ────────────────────────────────────────────────────── */
@@ -42,11 +46,49 @@ const LINKS = [
 
 export function TopNav() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeProfile } = useIptvProfile();
+
+  // Depuis la navbar, flèche bas → barre de recherche de la page (Films /
+  // Séries / Live). Ailleurs (Accueil, Favoris…), descente géométrique normale.
+  const browseRoute = ['/movies', '/series', '/live'].some((p) =>
+    location.pathname.startsWith(p),
+  );
+  const navArrow = (direction: string): boolean => {
+    if (direction !== 'down') return true;
+    if (browseRoute) {
+      setFocus(SEARCH_FOCUS_KEY);
+      return false;
+    }
+    if (location.pathname === '/') {
+      setFocus(HERO_FOCUS_KEY);
+      return false;
+    }
+    return true;
+  };
 
   const [scrolled, setScrolled] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Déploiement de la navbar quand un élément est focus à la télécommande
+  // (norigin n'applique pas le focus DOM → `:focus-within` CSS inopérant).
+  const [navOpen, setNavOpen] = useState(false);
+  const navBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileWrapperRef = useRef<HTMLDivElement>(null);
+
+  const onNavFocus = () => {
+    if (navBlurTimer.current) clearTimeout(navBlurTimer.current);
+    setNavOpen(true);
+  };
+  // Petit délai : passer d'un item nav à l'autre = blur puis focus → on ne
+  // referme pas la capsule entre les deux.
+  const onNavBlur = () => {
+    if (navBlurTimer.current) clearTimeout(navBlurTimer.current);
+    navBlurTimer.current = setTimeout(() => setNavOpen(false), 80);
+  };
+
+  useEffect(() => () => {
+    if (navBlurTimer.current) clearTimeout(navBlurTimer.current);
+  }, []);
 
   useEffect(() => {
     const main = document.querySelector('.main-content');
@@ -63,7 +105,7 @@ export function TopNav() {
   } as CSSProperties;
 
   return (
-    <header className={`topnav ${scrolled ? 'scrolled' : ''}`}>
+    <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>
       <div className="brand" title="Vanta">
         <span className="brand-mark" />
         <span className="brand-name">VANTA</span>
@@ -72,26 +114,45 @@ export function TopNav() {
       <span className="nav-sep" />
 
       <nav className="links" aria-label="Primary">
-        {LINKS.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
+        {LINKS.map(({ to, label, icon: Icon, end }, i) => (
+          <Focusable
             key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) => `link ${isActive ? 'active' : ''}`}
-            title={label}
+            focusKey={i === 0 ? FIRST_NAV_FOCUS_KEY : undefined}
+            className="nav-foc"
+            onEnter={() => navigate(to)}
+            onFocused={onNavFocus}
+            onBlurred={onNavBlur}
+            onArrow={navArrow}
           >
-            <span className="ic"><Icon /></span>
-            <span className="lbl">{label}</span>
-          </NavLink>
+            <NavLink
+              to={to}
+              end={end}
+              className={({ isActive }) => `link ${isActive ? 'active' : ''}`}
+              title={label}
+              tabIndex={-1}
+            >
+              <span className="ic"><Icon /></span>
+              <span className="lbl">{label}</span>
+            </NavLink>
+          </Focusable>
         ))}
       </nav>
 
       <span className="nav-sep-right" />
 
       <div className="top-actions">
-        <button className="icon-btn" title="Recherche" onClick={() => navigate('/search')}>
+        <Focusable
+          className="icon-btn"
+          onEnter={() => navigate('/search')}
+          onClick={() => navigate('/search')}
+          onFocused={onNavFocus}
+          onBlurred={onNavBlur}
+          onArrow={navArrow}
+          title="Recherche"
+          ariaLabel="Recherche"
+        >
           <Ic.search />
-        </button>
+        </Focusable>
         <button className="icon-btn has-dot" title="Notifications" type="button">
           <Ic.bell />
         </button>
@@ -101,10 +162,14 @@ export function TopNav() {
 
         {/* Profil actif + panel */}
         <div className="profile-wrapper" ref={profileWrapperRef}>
-          <button
+          <Focusable
             className="profile"
             title={profileName}
+            onEnter={() => setPanelOpen((o) => !o)}
             onClick={() => setPanelOpen((o) => !o)}
+            onFocused={onNavFocus}
+            onBlurred={onNavBlur}
+            onArrow={navArrow}
           >
             <div className="avatar-btn" style={avatarVar}>
               <span className="avatar-emoji">{activeProfile?.avatar ?? '🎬'}</span>
@@ -113,7 +178,7 @@ export function TopNav() {
               <span className="name">{profileName}</span>
               <span className="plan">Profil IPTV</span>
             </div>
-          </button>
+          </Focusable>
 
           {panelOpen && <ProfilePanel onClose={() => setPanelOpen(false)} />}
         </div>

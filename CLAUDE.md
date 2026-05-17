@@ -10,7 +10,7 @@ SupabaseAuthContext (compte Google/Apple/mail)
   └─► IptvProfileContext (profils IPTV multiples par compte)
         └─► XtreamContext (creds du profil actif) ──► services ──► /api/* (Vite plugin)
 LibraryContext (favoris + historique/reprise) ──► Supabase (BDD, RLS par profil)
-TMDB (images paysage / casting / note / synopsis / vignettes épisodes) ──► tmdb.service (HTTP direct)
+TMDB (images paysage / casting / note / synopsis / vignettes épisodes / bandes-annonces) ──► tmdb.service (HTTP direct)
 Media pipeline : HLS.js | mpegts.js | ffmpeg fMP4 | ffprobe stdin
 ```
 Tout le "backend" média vit dans `vite.config.ts`. Zéro serveur séparé en dev.
@@ -28,6 +28,7 @@ Tout le "backend" média vit dans `vite.config.ts`. Zéro serveur séparé en de
 | Router | react-router-dom | 7.15.0 |
 | HLS | hls.js | 1.6.16 |
 | MPEG-TS | mpegts.js | 1.8.0 |
+| Navigation TV (télécommande) | @noriginmedia/norigin-spatial-navigation | 3.1.0 |
 | ffmpeg | ffmpeg-static | 5.3.0 |
 | ffprobe | ffprobe-static | 3.1.0 |
 | Prod server | Express | 5.2.1 |

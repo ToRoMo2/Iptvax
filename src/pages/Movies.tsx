@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
+import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
-import { MediaCard } from '../components/MediaCard';
+import { PreviewCard } from '../components/PreviewCard';
+import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
 import type { VodCategory, VodStream } from '../types/xtream.types';
 import { groupByTitle } from '../utils/catalog';
@@ -114,18 +116,14 @@ export function Movies() {
               : `${groups.length} film${groups.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <div className={styles.searchWrapper}>
-          <span className={styles.searchIcon}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="15" height="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          </span>
-          <input
-            className={styles.search}
-            type="search"
-            placeholder="Rechercher dans tous les films…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <RemoteSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Rechercher dans tous les films…"
+          wrapperClassName={styles.searchWrapper}
+          iconClassName={styles.searchIcon}
+          inputClassName={styles.search}
+        />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
           <span className={styles.searchBadge}>Tapez au moins {MIN_SEARCH_LEN} caractères…</span>
         )}
@@ -159,15 +157,22 @@ export function Movies() {
       ) : (
         <div className={`${styles.grid} ${styles.gridPoster}`}>
           {groups.map((g) => (
-            <MediaCard
+            <PreviewCard
               key={g.primary.stream_id}
               title={g.title}
               image={g.primary.stream_icon}
-              rating={g.primary.rating_5based}
-              genre={g.primary.genre}
+              backdrop={g.primary.backdrop_path?.[0]}
+              synopsis={g.primary.plot}
+              meta={[
+                g.year,
+                g.primary.rating_5based > 0 ? `★ ${g.primary.rating_5based.toFixed(1)}` : null,
+                g.primary.genre?.split('/')[0].trim(),
+              ].filter(Boolean).join(' · ')}
               variant="movie"
               isFavorite={isFavorite('movie', String(g.primary.stream_id))}
-              onClick={() => handleOpen(g.primary, g.variants)}
+              trailerUrl={g.primary.youtube_trailer}
+              resolveTrailer={() => tmdbService.getTrailer('movie', g.title, g.year)}
+              onOpen={() => handleOpen(g.primary, g.variants)}
               onFavorite={() =>
                 toggleFavorite({
                   type: 'movie',

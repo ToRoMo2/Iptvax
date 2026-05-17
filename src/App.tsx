@@ -4,6 +4,7 @@ import { IptvProfileProvider, useIptvProfile } from './contexts/IptvProfileConte
 import { LibraryProvider } from './contexts/LibraryContext';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
+import { RemoteControl } from './components/RemoteControl';
 import { Login } from './pages/Login';
 import { ProfileSelect } from './pages/ProfileSelect';
 import { Home } from './pages/Home';
@@ -61,6 +62,7 @@ function Shell() {
   return (
     <div className="app-shell">
       <div className="layout">
+        <RemoteControl />
         <TopNav />
         <main className="main-content">
           <Routes>

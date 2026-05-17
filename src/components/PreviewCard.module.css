@@ -1,0 +1,284 @@
+/* ── PreviewCard : carte poster + aperçu agrandi flottant (façon Netflix) ──── */
+
+.cell {
+  position: relative;
+}
+
+/* ── Carte de base (identique visuellement à MediaCard poster) ────────────── */
+.card {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  transition: transform var(--d-micro) var(--ease);
+}
+
+.card:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--accent-glow);
+}
+
+/* Focus télécommande : halo accent + léger zoom (bien visible sur TV). */
+.cellFocused .card {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 30px var(--accent-glow);
+  z-index: 5;
+}
+
+.art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background:
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 14px),
+    #0a0a0a;
+}
+
+.phName {
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.1;
+  color: var(--t-2);
+  text-align: center;
+}
+
+.info {
+  padding: 12px 4px 0;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--t-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+
+.cardMeta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--t-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Étoile favori (carte de base) ────────────────────────────────────────── */
+.fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--t-2);
+  font-size: 14px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
+  z-index: 2;
+}
+
+.cell:hover .fav,
+.card:focus-within .fav {
+  opacity: 1;
+}
+
+.favOn {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent-faint);
+}
+
+/* ── Aperçu agrandi flottant (portal sur body) ────────────────────────────── */
+.overlay {
+  position: fixed;
+  z-index: 200;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.7);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: transform 200ms var(--ease), opacity 200ms var(--ease);
+  will-change: transform, opacity;
+}
+
+.overlayIn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+.mediaImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frameHost {
+  position: absolute;
+  inset: 0;
+  /* Zoom : rogne le bandeau titre/chaîne YouTube en haut et le watermark en
+     bas (le bouton central, lui, n'apparaît jamais car on ne révèle l'iframe
+     qu'une fois la lecture réellement lancée). */
+  transform: scale(1.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms var(--ease);
+}
+
+/* Visible seulement une fois la lecture démarrée → l'utilisateur ne voit
+   jamais l'état « non démarré » (gros bouton play) : il voit le poster
+   puis un fondu vers la vidéo. */
+.frameOn {
+  opacity: 1;
+}
+
+.frameHost iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.mediaShade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 55%, rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}
+
+.body {
+  padding: 14px 16px 16px;
+}
+
+.bodyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--t-1);
+  line-height: 1.2;
+}
+
+.bodyMeta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--t-3);
+}
+
+.synopsis {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--t-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.play {
+  flex: 1;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--t-1);
+  color: #000;
+  border: 0;
+  border-radius: var(--r-ui);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--d-micro) var(--ease);
+}
+
+.play:hover {
+  opacity: 0.85;
+}
+
+.ovFav {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--t-2);
+  font-size: 15px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
+}
+
+.ovFav:hover {
+  color: var(--t-1);
+  border-color: var(--t-2);
+}
+
+.ovFavOn {
+  color: var(--accent);
+  border-color: var(--accent-faint);
+}
+
+/* Hooks variant — compat className TS */
+.movie {}
+.series {}
+
+@media (hover: none) {
+  /* Pas de survol fiable (tactile) → l'aperçu ne se déclenche pas, la carte
+     reste pleinement cliquable. */
+  .overlay { display: none; }
+}

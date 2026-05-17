@@ -3,6 +3,7 @@ import type {
   TmdbCastMember,
   TmdbEpisodeStills,
   TmdbTrendingItem,
+  TmdbTrailer,
 } from '../types/tmdb.types';
 
 /**
@@ -87,6 +88,29 @@ interface TmdbDetails {
 }
 interface TmdbSeasonResponse {
   episodes?: Array<{ episode_number: number; still_path?: string | null }>;
+}
+interface TmdbVideo {
+  key: string;
+  site: string;
+  type: string;
+  official?: boolean;
+}
+interface TmdbVideosResponse {
+  results?: TmdbVideo[];
+}
+interface TmdbDetailsWithVideos extends TmdbDetails {
+  videos?: TmdbVideosResponse;
+}
+
+// Choisit la meilleure vidéo YouTube : bande-annonce officielle > teaser > clip.
+function pickYoutube(vids: TmdbVideo[] | undefined): string | undefined {
+  const yt = (vids ?? []).filter((v) => v.site === 'YouTube' && v.key);
+  if (yt.length === 0) return undefined;
+  const rank = (v: TmdbVideo) => {
+    const t = v.type === 'Trailer' ? 0 : v.type === 'Teaser' ? 1 : v.type === 'Clip' ? 2 : 3;
+    return t * 2 + (v.official ? 0 : 1);
+  };
+  return [...yt].sort((a, b) => rank(a) - rank(b))[0].key;
 }
 interface TmdbTrendingRaw {
   id: number;
@@ -235,6 +259,61 @@ export const tmdbService = {
         });
       }
       return out;
+    });
+  },
+
+  /**
+   * Bande-annonce YouTube + synopsis, résolus à la demande (survol carte).
+   * Strictement additif et non bloquant : clé absente / aucun trailer → null,
+   * l'aperçu retombe sur le poster + synopsis Xtream. Mis en cache par titre.
+   */
+  getTrailer(
+    kind: 'movie' | 'tv',
+    title: string,
+    year?: string,
+  ): Promise<TmdbTrailer | null> {
+    const q = title.trim();
+    if (!API_KEY || !q) return Promise.resolve(null);
+
+    return cached(`trailer:${kind}:${q.toLowerCase()}:${year ?? ''}`, async () => {
+      const yearParam = kind === 'movie' ? 'year' : 'first_air_date_year';
+      const search = await tmdbGet<TmdbSearchResponse>(`/search/${kind}`, {
+        query: q,
+        language: 'fr-FR',
+        include_adult: 'false',
+        ...(year ? { [yearParam]: year } : {}),
+      });
+      let best = search?.results?.[0];
+      if (!best && year) {
+        const retry = await tmdbGet<TmdbSearchResponse>(`/search/${kind}`, {
+          query: q,
+          language: 'fr-FR',
+          include_adult: 'false',
+        });
+        best = retry?.results?.[0];
+      }
+      if (!best) return null;
+
+      const fr = await tmdbGet<TmdbDetailsWithVideos>(`/${kind}/${best.id}`, {
+        language: 'fr-FR',
+        append_to_response: 'videos',
+      });
+      let key = pickYoutube(fr?.videos?.results);
+      // Beaucoup de titres n'ont pas de bande-annonce FR → repli vidéos EN.
+      if (!key) {
+        const en = await tmdbGet<TmdbVideosResponse>(`/${kind}/${best.id}/videos`, {
+          language: 'en-US',
+        });
+        key = pickYoutube(en?.results);
+      }
+      if (!key) return null;
+
+      let overview = fr?.overview?.trim() || undefined;
+      if (!overview) {
+        const en = await tmdbGet<TmdbDetails>(`/${kind}/${best.id}`, { language: 'en-US' });
+        overview = en?.overview?.trim() || undefined;
+      }
+      return { youtubeKey: key, overview };
     });
   },
 

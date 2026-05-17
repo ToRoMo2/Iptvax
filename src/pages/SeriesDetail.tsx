@@ -9,6 +9,7 @@ import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
+import { Focusable } from '../components/Focusable';
 import styles from './SeriesDetail.module.css';
 
 interface LocationState {
@@ -156,9 +157,14 @@ export function SeriesDetail() {
           </div>
         )}
         <div className={styles.overlayBottom} />
-        <button className={styles.back} onClick={() => navigate(-1)}>
+        <Focusable
+          className={styles.back}
+          onEnter={() => navigate(-1)}
+          onClick={() => navigate(-1)}
+          ariaLabel="Retour"
+        >
           ← Retour
-        </button>
+        </Focusable>
       </section>
 
       {/* Body */}
@@ -195,12 +201,20 @@ export function SeriesDetail() {
               </div>
 
               <div className={styles.actions}>
-                <button className="btn btn-primary" onClick={handlePlayFirst}>
+                <Focusable
+                  className="btn btn-primary"
+                  onEnter={handlePlayFirst}
+                  onClick={handlePlayFirst}
+                >
                   ▶ Lire
-                </button>
-                <button className="btn btn-secondary" onClick={() => setInList((v) => !v)}>
+                </Focusable>
+                <Focusable
+                  className="btn btn-secondary"
+                  onEnter={() => setInList((v) => !v)}
+                  onClick={() => setInList((v) => !v)}
+                >
                   {inList ? '✓ Dans ma liste' : '+ Ma liste'}
-                </button>
+                </Focusable>
               </div>
 
               {showVariants && (
@@ -208,13 +222,14 @@ export function SeriesDetail() {
                   <div className={styles.sectionLabel}>Version</div>
                   <div className={styles.versionBtns}>
                     {variants.map((v, i) => (
-                      <button
+                      <Focusable
                         key={v.series_id}
                         className={`${styles.versionBtn} ${variant?.series_id === v.series_id ? styles.versionActive : ''}`}
+                        onEnter={() => setVariant(v)}
                         onClick={() => setVariant(v)}
                       >
                         {versionLabel(v.name, `Source ${i + 1}`)}
-                      </button>
+                      </Focusable>
                     ))}
                   </div>
                 </div>
@@ -267,13 +282,14 @@ export function SeriesDetail() {
                 {seasons.length > 1 && (
                   <div className={styles.seasons}>
                     {seasons.map((s) => (
-                      <button
+                      <Focusable
                         key={s}
                         className={`${styles.seasonBtn} ${selectedSeason === s ? styles.seasonActive : ''}`}
+                        onEnter={() => setSelectedSeason(s)}
                         onClick={() => setSelectedSeason(s)}
                       >
                         Saison {s}
-                      </button>
+                      </Focusable>
                     ))}
                   </div>
                 )}
@@ -282,7 +298,12 @@ export function SeriesDetail() {
                   {episodes.map((ep) => {
                     const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stills[ep.episode_num]);
                     return (
-                      <div key={ep.id} className={styles.episode} onClick={() => handlePlayEpisode(ep)}>
+                      <Focusable
+                        key={ep.id}
+                        className={styles.episode}
+                        onEnter={() => handlePlayEpisode(ep)}
+                        onClick={() => handlePlayEpisode(ep)}
+                      >
                         {thumb ? (
                           <img src={thumb} alt={ep.title} className={styles.epThumb} />
                         ) : (
@@ -295,7 +316,7 @@ export function SeriesDetail() {
                           {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
                         </div>
                         <div className={styles.epPlay}>▶</div>
-                      </div>
+                      </Focusable>
                     );
                   })}
                 </div>

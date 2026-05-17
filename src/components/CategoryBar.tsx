@@ -1,9 +1,50 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { useFocusable, setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { SEARCH_FOCUS_KEY } from './RemoteSearch';
 import styles from './CategoryBar.module.css';
 
 interface Category {
   id: string;
   name: string;
+}
+
+function Pill({
+  cat,
+  active,
+  onSelect,
+}: {
+  cat: Category;
+  active: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const { ref, focused } = useFocusable({
+    onEnterPress: () => onSelect(cat.id),
+    // Flèche haut depuis les catégories → barre de recherche (au-dessus,
+    // mais décalée à droite : la géométrie seule ne l'atteint pas).
+    onArrowPress: (direction: string) => {
+      if (direction === 'up') {
+        setFocus(SEARCH_FOCUS_KEY);
+        return false;
+      }
+      return true;
+    },
+  });
+  useEffect(() => {
+    if (focused) {
+      ref.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    }
+  }, [focused, ref]);
+  return (
+    <button
+      ref={ref}
+      data-catid={cat.id}
+      className={`${styles.pill} ${active ? styles.pillActive : ''} ${focused ? styles.pillFocused : ''}`}
+      onClick={() => onSelect(cat.id)}
+      tabIndex={-1}
+    >
+      {cat.name}
+    </button>
+  );
 }
 
 interface Props {
@@ -75,14 +116,12 @@ export function CategoryBar({ categories, selected, onSelect }: Props) {
         onScroll={refresh}
       >
         {categories.map((cat) => (
-          <button
+          <Pill
             key={cat.id}
-            data-catid={cat.id}
-            className={`${styles.pill} ${selected === cat.id ? styles.pillActive : ''}`}
-            onClick={() => onSelect(cat.id)}
-          >
-            {cat.name}
-          </button>
+            cat={cat}
+            active={selected === cat.id}
+            onSelect={onSelect}
+          />
         ))}
       </div>
 

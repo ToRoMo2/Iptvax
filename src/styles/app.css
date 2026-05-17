@@ -236,3 +236,14 @@ img { display: block; max-width: 100%; }
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.92); }
 }
+
+/* ── Navigation télécommande (norigin-spatial-navigation) ─────────────────── */
+/* Halo de focus générique (navbar, pills, boutons, cartes Home). Les cartes
+   média ont leur propre style `.focused` co-localisé, plus riche. */
+.rc-focused {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 22px var(--accent-glow);
+  border-radius: var(--r-ui);
+  position: relative;
+  z-index: 6;
+}
