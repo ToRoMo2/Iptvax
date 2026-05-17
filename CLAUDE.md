@@ -81,3 +81,26 @@ npm run preview      # Aperçu du build prod
 - Toute nouvelle route `/api/*` → mettre à jour §II ici ET `docs/architecture.md` §2.
 - Toute nouvelle dépendance → §III avec version exacte.
 - Nouveau anti-pattern confirmé → `docs/architecture.md` §4, jamais dans ce fichier.
+
+## IX. Prochaine étape planifiée — Externalisation du backend (prérequis multi-plateforme)
+
+> **But** : rendre l'app déployable sur Samsung Tizen, LG webOS, Android (Capacitor) et iOS. Ces plateformes n'exécutent pas Node.js — le backend (ffmpeg, ffprobe, proxy Xtream) doit tourner sur un serveur externe (VPS, Raspberry Pi, NAS local). C'est le **seul prérequis** commun à tous les portages.
+
+**État actuel** : le backend vit dans `vite.config.ts` (dev) et dans `server/proxy.cjs` (prod). Le frontend appelle des chemins relatifs `/api/*` — frontend et backend sont toujours co-localisés.
+
+**Architecture cible** (voir `docs/architecture.md` §5 pour le détail) :
+1. Nouveau helper `src/lib/api.ts` → `apiUrl(path)` : préfixe `VITE_API_BASE_URL` si défini, sinon chemin relatif. **Seul point de construction des URLs `/api/*`** dans tout le code.
+2. Tous les appels `/api/...` (hooks, services, vite.config) remplacés par `apiUrl('/api/...')`.
+3. `server/proxy.cjs` : CORS configurable (`ALLOWED_ORIGINS`), port via `PORT` env var, script `npm run server`.
+4. `package.json` : `"build:tv": "VITE_API_BASE_URL=https://mon-api.example.com npm run build"` (bundle pour TV/mobile).
+5. `npm run dev` **inchangé** — le plugin Vite continue d'injecter `/api/*` en dev (DX identique).
+
+**Invariants** : Supabase (SDK frontend direct), TMDB (HTTP direct) et tous les garde-fous §IV restent intacts. Aucune route `/api/*` ne proxifie vers Supabase ni TMDB.
+
+**Commandes cibles après implémentation** :
+```bash
+npm run dev          # inchangé — backend inline Vite
+npm run build        # web co-localisé (VITE_API_BASE_URL vide)
+npm run build:tv     # bundle TV/mobile (VITE_API_BASE_URL pointant vers le VPS)
+npm run server       # lance server/proxy.cjs en standalone (port $PORT ou 4000)
+```

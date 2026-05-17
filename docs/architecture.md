@@ -128,6 +128,50 @@ Le pipeline média est hybride :
 | Navigation télécommande (norigin) : assigner `useFocusable().ref.current`, Backspace capté dans un champ, ou écouteur clavier global actif sur le `/player` | Le `ref` norigin est un `RefObject` **lecture seule** (`.current` non assignable → erreur TS) ; Backspace global casserait la saisie de recherche ; un global key-handler entrerait en conflit avec l'Échap du lecteur | Attacher le `ref` norigin directement (`ref={cellRef}`) et ne faire que LE LIRE pour mesurer/scroller (pas de merge par assignation). `RemoteControl` (global Back + lock scroll flèches + focus initial) monté **dans le Shell uniquement** → absent de `/player` (route hors Shell, garde son Échap). Back ignoré si `document.activeElement` est input/textarea/contenteditable. Halo focus via classe `.focused`/`.rc-focused` (tokens Aurora) + `scrollIntoView` sur focus (l'élément sélectionné doit rester visible sur TV) |
 | Aperçu au survol (`PreviewCard`) : reflow de la grille, `<iframe>` YouTube brut, ou lecteur laissé vivant après le survol | Le reflow de pistes CSS grid ne s'anime pas (saccades, surtout en bout de ligne) ; un `<iframe>` brut affiche le gros bouton « play » / branding YouTube et ne démarre pas le son ; lecteur non détruit = audio + réseau en fond. NB : l'extrait du vrai flux a été tenté (HLS via `useHls`) mais beaucoup de fournisseurs Xtream ne servent pas un `.m3u8` VOD seekable → aperçu vide ; on s'en tient au trailer YouTube | Overlay `position: fixed` en portal sur `body`, scalé depuis le centre de la carte, clampé au viewport (jamais de rewrap). Trailer via l'**API YouTube IFrame** (pas un iframe brut) : autoplay muté programmatique + révélé seulement quand `currentTime` croît vraiment (poster jusque-là → l'état « non démarré » n'est pas vu, résidu de pastille accepté) ; `unMute()`+`setVolume` bas best-effort (politique autoplay navigateur peut re-muter) ; pas de `loop`/`playlist` (boucle manuelle sur `ENDED` → pas de boutons skip) ; `scale(1.5)` rogne le filigrane. `player.destroy()` + `abort()` du résolveur sur `mouseleave`/scroll/unmount ; intention survol ~1 s ; cap 30 s. Résolveur TMDB passé en prop par la **page** (couplage : un composant n'importe pas `services/`) |
 
+---
+
+## 5. Architecture cible — Backend externalisé (multi-plateforme)
+
+> Ce §5 décrit l'état **à implémenter** (voir `CLAUDE.md` §IX pour le contexte et les commandes).
+
+### Problème
+Samsung Tizen, LG webOS, Android Capacitor, iOS : le bundle web est exécuté dans un WebView — pas de Node.js disponible. Les routes `/api/*` (ffmpeg, ffprobe, proxy Xtream) ne peuvent pas tourner localement sur ces plateformes.
+
+### Solution : `VITE_API_BASE_URL` + helper `apiUrl`
+
+**`src/lib/api.ts`** — seul endroit qui construit les URL `/api/*` :
+```ts
+/** Préfixe l'URL du backend si VITE_API_BASE_URL est défini (builds TV/mobile).
+ *  En web co-localisé la variable est vide → chemin relatif inchangé. */
+export const apiUrl = (path: string): string =>
+  `${import.meta.env.VITE_API_BASE_URL ?? ''}${path}`;
+```
+- Tous les appels `/api/*` existants dans `src/` remplacés par `apiUrl('/api/...')`.
+- **Règle** : `import.meta.env.VITE_API_BASE_URL` n'est jamais concaténé en dehors de ce fichier.
+
+### Changements `server/proxy.cjs`
+- Middleware CORS : `Access-Control-Allow-Origin: ${process.env.ALLOWED_ORIGINS ?? '*'}` (avec preflight OPTIONS).
+- Port configurable via `process.env.PORT` (défaut 4000).
+- Script `npm run server` dans `package.json`.
+- Aucune logique métier modifiée — uniquement les garde-fous opérationnels (`ffprobe pipe:0`, UA VLC, etc.) restent intacts.
+
+### Builds par cible
+| Cible | Commande | `VITE_API_BASE_URL` |
+|---|---|---|
+| Web (co-localisé) | `npm run build` | `` (vide, chemins relatifs) |
+| TV / Mobile | `npm run build:tv` | `https://mon-api.example.com` |
+
+### Règle de couplage (ajout au §3)
+`apiUrl()` depuis `src/lib/api.ts` est le **seul** point de construction des URL `/api/*`. Aucun hook, service, composant ou page ne doit référencer `import.meta.env.VITE_API_BASE_URL` directement.
+
+### Ce qui ne change PAS
+- `npm run dev` : plugin Vite inline inchangé — DX identique.
+- Supabase : SDK frontend direct, jamais via `/api/*`.
+- TMDB : HTTP direct, jamais via `/api/*`.
+- Tous les garde-fous §IV (ffprobe stdin pipe, seekOffset, UA live, etc.).
+
+---
+
 ### HLS / Sous-titres
 
 | Anti-pattern | Pourquoi | Correctif |
