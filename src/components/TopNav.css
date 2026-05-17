@@ -1,10 +1,36 @@
 /* ====================================================================
-   VANTA · Top nav — floating centered capsule
-   tiny by default (icons + brand mark), expands on hover/focus
-   to reveal labels next to each icon.  Global (non-module) so the
-   descendant hover/focus-within rules stay verbatim from the design.
+   IPTVAX · Top nav — floating centered capsule (nav links only)
+   Brand fixed left · Profile fixed right · outside the capsule.
    ==================================================================== */
 
+/* ---- Brand — fixed left ------------------------------------------- */
+.brand-fixed {
+  position: fixed;
+  top: 18px;
+  left: 28px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  pointer-events: none;
+}
+.brand-fixed .brand-mark {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+  flex-shrink: 0;
+}
+.brand-fixed .brand-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--t-1);
+  white-space: nowrap;
+}
+
+/* ---- Navbar capsule (centered) ------------------------------------ */
 .topnav {
   position: fixed;
   top: 18px;
@@ -28,7 +54,6 @@
     border-color 240ms var(--ease),
     box-shadow 320ms var(--ease);
 }
-
 .topnav:hover,
 .topnav:focus-within {
   padding: 4px 10px;
@@ -39,71 +64,24 @@
     0 0 0 1px rgba(255, 255, 255, 0.04),
     0 12px 48px rgba(0, 0, 0, 0.5);
 }
-
 .topnav.scrolled {
   background: rgba(8, 8, 8, 0.7);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* ---- Brand ---- */
-.topnav .brand {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: 0 8px 0 10px;
-  height: 40px;
-  border-radius: 999px;
-  overflow: hidden;
-}
-.topnav .brand-mark {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
-  flex-shrink: 0;
-  transition: width 240ms var(--ease), height 240ms var(--ease);
-}
-.topnav .brand-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--t-1);
-  white-space: nowrap;
-  margin-left: 0;
-  max-width: 0;
-  opacity: 0;
-  transition: max-width 320ms var(--ease), margin-left 320ms var(--ease), opacity 200ms var(--ease);
-}
-.topnav:hover .brand-name,
-.topnav:focus-within .brand-name {
-  max-width: 110px;
-  margin-left: 10px;
-  opacity: 1;
-  transition-delay: 60ms;
-}
-
-.topnav .nav-sep {
-  width: 3px; height: 3px;
-  border-radius: 50%;
-  background: var(--t-3);
-  opacity: 0;
-  transform: scale(0.4);
-  transition: opacity 240ms var(--ease), transform 240ms var(--ease);
-  margin: 0 2px;
-}
-.topnav:hover .nav-sep,
-.topnav:focus-within .nav-sep {
-  opacity: 1;
-  transform: scale(1);
-  transition-delay: 80ms;
-}
-
-/* ---- Nav links ---- */
+/* ---- Nav links ---------------------------------------------------- */
 .topnav .links {
   display: flex;
   align-items: center;
   gap: 2px;
 }
+
+/* Wrapper Focusable → border-radius 999px pour que rc-focused
+   suive la forme pill et non un carré */
+.topnav .nav-foc {
+  border-radius: 999px;
+}
+
 .topnav .link {
   position: relative;
   display: inline-flex;
@@ -127,8 +105,7 @@
     gap 320ms var(--ease);
 }
 .topnav .link .ic {
-  width: 18px;
-  height: 18px;
+  width: 18px; height: 18px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -176,7 +153,7 @@
   border-radius: 2px;
 }
 
-/* ---- Right-side actions ---- */
+/* ---- Séparateur + bouton recherche -------------------------------- */
 .topnav .nav-sep-right {
   width: 1px;
   height: 20px;
@@ -191,14 +168,9 @@
   transition-delay: 100ms;
 }
 
-.topnav .top-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
+/* icon-btn : border-radius 50% → rc-focused sera circulaire */
 .topnav .icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 40px; height: 40px;
   display: grid;
   place-items: center;
   color: var(--t-2);
@@ -206,47 +178,58 @@
   background: transparent;
   border: 0;
   cursor: pointer;
-  position: relative;
   transition:
     color var(--d-micro) var(--ease),
     background var(--d-micro) var(--ease);
 }
 .topnav .icon-btn:hover { color: var(--t-1); background: rgba(255, 255, 255, 0.06); }
-.topnav .icon-btn.has-dot::after {
-  content: '';
-  position: absolute;
-  top: 10px; right: 10px;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent-glow);
+
+/* ---- Profil — fixed right ---------------------------------------- */
+.profile-fixed {
+  position: fixed;
+  top: 18px;
+  right: 28px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  height: 48px;
+}
+.profile-fixed .profile-wrapper {
+  position: relative;
 }
 
-.topnav .profile {
+/* Le Focusable rend une <div className="profile"> */
+.profile-fixed .profile {
   display: flex;
   align-items: center;
   gap: 0;
   height: 40px;
-  padding: 0 4px;
+  padding: 4px 6px;
   border-radius: 999px;
-  background: transparent;
+  background: rgba(8, 8, 8, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: saturate(160%) blur(24px);
+  -webkit-backdrop-filter: saturate(160%) blur(24px);
   cursor: pointer;
   transition:
     background var(--d-micro) var(--ease),
+    border-color 240ms var(--ease),
+    box-shadow 320ms var(--ease),
     padding 320ms var(--ease),
     gap 320ms var(--ease);
 }
-.topnav .profile:hover { background: rgba(255, 255, 255, 0.06); }
-.topnav:hover .profile,
-.topnav:focus-within .profile {
-  padding: 0 8px 0 6px;
+.profile-fixed .profile:hover,
+.profile-fixed.rc-open .profile {
+  padding: 4px 12px 4px 6px;
   gap: 8px;
-}
-.topnav .profile-wrapper {
-  position: relative;
+  background: rgba(8, 8, 8, 0.78);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 12px 48px rgba(0, 0, 0, 0.5);
 }
 
-.topnav .profile .avatar-btn {
+.profile-fixed .profile .avatar-btn {
   width: 30px; height: 30px;
   border-radius: 9px;
   background:
@@ -258,11 +241,12 @@
   border: 1px solid color-mix(in srgb, var(--pf, var(--accent)) 32%, transparent);
   flex-shrink: 0;
 }
-.topnav .profile .avatar-btn .avatar-emoji {
+.profile-fixed .profile .avatar-btn .avatar-emoji {
   font-size: 16px;
   line-height: 1;
 }
-.topnav .profile .who {
+
+.profile-fixed .profile .who {
   display: flex;
   flex-direction: column;
   text-align: left;
@@ -274,17 +258,17 @@
     max-width 320ms var(--ease),
     opacity 200ms var(--ease);
 }
-.topnav:hover .profile .who,
-.topnav:focus-within .profile .who {
-  max-width: 96px;
+.profile-fixed .profile:hover .who,
+.profile-fixed.rc-open .profile .who {
+  max-width: 100px;
   opacity: 1;
-  transition-delay: 100ms;
+  transition-delay: 60ms;
 }
-.topnav .profile .who .name {
+.profile-fixed .profile .who .name {
   font-size: 12px; font-weight: 500; color: var(--t-1);
   white-space: nowrap;
 }
-.topnav .profile .who .plan {
+.profile-fixed .profile .who .plan {
   font-size: 10px;
   color: var(--t-3);
   letter-spacing: 0.1em;
@@ -292,8 +276,8 @@
   white-space: nowrap;
 }
 
-/* ---- Déploiement au focus télécommande (norigin n'applique pas le focus
-   DOM → on réplique l'état :hover/:focus-within via la classe .rc-open) ---- */
+/* ---- Déploiement au focus télécommande (norigin) ------------------ */
+/* Navbar */
 .topnav.rc-open {
   padding: 4px 10px;
   gap: 6px;
@@ -302,17 +286,6 @@
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04),
     0 12px 48px rgba(0, 0, 0, 0.5);
-}
-.topnav.rc-open .brand-name {
-  max-width: 110px;
-  margin-left: 10px;
-  opacity: 1;
-  transition-delay: 60ms;
-}
-.topnav.rc-open .nav-sep {
-  opacity: 1;
-  transform: scale(1);
-  transition-delay: 80ms;
 }
 .topnav.rc-open .link .lbl {
   max-width: 100px;
@@ -325,15 +298,6 @@
   border-radius: 2px;
 }
 .topnav.rc-open .nav-sep-right {
-  opacity: 1;
-  transition-delay: 100ms;
-}
-.topnav.rc-open .profile {
-  padding: 0 8px 0 6px;
-  gap: 8px;
-}
-.topnav.rc-open .profile .who {
-  max-width: 96px;
   opacity: 1;
   transition-delay: 100ms;
 }

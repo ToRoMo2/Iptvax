@@ -37,7 +37,7 @@ export function Login() {
       <div className={styles.login}>
         <div className={styles.brand}>
           <span className={styles.brandMark} />
-          VANTA
+          IPTVAX
         </div>
         <div className={styles.card}>
           <div className={styles.eyebrow}>Inscription réussie</div>
@@ -57,7 +57,7 @@ export function Login() {
     <div className={styles.login}>
       <div className={styles.brand}>
         <span className={styles.brandMark} />
-        VANTA
+        IPTVAX
       </div>
 
       <div className={styles.card}>

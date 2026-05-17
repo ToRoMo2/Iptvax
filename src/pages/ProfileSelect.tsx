@@ -50,7 +50,7 @@ export function ProfileSelect() {
     <div className={styles.screen}>
       <div className={styles.brand}>
         <span className={styles.brandMark} />
-        VANTA
+        IPTVAX
       </div>
 
       <h1 className={styles.title}>Qui regarde&nbsp;?</h1>
@@ -184,7 +184,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
     <div className={styles.screen}>
       <div className={styles.brand}>
         <span className={styles.brandMark} />
-        VANTA
+        IPTVAX
       </div>
 
       <div className={styles.editor}>

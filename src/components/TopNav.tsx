@@ -8,7 +8,7 @@ import { FIRST_NAV_FOCUS_KEY, HERO_FOCUS_KEY } from './RemoteControl';
 import { SEARCH_FOCUS_KEY } from './RemoteSearch';
 import './TopNav.css';
 
-/* ── Vanta line icons ────────────────────────────────────────────────────── */
+/* ── Icônes ─────────────────────────────────────────────────────────── */
 const Ic = {
   home: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg>
@@ -28,66 +28,59 @@ const Ic = {
   search: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
   ),
-  bell: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-  ),
-  cast: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M2 16a3 3 0 0 1 3 3M2 12a7 7 0 0 1 7 7M2 8a11 11 0 0 1 11 11"/><rect x="2" y="4" width="20" height="14" rx="2"/></svg>
-  ),
 };
 
 const LINKS = [
-  { to: '/',        label: 'Accueil', icon: Ic.home,   end: true },
-  { to: '/live',    label: 'Live TV', icon: Ic.tv,     end: false },
-  { to: '/movies',  label: 'Films',   icon: Ic.film,   end: false },
-  { to: '/series',  label: 'Séries',  icon: Ic.series, end: false },
-  { to: '/favorites', label: 'Favoris', icon: Ic.star, end: false },
+  { to: '/',         label: 'Accueil', icon: Ic.home,   end: true  },
+  { to: '/live',     label: 'Live TV', icon: Ic.tv,     end: false },
+  { to: '/movies',   label: 'Films',   icon: Ic.film,   end: false },
+  { to: '/series',   label: 'Séries',  icon: Ic.series, end: false },
+  { to: '/favorites',label: 'Favoris', icon: Ic.star,   end: false },
 ];
 
 export function TopNav() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { activeProfile } = useIptvProfile();
 
-  // Depuis la navbar, flèche bas → barre de recherche de la page (Films /
-  // Séries / Live). Ailleurs (Accueil, Favoris…), descente géométrique normale.
+  // Depuis la navbar, flèche bas → barre de recherche (Films/Séries/Live)
+  // ou hero (Accueil) ; ailleurs, déplacement géométrique normal.
   const browseRoute = ['/movies', '/series', '/live'].some((p) =>
     location.pathname.startsWith(p),
   );
   const navArrow = (direction: string): boolean => {
     if (direction !== 'down') return true;
-    if (browseRoute) {
-      setFocus(SEARCH_FOCUS_KEY);
-      return false;
-    }
-    if (location.pathname === '/') {
-      setFocus(HERO_FOCUS_KEY);
-      return false;
-    }
+    if (browseRoute) { setFocus(SEARCH_FOCUS_KEY); return false; }
+    if (location.pathname === '/') { setFocus(HERO_FOCUS_KEY); return false; }
     return true;
   };
 
-  const [scrolled, setScrolled] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
-  // Déploiement de la navbar quand un élément est focus à la télécommande
-  // (norigin n'applique pas le focus DOM → `:focus-within` CSS inopérant).
-  const [navOpen, setNavOpen] = useState(false);
-  const navBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scrolled,     setScrolled]     = useState(false);
+  const [panelOpen,    setPanelOpen]    = useState(false);
+  // Déploiement navbar (liens) au focus télécommande
+  const [navOpen,      setNavOpen]      = useState(false);
+  // Déploiement profil au focus télécommande
+  const [profileOpen,  setProfileOpen]  = useState(false);
+
+  const navBlurTimer     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const profileBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileWrapperRef = useRef<HTMLDivElement>(null);
 
-  const onNavFocus = () => {
-    if (navBlurTimer.current) clearTimeout(navBlurTimer.current);
-    setNavOpen(true);
-  };
-  // Petit délai : passer d'un item nav à l'autre = blur puis focus → on ne
-  // referme pas la capsule entre les deux.
-  const onNavBlur = () => {
+  const onNavFocus = () => { if (navBlurTimer.current) clearTimeout(navBlurTimer.current); setNavOpen(true); };
+  const onNavBlur  = () => {
     if (navBlurTimer.current) clearTimeout(navBlurTimer.current);
     navBlurTimer.current = setTimeout(() => setNavOpen(false), 80);
   };
 
+  const onProfileFocus = () => { if (profileBlurTimer.current) clearTimeout(profileBlurTimer.current); setProfileOpen(true); };
+  const onProfileBlur  = () => {
+    if (profileBlurTimer.current) clearTimeout(profileBlurTimer.current);
+    profileBlurTimer.current = setTimeout(() => setProfileOpen(false), 80);
+  };
+
   useEffect(() => () => {
-    if (navBlurTimer.current) clearTimeout(navBlurTimer.current);
+    if (navBlurTimer.current)     clearTimeout(navBlurTimer.current);
+    if (profileBlurTimer.current) clearTimeout(profileBlurTimer.current);
   }, []);
 
   useEffect(() => {
@@ -100,47 +93,45 @@ export function TopNav() {
   }, []);
 
   const profileName = activeProfile?.name ?? 'Profil';
-  const avatarVar = {
-    '--pf': `var(--${activeProfile?.color ?? 'profile-1'})`,
-  } as CSSProperties;
+  const avatarVar   = { '--pf': `var(--${activeProfile?.color ?? 'profile-1'})` } as CSSProperties;
 
   return (
-    <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>
-      <div className="brand" title="Vanta">
+    <>
+      {/* ── Brand — fixé à gauche ───────────────────────────────────── */}
+      <div className="brand-fixed" title="Iptvax">
         <span className="brand-mark" />
-        <span className="brand-name">VANTA</span>
+        <span className="brand-name">IPTVAX</span>
       </div>
 
-      <span className="nav-sep" />
-
-      <nav className="links" aria-label="Primary">
-        {LINKS.map(({ to, label, icon: Icon, end }, i) => (
-          <Focusable
-            key={to}
-            focusKey={i === 0 ? FIRST_NAV_FOCUS_KEY : undefined}
-            className="nav-foc"
-            onEnter={() => navigate(to)}
-            onFocused={onNavFocus}
-            onBlurred={onNavBlur}
-            onArrow={navArrow}
-          >
-            <NavLink
-              to={to}
-              end={end}
-              className={({ isActive }) => `link ${isActive ? 'active' : ''}`}
-              title={label}
-              tabIndex={-1}
+      {/* ── Capsule navbar — centrée, liens uniquement ──────────────── */}
+      <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>
+        <nav className="links" aria-label="Primary">
+          {LINKS.map(({ to, label, icon: Icon, end }, i) => (
+            <Focusable
+              key={to}
+              focusKey={i === 0 ? FIRST_NAV_FOCUS_KEY : undefined}
+              className="nav-foc"
+              onEnter={() => navigate(to)}
+              onFocused={onNavFocus}
+              onBlurred={onNavBlur}
+              onArrow={navArrow}
             >
-              <span className="ic"><Icon /></span>
-              <span className="lbl">{label}</span>
-            </NavLink>
-          </Focusable>
-        ))}
-      </nav>
+              <NavLink
+                to={to}
+                end={end}
+                className={({ isActive }) => `link ${isActive ? 'active' : ''}`}
+                title={label}
+                tabIndex={-1}
+              >
+                <span className="ic"><Icon /></span>
+                <span className="lbl">{label}</span>
+              </NavLink>
+            </Focusable>
+          ))}
+        </nav>
 
-      <span className="nav-sep-right" />
+        <span className="nav-sep-right" />
 
-      <div className="top-actions">
         <Focusable
           className="icon-btn"
           onEnter={() => navigate('/search')}
@@ -153,22 +144,21 @@ export function TopNav() {
         >
           <Ic.search />
         </Focusable>
-        <button className="icon-btn has-dot" title="Notifications" type="button">
-          <Ic.bell />
-        </button>
-        <button className="icon-btn" title="Cast" type="button">
-          <Ic.cast />
-        </button>
+      </header>
 
-        {/* Profil actif + panel */}
-        <div className="profile-wrapper" ref={profileWrapperRef}>
+      {/* ── Profil — fixé à droite ──────────────────────────────────── */}
+      <div
+        className={`profile-fixed ${profileOpen ? 'rc-open' : ''}`}
+        ref={profileWrapperRef}
+      >
+        <div className="profile-wrapper">
           <Focusable
             className="profile"
             title={profileName}
             onEnter={() => setPanelOpen((o) => !o)}
             onClick={() => setPanelOpen((o) => !o)}
-            onFocused={onNavFocus}
-            onBlurred={onNavBlur}
+            onFocused={onProfileFocus}
+            onBlurred={onProfileBlur}
             onArrow={navArrow}
           >
             <div className="avatar-btn" style={avatarVar}>
@@ -183,6 +173,6 @@ export function TopNav() {
           {panelOpen && <ProfilePanel onClose={() => setPanelOpen(false)} />}
         </div>
       </div>
-    </header>
+    </>
   );
 }
