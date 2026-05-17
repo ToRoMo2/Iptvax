@@ -1,0 +1,134 @@
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  max-width: 520px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-3);
+}
+
+.value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.starsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.linkBtn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--t-3);
+  text-decoration: underline;
+  transition: color var(--d-micro) var(--ease);
+}
+
+.linkBtn:hover {
+  color: var(--t-1);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dateLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--t-2);
+}
+
+.dateInput {
+  background: transparent;
+  color: var(--t-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ui);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t-2);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ui);
+  transition: color var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease),
+    background var(--d-micro) var(--ease);
+}
+
+.removeBtn:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.removeArmed {
+  color: #fff;
+  background: var(--error);
+  border-color: var(--error);
+}
+
+.review {
+  width: 100%;
+  background: var(--bg);
+  color: var(--t-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ui);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.review::placeholder {
+  color: var(--t-4);
+}
+
+.review:focus {
+  outline: none;
+  border-color: var(--accent);
+}

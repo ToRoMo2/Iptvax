@@ -1,0 +1,43 @@
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+  user-select: none;
+  color: var(--warning);
+}
+
+.star {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  cursor: pointer;
+}
+
+.ro .star {
+  cursor: default;
+}
+
+.bg,
+.fg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bg {
+  color: var(--t-4);
+}
+
+.fg {
+  color: var(--warning);
+  width: 0;
+  transition: width var(--d-micro) var(--ease);
+}
+
+.stars:not(.ro):hover .fg {
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}

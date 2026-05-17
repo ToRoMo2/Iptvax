@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
+import { socialService } from '../services/social.service';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import type { IptvProfile, IptvProfileInput } from '../types/profile.types';
 
@@ -21,6 +22,8 @@ interface IptvProfileContextValue {
   createProfile: (input: IptvProfileInput) => Promise<IptvProfile>;
   updateProfile: (id: string, patch: Partial<IptvProfileInput>) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
+  /** Bascule « ciné public » : RPC d'allocation du discriminateur + maj état. */
+  setProfilePublic: (id: string, isPublic: boolean) => Promise<void>;
 }
 
 const IptvProfileContext = createContext<IptvProfileContextValue | null>(null);
@@ -103,6 +106,22 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const setProfilePublic = useCallback(
+    async (id: string, isPublic: boolean) => {
+      const disc = await socialService.setProfilePublic(id, isPublic);
+      const apply = (p: IptvProfile): IptvProfile => ({
+        ...p,
+        is_public: isPublic,
+        discriminator: disc ?? p.discriminator,
+      });
+      setProfiles((prev) => prev.map((p) => (p.id === id ? apply(p) : p)));
+      setActiveProfile((prev) =>
+        prev?.id === id ? apply(prev) : prev,
+      );
+    },
+    [],
+  );
+
   const deleteProfile = useCallback(
     async (id: string) => {
       const { error } = await supabase.from('iptv_profiles').delete().eq('id', id);
@@ -127,6 +146,7 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
         createProfile,
         updateProfile,
         deleteProfile,
+        setProfilePublic,
       }}
     >
       {children}

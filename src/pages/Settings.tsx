@@ -72,8 +72,22 @@ const TABS: { id: Tab; label: string; Icon: () => JSX.Element }[] = [
 
 export function Settings() {
   const { userInfo, credentials } = useXtream();
-  const { activeProfile, clearActiveProfile } = useIptvProfile();
+  const { activeProfile, clearActiveProfile, setProfilePublic } =
+    useIptvProfile();
   const [tab, setTab] = useState<Tab>('account');
+  const [publicBusy, setPublicBusy] = useState(false);
+
+  const handleTogglePublic = async (next: boolean) => {
+    if (!activeProfile || publicBusy) return;
+    setPublicBusy(true);
+    try {
+      await setProfilePublic(activeProfile.id, next);
+    } catch {
+      // L'état dérive de activeProfile : pas de maj en cas d'échec → no-op.
+    } finally {
+      setPublicBusy(false);
+    }
+  };
 
   // Playback settings (stored in state — could persist to localStorage)
   const [autoPlay, setAutoPlay]     = useState(true);
@@ -145,6 +159,21 @@ export function Settings() {
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>Profil</div>
                 {activeProfile && <InfoRow label="Profil actif" value={`${activeProfile.avatar}  ${activeProfile.name}`} />}
+                {activeProfile && (
+                  <ToggleRow
+                    id="public-cine"
+                    label="Rendre mon ciné public"
+                    description="Vos notes et critiques deviennent visibles par la communauté. Vos identifiants IPTV restent privés."
+                    checked={activeProfile.is_public}
+                    onChange={handleTogglePublic}
+                  />
+                )}
+                {activeProfile?.is_public && activeProfile.discriminator && (
+                  <InfoRow
+                    label="Identifiant public"
+                    value={`${activeProfile.name}#${activeProfile.discriminator}`}
+                  />
+                )}
                 <div className={styles.row}>
                   <div className={styles.rowText}>
                     <div className={styles.rowLabel}>Changer de profil</div>
@@ -204,7 +233,7 @@ export function Settings() {
           {tab === 'about' && (
             <>
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Aurora IPTV</div>
+                <div className={styles.sectionLabel}>Iptvax</div>
                 <InfoRow label="Version" value="2.4.0" />
                 <InfoRow label="Build" value="2026.05" muted />
                 <InfoRow label="Framework" value="React 18 · Vite · TypeScript" muted />
@@ -223,7 +252,7 @@ export function Settings() {
               </section>
 
               <div className={styles.versionChip}>
-                <span>Aurora IPTV</span>
+                <span>Iptvax</span>
                 <span className={styles.versionDot} />
                 <span>v2.4.0</span>
                 <span className={styles.versionDot} />

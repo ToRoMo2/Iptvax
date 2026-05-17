@@ -6,8 +6,11 @@ import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
+import { splitMeta } from '../utils/ratings';
 import { safeImgUrl } from '../utils/image';
+import { RateBlock } from '../components/RateBlock/RateBlock';
+import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
@@ -161,6 +164,27 @@ export function SeriesDetail() {
   const episodeCount = seasons.reduce((acc, s) => acc + (info?.episodes[s]?.length ?? 0), 0);
   const showVariants = variants.length > 1;
 
+  // Snapshot figé pour le mur « Mon ciné » — série entière (granularité v1).
+  // Métadonnées Xtream toujours présentes, TMDB additif si dispo.
+  const watchedInput = useMemo<WatchedInput | null>(() => {
+    if (Number.isNaN(seriesId)) return null;
+    return {
+      contentType: 'series',
+      contentId: `series-${seriesId}`,
+      titleKey: titleKey(title),
+      title: displayTitle,
+      year: year ? Number(year) : undefined,
+      poster: tmdb?.poster ?? info?.info.cover ?? variant?.cover,
+      backdrop: tmdb?.backdrop ?? info?.info.backdrop_path?.[0],
+      tmdbId: tmdb?.tmdbId,
+      genres: splitMeta(genre),
+      cast: tmdb?.cast.length
+        ? tmdb.cast.map((c) => c.name)
+        : splitMeta(info?.info.cast ?? variant?.cast),
+      directors: splitMeta(director),
+    };
+  }, [seriesId, title, displayTitle, year, tmdb, info, variant, genre, director]);
+
   return (
     <div className={styles.page}>
       {/* Hero banner */}
@@ -245,6 +269,10 @@ export function SeriesDetail() {
                   {inList ? '✓ Dans ma liste' : '+ Ma liste'}
                 </Focusable>
               </div>
+
+              {watchedInput && (
+                <RateBlock input={watchedInput} starsFocusKey="rc-rate-stars" />
+              )}
 
               {showVariants && (
                 <div className={styles.versionBlock}>

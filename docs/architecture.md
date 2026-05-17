@@ -34,7 +34,7 @@ Le pipeline média est hybride :
 │    ↓ importe                        ↑ lit context    │
 │  hooks/           (usePlayer — toute la logique AV)  │
 │    ↓ importe                                         │
-│  contexts/        (SupabaseAuth → IptvProfile → Library) │
+│  contexts/        (SupabaseAuth → IptvProfile → Library → Ratings) │
 │  context/         (XtreamContext — creds profil actif)│
 │    ↓ importe                                         │
 │  services/        (xtream.service, library.service)  │
@@ -54,11 +54,19 @@ Le pipeline média est hybride :
 │  /api/liveproxy → MPEG-TS    │  │  favorites           │
 │  /api/img       → node:https │  │  watch_history       │
 │  /api/probe     → ffprobe    │  │  user_settings       │
-│  /api/subtitle  → ffmpeg VTT │  │  (toutes RLS         │
-│  /api/streambase→ keyframe   │  │   auth.uid() +       │
-│  /api/stream    → ffmpeg fMP4│  │   profile_id)        │
+│  /api/subtitle  → ffmpeg VTT │  │  watched_titles      │
+│  /api/streambase→ keyframe   │  │  (toutes RLS         │
+│  /api/stream    → ffmpeg fMP4│  │   auth.uid() +       │
+│                              │  │   profile_id)        │
 └──────────────────────────────┘  └──────────────────────┘
 ```
+
+**Couche communautaire (opt-in, lecture seule)** — seule entorse à l'isolation par profil :
+- Tables : `profile_follows`, `profile_member_ratings` (RLS : côté acteur ∈ profils de `auth.uid()`, cible publique).
+- Colonnes ajoutées à `iptv_profiles` : `is_public`, `discriminator` (jamais lues en cross-profil).
+- **Vues definer** `public_profiles` / `public_profile_stats` : seul canal de lecture cross-compte, exposant un sous-ensemble **sûr** (jamais `user_id`, jamais credentials Xtream).
+- Policy additive `watched_titles` `for select` si profil propriétaire `is_public`.
+- RPC `set_profile_public` (SECURITY DEFINER) : bascule public + alloue le discriminateur Discord-style.
 
 ---
 
@@ -71,7 +79,7 @@ Le pipeline média est hybride :
 | `lib/` | npm libs | `services/`, `context(s)/`, `hooks/`, `components/`, `pages/` |
 | `services/` | `lib/`, `types/` | `hooks/`, `context(s)/`, `components/`, `pages/` |
 | `context/` (legacy : `XtreamContext`) | `services/`, `types/` | `hooks/`, `components/`, `pages/` |
-| `contexts/` (Supabase/Profil/Library) | `lib/`, `services/`, `types/`, autres `contexts/` | `hooks/`, `components/`, `pages/` |
+| `contexts/` (Supabase/Profil/Library/Ratings/Social) | `lib/`, `services/`, `types/`, `utils/` (pur, zéro import), autres `contexts/` | `hooks/`, `components/`, `pages/` |
 | `hooks/` | `types/`, `utils/` | `services/` directement, `context(s)/`, `pages/`, `components/` |
 | `components/` | `hooks/`, `types/`, `utils/`, `*.module.css`, **hooks de context (`use*`) en lecture** | `services/`, `lib/`, `pages/` |
 | `pages/` | tout sauf `pages/` entre elles | import circulaire entre pages |
@@ -81,7 +89,9 @@ Le pipeline média est hybride :
 >
 > **Composants ↔ context** : un composant peut *consommer* un context via son hook (`useXtream`, `useIptvProfile`, `useLibrary`…) — ex. `TopNav`, `ProfilePanel`. Il ne doit jamais importer un `*.service` ni `lib/` en direct.
 >
-> **Ordre des providers** (`App.tsx`) : `SupabaseAuthProvider` → `IptvProfileProvider` → (profil actif) → `XtreamProvider key={profileId}` → `LibraryProvider`. `LibraryProvider`/`XtreamProvider` sont remontés au changement de profil via la `key` → rechargement propre des données du nouveau profil.
+> **Ordre des providers** (`App.tsx`) : `SupabaseAuthProvider` → `IptvProfileProvider` → (profil actif) → `XtreamProvider key={profileId}` → `LibraryProvider` → `RatingsProvider` → `SocialProvider`. `LibraryProvider`/`XtreamProvider` sont remontés au changement de profil via la `key` → rechargement propre des données du nouveau profil. `RatingsProvider` est imbriqué **dans** `LibraryProvider` car il lit `useLibrary().history` pour l'auto-« vu » des films terminés (>90 %). `SocialProvider` (suivis + notes de membres du profil actif) est le plus interne. `IptvProfileContext` importe `socialService` pour la RPC `set_profile_public` (un `contexts/` peut importer un `services/`).
+>
+> **Identité de contenu « Mon ciné »** : `RatingsContext` et les fiches détail importent le pur `utils/catalog.titleKey()` comme clé canonique stable (un titre garde sa note malgré un changement de serveur Xtream ou de variante). C'est l'unique cas où un `contexts/` consomme `utils/` — autorisé car `utils/` est la couche la plus basse (zéro import runtime), strictement en dessous de `services/`.
 
 ---
 
@@ -122,6 +132,8 @@ Le pipeline média est hybride :
 | Recherche catalogue chargée paresseusement + repli sur catégorie courante | Avant fin du fetch global → résultats partiels trompeurs ; filtre + monte des milliers de `MediaCard` à chaque frappe → jank (surtout Films) | Précharger le dataset global au montage ; debounce ~200 ms ; `MIN_SEARCH_LEN` (3 car.) ; plafond `RESULT_LIMIT` (80) |
 | Favoris / historique / credentials Xtream en `localStorage` | Pas de synchro cross-device, pas d'isolation par profil — c'est la raison d'être de la BDD | Supabase scopé `profile_id` via `LibraryContext`/`IptvProfileContext` (RLS `auth.uid()`) ; localStorage réservé à l'id du profil actif + prefs sous-titres |
 | Lire favoris/historique de façon synchrone (`useState(() => get())`) | Les données arrivent en async de Supabase → état figé vide au 1er rendu | Charger dans le provider, exposer via context ; mises à jour optimistes + upsert async |
+| Policy RLS de lecture publique sur `iptv_profiles` ou `select('*')` cross-profil pour le social | La table porte les credentials Xtream (RLS est par ligne, pas par colonne) → fuite massive de mots de passe IPTV | Lecture cross-compte UNIQUEMENT via vues definer `public_profiles`/`public_profile_stats` (sous-ensemble sûr, jamais `user_id`/credentials) + policy `watched_titles` `for select` si `is_public` |
+| `getWatched`/`isFollowing`/`memberRating` (lecture via `ref`) utilisés directement dans le rendu | Le `ref` n'est pas réactif → l'UI ne se rafraîchit pas au changement (note, suivi) | Dériver l'affichage de l'état réactif (`watched`/`following`/`memberRatings`) ; réserver les helpers `ref` aux callbacks |
 | Enfant `aspect-ratio` (aperçu vidéo) dans un flex column scrollable sans `flex-shrink: 0` | L'algo flexbox écrase à 0 px de haut l'élément sans contenu texte (les blocs de texte gardent leur taille) → aperçu invisible | `flex-shrink: 0` sur le conteneur ratio (`ChannelPreview`) |
 | Décoder les champs base64 EPG (`atob`+`TextDecoder`) dans le JSX du `.map` | ~3 décodages × N lignes **par rendu** du parent (frappe recherche, etc.) | Décoder + dédoublonner + calculer l'état « en cours » UNE fois dans un `useMemo([epg])` ; les panels Xtream renvoient souvent chaque créneau en double (clé = `start_timestamp`) |
 | Aperçu vidéo non muté / sans `key` par chaîne | Autoplay sans geste refusé si non muté ; réutilisation de l'instance au switch → frame figée de l'ancienne chaîne | `<video muted>` + propriété forcée sur `[src]` ; `key={stream_id}` côté parent pour un remount propre |

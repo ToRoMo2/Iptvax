@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useXtream } from '../context/XtreamContext';
@@ -12,6 +13,7 @@ export function ProfilePanel({ onClose }: Props) {
   const { user, signOut } = useSupabaseAuth();
   const { activeProfile, clearActiveProfile, updateProfile } = useIptvProfile();
   const { userInfo } = useXtream();
+  const navigate = useNavigate();
 
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -55,6 +57,11 @@ export function ProfilePanel({ onClose }: Props) {
   const handleSwitchProfile = () => {
     onClose();
     clearActiveProfile();
+  };
+
+  const handleOpenSettings = () => {
+    onClose();
+    navigate('/settings');
   };
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -131,6 +138,13 @@ export function ProfilePanel({ onClose }: Props) {
 
       {/* ── Actions ────────────────────────────────────────────────── */}
       <div className={styles.divider} />
+      <button className={styles.actionBtn} onClick={handleOpenSettings}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Paramètres
+      </button>
       <button className={styles.actionBtn} onClick={handleSwitchProfile}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/>

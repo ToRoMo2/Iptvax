@@ -25,6 +25,9 @@ const Ic = {
   star: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
   ),
+  cine: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17.5h7M17.5 14v7"/></svg>
+  ),
   search: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
   ),
@@ -36,6 +39,7 @@ const LINKS = [
   { to: '/movies',   label: 'Films',   icon: Ic.film,   end: false },
   { to: '/series',   label: 'Séries',  icon: Ic.series, end: false },
   { to: '/favorites',label: 'Favoris', icon: Ic.star,   end: false },
+  { to: '/journal',  label: 'Mon ciné',icon: Ic.cine,   end: false },
 ];
 
 export function TopNav() {

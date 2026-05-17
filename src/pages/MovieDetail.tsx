@@ -6,8 +6,11 @@ import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
+import { splitMeta } from '../utils/ratings';
 import { safeImgUrl } from '../utils/image';
+import { RateBlock } from '../components/RateBlock/RateBlock';
+import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
@@ -118,6 +121,28 @@ export function MovieDetail() {
     .filter(Boolean);
   const showVariants = variants.length > 1;
 
+  // Snapshot figé pour le mur « Mon ciné » : métadonnées Xtream (toujours
+  // présentes) enrichies par TMDB si dispo. Purement additif.
+  const watchedInput = useMemo<WatchedInput | null>(() => {
+    if (!movie) return null;
+    const target = selected ?? movie;
+    return {
+      contentType: 'movie',
+      contentId: `movie-${target.stream_id}`,
+      titleKey: titleKey(movie.name),
+      title: displayTitle,
+      year: year ? Number(year) : undefined,
+      poster: tmdb?.poster ?? movie.stream_icon ?? movie.backdrop_path?.[0],
+      backdrop: tmdb?.backdrop ?? movie.backdrop_path?.[0],
+      tmdbId: tmdb?.tmdbId,
+      genres: splitMeta(movie.genre),
+      cast: tmdb?.cast.length
+        ? tmdb.cast.map((c) => c.name)
+        : splitMeta(movie.cast),
+      directors: splitMeta(movie.director),
+    };
+  }, [movie, selected, displayTitle, year, tmdb]);
+
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -190,6 +215,10 @@ export function MovieDetail() {
                   {inList ? '✓ Dans ma liste' : '+ Ma liste'}
                 </Focusable>
               </div>
+
+              {watchedInput && (
+                <RateBlock input={watchedInput} starsFocusKey="rc-rate-stars" />
+              )}
 
               {showVariants && (
                 <div className={styles.versionBlock}>

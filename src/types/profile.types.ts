@@ -16,6 +16,11 @@ export interface IptvProfile {
   xtream_username: string;
   xtream_password: string;
   created_at: string;
+  /** Ciné public (opt-in) : notes & critiques visibles par la communauté. */
+  is_public: boolean;
+  /** Discriminateur Discord-style (« 0042 ») unique par nom — null tant que
+   *  le profil n'a jamais été rendu public. */
+  discriminator: string | null;
 }
 
 export interface IptvProfileInput {
