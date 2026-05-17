@@ -11,10 +11,8 @@ import { safeImgUrl } from '../utils/image';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
+import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
 import styles from './SeriesDetail.module.css';
-
-/** Focus key du bouton « Lire » — cible des redirections depuis le bouton Retour. */
-const SERIES_PLAY_FOCUS_KEY = 'rc-series-play';
 
 interface LocationState {
   series?: SeriesItem;
@@ -67,8 +65,8 @@ export function SeriesDetail() {
   useEffect(() => {
     if (!loading && downPending.current) {
       downPending.current = false;
-      const id = setTimeout(() => setFocus(SERIES_PLAY_FOCUS_KEY), 80);
-      return () => clearTimeout(id);
+      const tid = setTimeout(() => setFocus(DETAIL_PLAY_FOCUS_KEY), 80);
+      return () => clearTimeout(tid);
     }
   }, [loading]);
 
@@ -177,19 +175,18 @@ export function SeriesDetail() {
         <div className={styles.overlayBottom} />
         <Focusable
           className={styles.back}
+          focusKey={DETAIL_BACK_FOCUS_KEY}
           onEnter={() => navigate(-1)}
           onClick={() => navigate(-1)}
           ariaLabel="Retour"
           onArrow={(direction) => {
             if (direction === 'down') {
               if (!loading) {
-                // Contenu déjà là : focus direct sur le bouton Lire.
-                setFocus(SERIES_PLAY_FOCUS_KEY);
+                setFocus(DETAIL_PLAY_FOCUS_KEY);
               } else {
-                // Contenu pas encore rendu : mémorise l'intention.
                 downPending.current = true;
               }
-              return false; // annule le déplacement géométrique norigin
+              return false;
             }
             return true;
           }}
@@ -234,7 +231,7 @@ export function SeriesDetail() {
               <div className={styles.actions}>
                 <Focusable
                   className="btn btn-primary"
-                  focusKey={SERIES_PLAY_FOCUS_KEY}
+                  focusKey={DETAIL_PLAY_FOCUS_KEY}
                   onEnter={handlePlayFirst}
                   onClick={handlePlayFirst}
                 >

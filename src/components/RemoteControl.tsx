@@ -9,6 +9,14 @@ export const FIRST_NAV_FOCUS_KEY = 'rc-nav-0';
  *  flèche haut depuis les rails et flèche bas depuis la navbar. */
 export const HERO_FOCUS_KEY = 'rc-hero';
 
+/** Bouton « ← Retour » des pages de détail (Film / Série) — premier
+ *  élément focusable, toujours rendu même pendant le chargement. */
+export const DETAIL_BACK_FOCUS_KEY = 'rc-detail-back';
+
+/** Bouton de lecture principal des pages de détail — cible des redirections
+ *  flèche bas depuis le bouton Retour. */
+export const DETAIL_PLAY_FOCUS_KEY = 'rc-detail-play';
+
 function isEditable(el: Element | null): boolean {
   if (!el) return false;
   const tag = el.tagName;

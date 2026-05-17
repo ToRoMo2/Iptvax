@@ -4,7 +4,7 @@ import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { ProfilePanel } from './ProfilePanel';
 import { Focusable } from './Focusable';
-import { FIRST_NAV_FOCUS_KEY, HERO_FOCUS_KEY } from './RemoteControl';
+import { FIRST_NAV_FOCUS_KEY, HERO_FOCUS_KEY, DETAIL_BACK_FOCUS_KEY } from './RemoteControl';
 import { SEARCH_FOCUS_KEY } from './RemoteSearch';
 import './TopNav.css';
 
@@ -43,15 +43,20 @@ export function TopNav() {
   const location  = useLocation();
   const { activeProfile } = useIptvProfile();
 
-  // Depuis la navbar, flèche bas → barre de recherche (Films/Séries/Live)
-  // ou hero (Accueil) ; ailleurs, déplacement géométrique normal.
-  const browseRoute = ['/movies', '/series', '/live'].some((p) =>
-    location.pathname.startsWith(p),
-  );
+  // Depuis la navbar, flèche bas → cible explicite selon la page courante.
+  // IMPORTANT : on utilise === (pas startsWith) pour les listes, sinon
+  // /series/17103 matcherait /series et setFocus(SEARCH_FOCUS_KEY) partirait
+  // dans le vide (pas de barre de recherche sur les pages de détail).
+  const browseRoute = ['/movies', '/series', '/live'].includes(location.pathname);
+  const detailRoute =
+    location.pathname.startsWith('/series/') ||
+    location.pathname.startsWith('/movie/');
+
   const navArrow = (direction: string): boolean => {
     if (direction !== 'down') return true;
     if (browseRoute) { setFocus(SEARCH_FOCUS_KEY); return false; }
     if (location.pathname === '/') { setFocus(HERO_FOCUS_KEY); return false; }
+    if (detailRoute) { setFocus(DETAIL_BACK_FOCUS_KEY); return false; }
     return true;
   };
 

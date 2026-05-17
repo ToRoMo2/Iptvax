@@ -8,8 +8,10 @@ import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
+import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
+import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
 import styles from './SeriesDetail.module.css';
 
 interface LocationState {
@@ -129,9 +131,17 @@ export function MovieDetail() {
         <div className={styles.overlayBottom} />
         <Focusable
           className={styles.back}
+          focusKey={DETAIL_BACK_FOCUS_KEY}
           onEnter={() => navigate(-1)}
           onClick={() => navigate(-1)}
           ariaLabel="Retour"
+          onArrow={(direction) => {
+            if (direction === 'down') {
+              setFocus(DETAIL_PLAY_FOCUS_KEY);
+              return false;
+            }
+            return true;
+          }}
         >
           ← Retour
         </Focusable>
@@ -166,6 +176,7 @@ export function MovieDetail() {
               <div className={styles.actions}>
                 <Focusable
                   className="btn btn-primary"
+                  focusKey={DETAIL_PLAY_FOCUS_KEY}
                   onEnter={handlePlay}
                   onClick={handlePlay}
                 >
