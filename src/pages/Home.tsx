@@ -505,6 +505,7 @@ export function Home() {
                     focusedClassName="rc-focused"
                     focusKey={i === heroIdx ? HERO_FOCUS_KEY : undefined}
                     disabled={i !== heroIdx}
+                    scrollHint="top"
                     onEnter={() => playHero(slide)}
                     onClick={() => playHero(slide)}
                   >
@@ -514,6 +515,7 @@ export function Home() {
                     className={styles.heroInfoBtn}
                     focusedClassName="rc-focused"
                     disabled={i !== heroIdx}
+                    scrollHint="top"
                     onEnter={() => infoHero(slide)}
                     onClick={() => infoHero(slide)}
                   >

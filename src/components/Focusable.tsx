@@ -1,6 +1,20 @@
 import { useEffect, type ReactNode } from 'react';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 
+/** Remonte au premier ancêtre réellement scrollable verticalement.
+ *  Repli sur `.main-content` (le conteneur de scroll global du Shell). */
+function scrollParent(el: HTMLElement | null): HTMLElement | null {
+  let node = el?.parentElement ?? null;
+  while (node) {
+    const oy = getComputedStyle(node).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return document.querySelector<HTMLElement>('.main-content');
+}
+
 interface Props {
   children: ReactNode;
   /** Action « OK » de la télécommande (touche Entrée). */
@@ -14,6 +28,15 @@ interface Props {
   /** Interception d'une flèche : retourner `false` annule le déplacement par
    *  défaut (utilisé pour rediriger vers une cible précise). */
   onArrow?: (direction: string) => boolean;
+  /**
+   * Comportement de scroll quand l'élément prend le focus télécommande :
+   *  - `'nearest'` (défaut) : `scrollIntoView` minimal — l'élément devient
+   *    juste visible.
+   *  - `'top'` / `'bottom'` : fait défiler le conteneur scrollable jusqu'en
+   *    haut / en bas. Indispensable pour un grand hero en tête de page :
+   *    `'nearest'` le laisse rasant le bord, on veut le voir EN ENTIER.
+   */
+  scrollHint?: 'nearest' | 'top' | 'bottom';
   className?: string;
   /** Classe ajoutée tant que l'élément est focus (halo de sélection TV). */
   focusedClassName?: string;
@@ -38,6 +61,7 @@ export function Focusable({
   onFocused,
   onBlurred,
   onArrow,
+  scrollHint = 'nearest',
   className,
   focusedClassName = 'rc-focused',
   focusKey,
@@ -55,10 +79,21 @@ export function Focusable({
   });
 
   useEffect(() => {
-    if (focused) {
-      ref.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    if (!focused) return;
+    const el = ref.current;
+    if (!el) return;
+    if (scrollHint === 'top' || scrollHint === 'bottom') {
+      // Hero / pied de page : on veut le bloc EN ENTIER, pas juste rasant
+      // le bord → on défile le conteneur jusqu'à l'extrémité.
+      const sc = scrollParent(el);
+      sc?.scrollTo({
+        top: scrollHint === 'top' ? 0 : sc.scrollHeight,
+        behavior: 'smooth',
+      });
+    } else {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }
-  }, [focused, ref]);
+  }, [focused, ref, scrollHint]);
 
   return (
     <div

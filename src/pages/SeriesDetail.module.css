@@ -206,6 +206,11 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  /* Focusable à la télécommande : halo rc-focused arrondi (pas un carré)
+     + respiration pour qu'il n'écrase pas l'avatar. */
+  padding: 8px;
+  margin: -8px;
+  border-radius: 12px;
 }
 
 .castAvatar,

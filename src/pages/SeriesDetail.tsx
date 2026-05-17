@@ -242,7 +242,11 @@ export function SeriesDetail() {
                   <div className={styles.sectionLabel}>Casting</div>
                   <div className={styles.castGrid}>
                     {tmdb.cast.map((c) => (
-                      <div key={`${c.name}-${c.character}`} className={styles.castRow}>
+                      <Focusable
+                        key={`${c.name}-${c.character}`}
+                        className={styles.castRow}
+                        ariaLabel={c.name}
+                      >
                         {c.profile ? (
                           <img src={safeImgUrl(c.profile)} alt={c.name} className={styles.castAvatar} />
                         ) : (
@@ -252,7 +256,7 @@ export function SeriesDetail() {
                         )}
                         <span className={styles.castName}>{c.name}</span>
                         <span className={styles.castRole}>{c.character}</span>
-                      </div>
+                      </Focusable>
                     ))}
                   </div>
                 </div>
@@ -262,13 +266,13 @@ export function SeriesDetail() {
                     <div className={styles.sectionLabel}>Casting</div>
                     <div className={styles.castGrid}>
                       {xtreamCast.map((name) => (
-                        <div key={name} className={styles.castRow}>
+                        <Focusable key={name} className={styles.castRow} ariaLabel={name}>
                           <div className={styles.castAvatarPh}>
                             {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
                           </div>
                           <span className={styles.castName}>{name}</span>
                           <span className={styles.castRole}>Acteur</span>
-                        </div>
+                        </Focusable>
                       ))}
                     </div>
                   </div>
