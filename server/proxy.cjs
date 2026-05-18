@@ -19,6 +19,25 @@ app.use((_req, res, next) => {
   next();
 });
 
+// ─── Endpoint de diagnostic réseau ──────────────────────────────────────────
+// /api/debug-reach?url=http://… — teste si Railway peut atteindre une URL
+app.get('/api/debug-reach', async (req, res) => {
+  const { url } = req.query;
+  if (!url || typeof url !== 'string')
+    return res.status(400).json({ error: 'Paramètre url manquant' });
+  const t0 = Date.now();
+  try {
+    const r = await fetch(url, {
+      signal: AbortSignal.timeout(10_000),
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    return res.json({ ok: true, status: r.status, ms: Date.now() - t0 });
+  } catch (err) {
+    const cause = err?.cause ? (err.cause?.code || err.cause?.message || String(err.cause)) : '';
+    return res.json({ ok: false, error: err.message, cause, ms: Date.now() - t0 });
+  }
+});
+
 // ─── Proxy Xtream Codes API ────────────────────────────────────────────────
 // /api/xtream?_server=https://…&username=X&password=Y&action=…
 app.get('/api/xtream', async (req, res) => {
