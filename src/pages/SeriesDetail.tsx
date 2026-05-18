@@ -305,7 +305,7 @@ export function SeriesDetail() {
                         ariaLabel={c.name}
                       >
                         {c.profile ? (
-                          <img src={safeImgUrl(c.profile)} alt={c.name} className={styles.castAvatar} />
+                          <img src={safeImgUrl(c.profile)} alt={c.name} loading="lazy" decoding="async" className={styles.castAvatar} />
                         ) : (
                           <div className={styles.castAvatarPh}>
                             {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
@@ -366,7 +366,7 @@ export function SeriesDetail() {
                         onClick={() => handlePlayEpisode(ep)}
                       >
                         {thumb ? (
-                          <img src={thumb} alt={ep.title} className={styles.epThumb} />
+                          <img src={thumb} alt={ep.title} loading="lazy" decoding="async" className={styles.epThumb} />
                         ) : (
                           <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
                         )}

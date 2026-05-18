@@ -103,6 +103,11 @@ interface Box {
   originY: number;
 }
 
+// NB : volontairement NON mémoïsé. Un `React.memo` qui ignore les props
+// fonctions (onOpen/onFavorite/resolveTrailer) gelait `resolveTrailer` et
+// cassait la résolution du trailer dans l'aperçu agrandi. Le coût de montage
+// des grilles est déjà borné par `useProgressiveList` + `content-visibility`,
+// donc on garde ce composant simple et correct.
 export function PreviewCard({
   title,
   image,
@@ -401,7 +406,7 @@ export function PreviewCard({
       >
         <div className={styles.art}>
           {poster ? (
-            <img src={poster} alt={title} loading="lazy" className={styles.img} />
+            <img src={poster} alt={title} loading="lazy" decoding="async" className={styles.img} />
           ) : (
             <div className={styles.ph}>
               <span className={styles.phName}>{title}</span>
@@ -438,13 +443,23 @@ export function PreviewCard({
           tabIndex={-1}
         >
           <div className={styles.media}>
-            {heroImg && (
-              <img src={heroImg} alt={title} className={styles.mediaImg} />
+            {/* L'iframe YouTube est rendue D'ABORD et TOUJOURS visible
+                (opacity 1) : YouTube refuse l'autoplay d'un lecteur qu'il juge
+                masqué (opacity 0) → deadlock avec l'ancien design « révéler
+                après lecture ». On la couvre simplement avec le poster, qu'on
+                fait disparaître quand la lecture démarre vraiment. */}
+            <div ref={ytMountRef} className={styles.frameHost} />
+            {heroImg ? (
+              <img
+                src={heroImg}
+                alt={title}
+                loading="lazy"
+                decoding="async"
+                className={`${styles.mediaCover} ${playing ? styles.mediaCoverHidden : ''}`}
+              />
+            ) : (
+              <div className={`${styles.mediaCover} ${styles.mediaCoverBlank} ${playing ? styles.mediaCoverHidden : ''}`} />
             )}
-            <div
-              ref={ytMountRef}
-              className={`${styles.frameHost} ${playing ? styles.frameOn : ''}`}
-            />
             <div className={styles.mediaShade} />
           </div>
           <div className={styles.body}>

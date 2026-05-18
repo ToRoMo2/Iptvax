@@ -149,31 +149,14 @@
   overflow: hidden;
 }
 
-.mediaImg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
+/* L'iframe YouTube est TOUJOURS visible (opacity 1) sous le poster : c'est la
+   condition pour que YouTube accepte l'autoplay muté. Le zoom rogne le bandeau
+   titre/chaîne en haut et le watermark en bas. */
 .frameHost {
   position: absolute;
   inset: 0;
-  /* Zoom : rogne le bandeau titre/chaîne YouTube en haut et le watermark en
-     bas (le bouton central, lui, n'apparaît jamais car on ne révèle l'iframe
-     qu'une fois la lecture réellement lancée). */
   transform: scale(1.5);
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 280ms var(--ease);
-}
-
-/* Visible seulement une fois la lecture démarrée → l'utilisateur ne voit
-   jamais l'état « non démarré » (gros bouton play) : il voit le poster
-   puis un fondu vers la vidéo. */
-.frameOn {
-  opacity: 1;
 }
 
 .frameHost iframe {
@@ -182,6 +165,28 @@
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+/* Poster/backdrop posé PAR-DESSUS l'iframe (ordre DOM) → masque l'état
+   « non démarré » de YouTube. On le fait disparaître en fondu une fois la
+   lecture réellement lancée → l'utilisateur ne voit jamais le gros bouton
+   play : poster puis fondu vers la vidéo. */
+.mediaCover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 1;
+  transition: opacity 280ms var(--ease);
+}
+
+.mediaCoverBlank {
+  background: #0a0a0a;
+}
+
+.mediaCoverHidden {
+  opacity: 0;
 }
 
 .mediaShade {

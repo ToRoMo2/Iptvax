@@ -9,6 +9,7 @@ import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
 import type { VodCategory, VodStream } from '../types/xtream.types';
 import { groupByTitle } from '../utils/catalog';
+import { useProgressiveList } from '../hooks/useProgressiveList';
 import styles from './Browse.module.css';
 
 const MIN_SEARCH_LEN = 3;
@@ -98,6 +99,10 @@ export function Movies() {
     [filtered],
   );
 
+  // Rendu progressif : premier paint rapide même sur une catégorie de
+  // plusieurs milliers de films, puis extension en idle (cf. hook).
+  const visibleGroups = useProgressiveList(groups);
+
   // Un clic sur un film ouvre d'abord sa fiche détail (design Vanta) ;
   // la lecture est lancée depuis le bouton « Lire le film ».
   const handleOpen = (vod: VodStream, variants: VodStream[]) => {
@@ -156,7 +161,7 @@ export function Movies() {
         </div>
       ) : (
         <div className={`${styles.grid} ${styles.gridPoster}`}>
-          {groups.map((g) => (
+          {visibleGroups.map((g) => (
             <PreviewCard
               key={g.primary.stream_id}
               title={g.title}

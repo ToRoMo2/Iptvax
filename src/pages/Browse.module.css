@@ -111,6 +111,19 @@
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
 }
 
+/* Les grilles de catalogue contiennent des centaines/milliers de cellules.
+   `content-visibility:auto` fait sauter au navigateur le layout + le paint
+   des cellules hors écran (gain majeur de scroll/jank), `contain-intrinsic-
+   size: auto <h>` réserve leur hauteur (pas de saut de scrollbar) et mémorise
+   la taille réelle une fois la cellule rendue. Spatial-nav (norigin) OK : les
+   cellules conservent une boîte de layout mesurable. */
+.gridChannel > *,
+.gridPoster > * {
+  content-visibility: auto;
+}
+.gridChannel > * { contain-intrinsic-size: auto 240px; }
+.gridPoster  > * { contain-intrinsic-size: auto 360px; }
+
 /* ── Loading skeletons ── */
 .gridLoading {
   display: grid;

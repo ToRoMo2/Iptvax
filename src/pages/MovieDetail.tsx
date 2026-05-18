@@ -251,7 +251,7 @@ export function MovieDetail() {
                         ariaLabel={c.name}
                       >
                         {c.profile ? (
-                          <img src={safeImgUrl(c.profile)} alt={c.name} className={styles.castAvatar} />
+                          <img src={safeImgUrl(c.profile)} alt={c.name} loading="lazy" decoding="async" className={styles.castAvatar} />
                         ) : (
                           <div className={styles.castAvatarPh}>
                             {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}

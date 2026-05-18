@@ -116,7 +116,7 @@ function cleanCueText(raw: string): string {
 function parseVtt(text: string): VttCue[] {
   const cues: VttCue[] = [];
   // Normalisation : BOM, fins de ligne
-  const normalized = text.replace(/^﻿/, '').replace(/\r\n|\r/g, '\n');
+  const normalized = text.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n');
   const lines = normalized.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
@@ -240,6 +240,13 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   // Timer pour retarder l'indicateur de chargement des sous-titres.
   // Si le cache est chaud, la réponse arrive en <150 ms → le spinner n'apparaît jamais.
   const subLoadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Préchauffage des sous-titres : ANNULABLE et SÉRIALISÉ. Chaque /api/subtitle
+  // spawn un ffmpeg qui lit tout le fichier distant → lancer toutes les pistes
+  // en parallèle (ancien comportement) saturait CPU/bande passante et ralentissait
+  // le démarrage de la vidéo elle-même. On précharge désormais une piste à la
+  // fois, par ordre de priorité (sélectionnée/FR d'abord), et après un délai.
+  const subPrefetchAbortRef = useRef<AbortController | null>(null);
+  const subPrefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Dernière video.currentTime observée — sert à détecter si la vidéo avance vraiment
   // pour débloquer un statut "buffering" qui resterait coincé après-coup.
   const lastTimeRef = useRef(0);
@@ -494,20 +501,57 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         subtitleTracksRef.current = subTracks;
         setSubtitleTracks(subTracks);
 
-        // Prefetch silencieux des pistes de sous-titres → remplit le cache client
-        // avant que l'utilisateur clique ou que la reprise se déclenche.
-        // setSubtitle() trouvera alors un cache hit → pas de spinner.
-        for (const track of subTracks) {
-          const streamIdx = track.streamIndex;
-          if (subCuesCacheRef.current.has(streamIdx)) continue;
-          fetch(`/api/subtitle?url=${encodeURIComponent(probeSource)}&track=${streamIdx}`)
-            .then((r) => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
-            .then((text) => {
-              const cues = parseVtt(text);
-              if (cues.length > 0) subCuesCacheRef.current.set(streamIdx, cues);
-            })
-            .catch(() => { /* prefetch silencieux */ });
+        // Préchauffage du cache client → setSubtitle() trouvera un cache hit
+        // (pas de spinner) pour la piste que l'utilisateur va probablement
+        // choisir. CHANGEMENT CLÉ vs l'ancien comportement : on ne lance plus
+        // TOUTES les pistes en parallèle (chaque /api/subtitle = un ffmpeg qui
+        // lit tout le fichier distant → 10 pistes = 10 ffmpeg concurrents qui
+        // étranglaient le démarrage de la vidéo). On précharge SÉRIELLEMENT,
+        // par PRIORITÉ (piste déjà sélectionnée > langue française > reste),
+        // et APRÈS un délai pour ne jamais concurrencer le flux /api/stream.
+        subPrefetchAbortRef.current?.abort();
+        if (subPrefetchTimerRef.current !== null) {
+          clearTimeout(subPrefetchTimerRef.current);
         }
+        const ac = new AbortController();
+        subPrefetchAbortRef.current = ac;
+
+        const isFrench = (t: SubtitleTrack) =>
+          /\b(fr|fre|fra|french|fran[cç]ais|vff?|vostfr|truefrench)\b/i.test(
+            `${t.language} ${t.name}`,
+          );
+        const ordered = [...subTracks].sort((a, b) => {
+          const rank = (t: SubtitleTrack) =>
+            t.index === currentSubRef.current ? 0 : isFrench(t) ? 1 : 2;
+          return rank(a) - rank(b);
+        });
+
+        const warmNext = async (i: number): Promise<void> => {
+          if (ac.signal.aborted || i >= ordered.length) return;
+          const streamIdx = ordered[i].streamIndex;
+          if (subCuesCacheRef.current.has(streamIdx)) return warmNext(i + 1);
+          try {
+            const r = await fetch(
+              `/api/subtitle?url=${encodeURIComponent(probeSource)}&track=${streamIdx}`,
+              { signal: ac.signal },
+            );
+            if (r.ok) {
+              const cues = parseVtt(await r.text());
+              if (cues.length > 0 && !ac.signal.aborted) {
+                subCuesCacheRef.current.set(streamIdx, cues);
+              }
+            }
+          } catch { /* préchauffage silencieux (abort/réseau) */ }
+          return warmNext(i + 1);
+        };
+
+        // Délai : laisser le flux vidéo s'établir d'abord. Si l'utilisateur
+        // clique une piste avant, setSubtitle() la fetch à la demande et la
+        // déduplication in-flight serveur évite tout double travail ffmpeg.
+        subPrefetchTimerRef.current = setTimeout(() => {
+          subPrefetchTimerRef.current = null;
+          void warmNext(0);
+        }, 3000);
       }
     }).catch(() => {/* probe échoue silencieusement — fallback sur les pistes natives */});
   }, []);
@@ -531,6 +575,14 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     subCuesCacheRef.current.clear();
     currentSubRef.current = -1;
     subtitleTracksRef.current = [];
+    // Couper tout préchauffage de sous-titres de la source précédente
+    // (sinon des ffmpeg continuent de tourner pour une vidéo abandonnée).
+    subPrefetchAbortRef.current?.abort();
+    subPrefetchAbortRef.current = null;
+    if (subPrefetchTimerRef.current !== null) {
+      clearTimeout(subPrefetchTimerRef.current);
+      subPrefetchTimerRef.current = null;
+    }
     Array.from(video.querySelectorAll('track')).forEach((t) => t.remove());
     setSubtitleText('');
     setSubtitleLoading(false);
@@ -790,6 +842,11 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     return () => {
       if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
       if (mpegtsRef.current) { mpegtsRef.current.destroy(); mpegtsRef.current = null; }
+      subPrefetchAbortRef.current?.abort();
+      if (subPrefetchTimerRef.current !== null) {
+        clearTimeout(subPrefetchTimerRef.current);
+        subPrefetchTimerRef.current = null;
+      }
       const video = videoRef.current;
       if (video) {
         video.pause();

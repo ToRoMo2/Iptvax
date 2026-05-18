@@ -9,6 +9,7 @@ import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
 import { groupByTitle } from '../utils/catalog';
+import { useProgressiveList } from '../hooks/useProgressiveList';
 import styles from './Browse.module.css';
 
 const MIN_SEARCH_LEN = 3;
@@ -96,6 +97,9 @@ export function Series() {
     [filtered],
   );
 
+  // Rendu progressif (cf. Movies.tsx / useProgressiveList).
+  const visibleGroups = useProgressiveList(groups);
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -147,7 +151,7 @@ export function Series() {
         </div>
       ) : (
         <div className={`${styles.grid} ${styles.gridPoster}`}>
-          {groups.map((g) => (
+          {visibleGroups.map((g) => (
             <PreviewCard
               key={g.primary.series_id}
               title={g.title}

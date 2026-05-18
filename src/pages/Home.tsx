@@ -472,6 +472,9 @@ export function Home() {
                   src={safeImgUrl(slide.bgImage)}
                   alt=""
                   className={styles.heroBg}
+                  // Hero = élément LCP : pas de lazy. Décodage async pour ne
+                  // pas bloquer le thread principal pendant le compositing.
+                  decoding="async"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
@@ -589,6 +592,8 @@ export function Home() {
                         src={thumb}
                         alt={item.title}
                         className={styles.artImg}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
@@ -641,6 +646,8 @@ export function Home() {
                         src={safeImgUrl(stream.stream_icon)}
                         alt={stream.name}
                         className={`${styles.artImg} ${styles.artImgContain}`}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (

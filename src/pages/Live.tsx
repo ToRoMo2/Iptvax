@@ -7,6 +7,7 @@ import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
 import { ChannelPreview } from '../components/ChannelPreview';
+import { useProgressiveList } from '../hooks/useProgressiveList';
 import { safeImgUrl } from '../utils/image';
 import { channelCode } from '../utils/channel';
 import type { LiveCategory, LiveStream, EpgListing } from '../types/xtream.types';
@@ -126,6 +127,10 @@ export function Live() {
     () => filtered.find((s) => s.stream_id === selectedId) ?? null,
     [filtered, selectedId],
   );
+
+  // Rendu progressif de la grille uniquement (cf. useProgressiveList).
+  // `filtered` reste la source pour le panneau, l'index prev/next, le compteur.
+  const visibleStreams = useProgressiveList(filtered);
 
   // EPG court de la chaîne sélectionnée. Strictement additif : un serveur sans
   // EPG renvoie une liste vide → l'UI retombe sur le nom de chaîne.
@@ -277,7 +282,7 @@ export function Live() {
             </div>
           ) : (
             <div className={`${styles.grid} ${styles.gridChannel}`}>
-              {filtered.map((stream) => (
+              {visibleStreams.map((stream) => (
                 <MediaCard
                   key={stream.stream_id}
                   title={stream.name}

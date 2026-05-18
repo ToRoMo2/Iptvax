@@ -298,22 +298,37 @@ export function RatingsProvider({ children }: { children: ReactNode }) {
     }
   }, [history, userId, profileId, persist]);
 
+  const value = useMemo(
+    () => ({
+      loading,
+      watched,
+      getWatched,
+      isWatched,
+      rate,
+      markWatched,
+      clearRating,
+      setReview,
+      setWatchedDate,
+      removeWatched,
+      applySnapshot,
+    }),
+    [
+      loading,
+      watched,
+      getWatched,
+      isWatched,
+      rate,
+      markWatched,
+      clearRating,
+      setReview,
+      setWatchedDate,
+      removeWatched,
+      applySnapshot,
+    ],
+  );
+
   return (
-    <RatingsContext.Provider
-      value={{
-        loading,
-        watched,
-        getWatched,
-        isWatched,
-        rate,
-        markWatched,
-        clearRating,
-        setReview,
-        setWatchedDate,
-        removeWatched,
-        applySnapshot,
-      }}
-    >
+    <RatingsContext.Provider value={value}>
       {children}
     </RatingsContext.Provider>
   );

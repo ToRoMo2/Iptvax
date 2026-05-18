@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import styles from './MediaCard.module.css';
 import { safeImgUrl } from '../utils/image';
@@ -19,7 +19,7 @@ interface Props {
   onFavorite?: () => void;
 }
 
-export function MediaCard({
+function MediaCardInner({
   title,
   image,
   rating,
@@ -64,6 +64,7 @@ export function MediaCard({
             alt={title}
             onError={() => setImgError(true)}
             loading="lazy"
+            decoding="async"
             className={styles.img}
             style={{ objectFit: isChannel ? 'contain' : 'cover' }}
           />
@@ -122,3 +123,18 @@ export function MediaCard({
     </div>
   );
 }
+
+// Mémoïsé : une grille Live/Films/Séries monte des centaines de cartes ; seul
+// le changement d'une prop de donnée doit re-rendre une carte (ex. `selected`
+// ne bascule que sur 2 cartes au changement de sélection). Props fonctions
+// exclues : dispatchers liés à l'item, carte montée avec `key={id}`.
+export const MediaCard = memo(MediaCardInner, (a, b) =>
+  a.title === b.title &&
+  a.image === b.image &&
+  a.rating === b.rating &&
+  a.genre === b.genre &&
+  a.variant === b.variant &&
+  a.isLive === b.isLive &&
+  a.isFavorite === b.isFavorite &&
+  a.selected === b.selected,
+);

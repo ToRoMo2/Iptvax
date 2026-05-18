@@ -111,11 +111,16 @@ interface ProbeResult {
 
 // ffprobe lit depuis stdin (pipe:0) — évite les problèmes de connexion HTTP
 // entre les processus enfants et le serveur Vite sur Windows.
-function ffprobeFromStream(input: NodeJS.ReadableStream): Promise<ProbeResult> {
+function ffprobeFromStream(input: Readable): Promise<ProbeResult> {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffprobePath, [
       '-v', 'error',
-      '-probesize', '5000000',  // max 5 Mo analysés (évite de tout télécharger)
+      // 3 Mo (vs 5) : les conteneurs MKV/MP4 déclarent leurs pistes dans
+      // l'en-tête (premières centaines de Ko → ~1 Mo). ffprobe sort dès qu'il
+      // a listé les flux ; ce plafond ne sert qu'aux entrées pathologiques —
+      // l'abaisser arrête le téléchargement upstream plus tôt → menu pistes
+      // audio/sous-titres affiché plus vite (résultat caché ensuite).
+      '-probesize', '3000000',
       '-analyzeduration', '0',  // pas d'analyse de durée — on veut juste les pistes
       '-print_format', 'json',
       '-show_streams',
@@ -134,7 +139,7 @@ function ffprobeFromStream(input: NodeJS.ReadableStream): Promise<ProbeResult> {
 
     proc.on('close', (code) => {
       // Arrêter le téléchargement upstream (ffprobe n'a lu que les premiers Mo)
-      try { (input as any).destroy?.(); } catch { /* */ }
+      try { input.destroy(); } catch { /* */ }
       try { proc.stdin.destroy(); } catch { /* */ }
       if (code === 0) {
         try {

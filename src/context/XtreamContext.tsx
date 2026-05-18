@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useMemo,
   useState,
   useEffect,
   type ReactNode,
@@ -25,11 +26,17 @@ interface XtreamProviderProps {
 }
 
 export function XtreamProvider({ children, profile }: XtreamProviderProps) {
-  const credentials: XtreamCredentials = {
-    serverUrl: profile.xtream_server_url,
-    username: profile.xtream_username,
-    password: profile.xtream_password,
-  };
+  // Identité stable : `credentials` est une dépendance de `useEffect` dans les
+  // pages consommatrices (Movies, Series, Live…). Un nouvel objet à chaque
+  // rendu du provider re-déclencherait inutilement leurs fetchs catalogue.
+  const credentials: XtreamCredentials = useMemo(
+    () => ({
+      serverUrl: profile.xtream_server_url,
+      username: profile.xtream_username,
+      password: profile.xtream_password,
+    }),
+    [profile.xtream_server_url, profile.xtream_username, profile.xtream_password],
+  );
 
   const [userInfo, setUserInfo] = useState<XtreamUserInfo | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
@@ -66,16 +73,19 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
+  const value = useMemo(
+    () => ({
+      credentials,
+      userInfo,
+      isAuthenticated: !!userInfo,
+      isAuthenticating,
+      authError,
+    }),
+    [credentials, userInfo, isAuthenticating, authError],
+  );
+
   return (
-    <XtreamContext.Provider
-      value={{
-        credentials,
-        userInfo,
-        isAuthenticated: !!userInfo,
-        isAuthenticating,
-        authError,
-      }}
-    >
+    <XtreamContext.Provider value={value}>
       {children}
     </XtreamContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { safeImgUrl } from '../utils/image';
 import { perceptualHash, hammingDistance } from '../utils/imageHash';
 import styles from './BackdropSlideshow.module.css';
@@ -65,6 +65,13 @@ export function BackdropSlideshow({ images, intervalMs = 6000 }: Props) {
     return () => clearInterval(t);
   }, [display, intervalMs, navTick]);
 
+  // Résout les URLs proxifiées une fois par jeu d'images (et non par layer à
+  // chaque rendu — idx/navTick changent souvent).
+  const resolved = useMemo(
+    () => display.map((src) => safeImgUrl(src)),
+    [display],
+  );
+
   if (display.length === 0) return null;
 
   return (
@@ -73,7 +80,7 @@ export function BackdropSlideshow({ images, intervalMs = 6000 }: Props) {
         <div
           key={src}
           className={`${styles.layer} ${i === idx ? styles.active : ''}`}
-          style={{ backgroundImage: `url(${safeImgUrl(src)})` }}
+          style={{ backgroundImage: `url(${resolved[i]})` }}
         />
       ))}
       {display.length > 1 && (

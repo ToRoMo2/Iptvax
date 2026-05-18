@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useCallback,
   type ReactNode,
@@ -135,20 +136,33 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const value = useMemo(
+    () => ({
+      profiles,
+      activeProfile,
+      loading,
+      selectProfile,
+      clearActiveProfile,
+      createProfile,
+      updateProfile,
+      deleteProfile,
+      setProfilePublic,
+    }),
+    [
+      profiles,
+      activeProfile,
+      loading,
+      selectProfile,
+      clearActiveProfile,
+      createProfile,
+      updateProfile,
+      deleteProfile,
+      setProfilePublic,
+    ],
+  );
+
   return (
-    <IptvProfileContext.Provider
-      value={{
-        profiles,
-        activeProfile,
-        loading,
-        selectProfile,
-        clearActiveProfile,
-        createProfile,
-        updateProfile,
-        deleteProfile,
-        setProfilePublic,
-      }}
-    >
+    <IptvProfileContext.Provider value={value}>
       {children}
     </IptvProfileContext.Provider>
   );

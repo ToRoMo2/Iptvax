@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useCallback,
   type ReactNode,
@@ -81,10 +82,13 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  const value = useMemo(
+    () => ({ user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, signOut, authError }),
+    [user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, signOut, authError],
+  );
+
   return (
-    <SupabaseAuthContext.Provider
-      value={{ user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, signOut, authError }}
-    >
+    <SupabaseAuthContext.Provider value={value}>
       {children}
     </SupabaseAuthContext.Provider>
   );

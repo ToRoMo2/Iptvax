@@ -171,19 +171,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const value = useMemo(
+    () => ({
+      loading,
+      history,
+      favorites,
+      isFavorite,
+      toggleFavorite,
+      addToHistory,
+      saveProgress,
+      getResume,
+    }),
+    [loading, history, favorites, isFavorite, toggleFavorite, addToHistory, saveProgress, getResume],
+  );
+
   return (
-    <LibraryContext.Provider
-      value={{
-        loading,
-        history,
-        favorites,
-        isFavorite,
-        toggleFavorite,
-        addToHistory,
-        saveProgress,
-        getResume,
-      }}
-    >
+    <LibraryContext.Provider value={value}>
       {children}
     </LibraryContext.Provider>
   );
