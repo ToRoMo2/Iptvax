@@ -27,7 +27,7 @@ export function SeriesDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
-  const { addToHistory } = useLibrary();
+  const { addToHistory, isFavorite, toggleFavorite } = useLibrary();
 
   const seriesMeta = (location.state as LocationState)?.series ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
@@ -40,7 +40,6 @@ export function SeriesDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>('1');
-  const [inList, setInList] = useState(false);
 
   const seriesId = variant?.series_id ?? (id ? parseInt(id) : NaN);
 
@@ -263,10 +262,10 @@ export function SeriesDetail() {
                 </Focusable>
                 <Focusable
                   className="btn btn-secondary"
-                  onEnter={() => setInList((v) => !v)}
-                  onClick={() => setInList((v) => !v)}
+                  onEnter={() => toggleFavorite({ type: 'series', id: String(seriesId), name: displayTitle, image: tmdb?.poster ?? info?.info.cover ?? variant?.cover ?? '' })}
+                  onClick={() => toggleFavorite({ type: 'series', id: String(seriesId), name: displayTitle, image: tmdb?.poster ?? info?.info.cover ?? variant?.cover ?? '' })}
                 >
-                  {inList ? '✓ Dans ma liste' : '+ Ma liste'}
+                  {isFavorite('series', String(seriesId)) ? '✓ Dans ma liste' : '+ Ma liste'}
                 </Focusable>
               </div>
 

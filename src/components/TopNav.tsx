@@ -38,7 +38,7 @@ const LINKS = [
   { to: '/live',     label: 'Live TV', icon: Ic.tv,     end: false },
   { to: '/movies',   label: 'Films',   icon: Ic.film,   end: false },
   { to: '/series',   label: 'Séries',  icon: Ic.series, end: false },
-  { to: '/favorites',label: 'Favoris', icon: Ic.star,   end: false },
+  { to: '/favorites',label: 'Ma Liste', icon: Ic.star,   end: false },
   { to: '/journal',  label: 'Mon ciné',icon: Ic.cine,   end: false },
 ];
 

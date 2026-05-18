@@ -657,6 +657,42 @@
   height: 22px;
 }
 
+/* CW remove button (× top-right, appears on hover) */
+.cwRemoveBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--t-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity var(--d-micro) var(--ease), background var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.card:hover .cwRemoveBtn {
+  opacity: 1;
+}
+
+.cwRemoveBtn:hover {
+  background: rgba(220, 50, 50, 0.85);
+  color: #fff;
+}
+
+/* "Tout vider" confirm state */
+.clearConfirmActive {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
 /* ── Skeleton loading ──────────────────────────────────────────────────────── */
 @keyframes vshimmer {
   0% {

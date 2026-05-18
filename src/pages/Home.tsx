@@ -8,6 +8,7 @@ import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { PreviewCard } from '../components/PreviewCard';
 import { Focusable } from '../components/Focusable';
 import { HERO_FOCUS_KEY } from '../components/RemoteControl';
+import { ScrollRail } from '../components/ScrollRail';
 import type { WatchHistoryItem } from '../types/library.types';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
@@ -35,6 +36,11 @@ function FilmIcon() {
 function ChevronRight() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="m9 18 6-6-6-6"/></svg>
+  );
+}
+function RemoveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="12" height="12"><path d="M18 6 6 18M6 6l12 12"/></svg>
   );
 }
 
@@ -92,7 +98,7 @@ function RowSkeleton({ type }: { type: 'cw' | 'channel' | 'poster' }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export function Home() {
   const { credentials } = useXtream();
-  const { history } = useLibrary();
+  const { history, removeFromHistory, clearHistory } = useLibrary();
   const navigate = useNavigate();
 
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
@@ -106,6 +112,8 @@ export function Home() {
   const [loadingLive, setLoadingLive] = useState(true);
   const [loadingMovies, setLoadingMovies] = useState(true);
   const [loadingSeries, setLoadingSeries] = useState(true);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const clearConfirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Backdrop paysage TMDB par item d'historique, résolu au rendu → corrige
   // rétroactivement les anciennes entrées « Reprendre » stockées en poster
@@ -130,6 +138,10 @@ export function Home() {
     heroTimer.current = setInterval(() => {
       setHeroIdx((i) => (i + 1) % Math.max(heroLenRef.current, 1));
     }, 7000);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (clearConfirmTimer.current) clearTimeout(clearConfirmTimer.current); };
   }, []);
 
   useEffect(() => {
@@ -429,6 +441,18 @@ export function Home() {
     navigate('/player', { state: item.playerState });
   };
 
+  const handleClearAll = () => {
+    if (clearConfirmTimer.current) clearTimeout(clearConfirmTimer.current);
+    clearHistory();
+    setClearConfirm(false);
+  };
+
+  const handleClearConfirmRequest = () => {
+    setClearConfirm(true);
+    if (clearConfirmTimer.current) clearTimeout(clearConfirmTimer.current);
+    clearConfirmTimer.current = setTimeout(() => setClearConfirm(false), 3000);
+  };
+
   const playHero = (slide: HeroSlide) => {
     if (slide.playerState.url) {
       navigate('/player', { state: slide.playerState });
@@ -573,8 +597,14 @@ export function Home() {
           <div className={styles.row}>
             <div className={styles.rowHeader}>
               <span className={styles.rowTitle}>Reprendre</span>
+              <button
+                className={`${styles.rowSeeAll} ${clearConfirm ? styles.clearConfirmActive : ''}`}
+                onClick={clearConfirm ? handleClearAll : handleClearConfirmRequest}
+              >
+                {clearConfirm ? 'Confirmer ?' : 'Tout vider'}
+              </button>
             </div>
-            <div className={styles.rowRail}>
+            <ScrollRail railClassName={styles.rowRail}>
               {history.map((item) => {
                 const thumb = safeImgUrl(cwBackdrops[item.id] ?? item.image);
                 return (
@@ -604,6 +634,14 @@ export function Home() {
                         <PlayIcon />
                       </div>
                     </div>
+                    <button
+                      className={styles.cwRemoveBtn}
+                      onClick={(e) => { e.stopPropagation(); removeFromHistory(item.id); }}
+                      title="Retirer de l'historique"
+                      aria-label="Retirer de l'historique"
+                    >
+                      <RemoveIcon />
+                    </button>
                     <div className={styles.cwProgress}>
                       <span className={styles.cwProgressBar} style={{ width: `${item.progress}%` }} />
                     </div>
@@ -615,7 +653,7 @@ export function Home() {
                 </Focusable>
                 );
               })}
-            </div>
+            </ScrollRail>
           </div>
         )}
 
@@ -630,7 +668,7 @@ export function Home() {
           {loadingLive ? (
             <RowSkeleton type="channel" />
           ) : (
-            <div className={styles.rowRail}>
+            <ScrollRail railClassName={styles.rowRail}>
               {liveStreams.map((stream) => (
                 <Focusable
                   key={stream.stream_id}
@@ -663,7 +701,7 @@ export function Home() {
                   </div>
                 </Focusable>
               ))}
-            </div>
+            </ScrollRail>
           )}
         </div>
 
@@ -678,7 +716,7 @@ export function Home() {
           {loadingMovies ? (
             <RowSkeleton type="poster" />
           ) : (
-            <div className={styles.rowRail}>
+            <ScrollRail railClassName={styles.rowRail}>
               {movies.map((g) => {
                 const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
                 const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Film');
@@ -698,7 +736,7 @@ export function Home() {
                   />
                 );
               })}
-            </div>
+            </ScrollRail>
           )}
         </div>
 
@@ -713,7 +751,7 @@ export function Home() {
           {loadingSeries ? (
             <RowSkeleton type="poster" />
           ) : (
-            <div className={styles.rowRail}>
+            <ScrollRail railClassName={styles.rowRail}>
               {series.map((g) => {
                 const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
                 const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Série');
@@ -733,7 +771,7 @@ export function Home() {
                   />
                 );
               })}
-            </div>
+            </ScrollRail>
           )}
         </div>
 

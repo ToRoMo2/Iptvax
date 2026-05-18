@@ -20,6 +20,8 @@ interface LibraryContextValue {
   isFavorite: (type: ContentType, id: string) => boolean;
   toggleFavorite: (fav: FavoriteItem) => void;
   addToHistory: (item: Omit<WatchHistoryItem, 'watchedAt'>) => void;
+  removeFromHistory: (historyId: string) => void;
+  clearHistory: () => void;
   saveProgress: (
     historyId: string,
     data: { resumeTime: number; durationSec: number; audioTrack: number; subtitleTrack: number },
@@ -129,6 +131,30 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [userId, profileId],
   );
 
+  const removeFromHistory = useCallback(
+    (historyId: string) => {
+      if (!profileId) return;
+      const entry = historyRef.current.find((h) => h.id === historyId);
+      if (!entry) return;
+      setHistory((list) => list.filter((h) => h.id !== historyId));
+      libraryService.removeHistoryItem(profileId, historyId, entry.type).catch(() => {
+        setHistory((list) =>
+          [entry, ...list].sort((a, b) => b.watchedAt - a.watchedAt),
+        );
+      });
+    },
+    [profileId],
+  );
+
+  const clearHistory = useCallback(() => {
+    if (!profileId) return;
+    const prev = historyRef.current;
+    setHistory([]);
+    libraryService.clearHistory(profileId).catch(() => {
+      setHistory(prev);
+    });
+  }, [profileId]);
+
   const saveProgress = useCallback(
     (
       historyId: string,
@@ -179,10 +205,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       isFavorite,
       toggleFavorite,
       addToHistory,
+      removeFromHistory,
+      clearHistory,
       saveProgress,
       getResume,
     }),
-    [loading, history, favorites, isFavorite, toggleFavorite, addToHistory, saveProgress, getResume],
+    [loading, history, favorites, isFavorite, toggleFavorite, addToHistory, removeFromHistory, clearHistory, saveProgress, getResume],
   );
 
   return (

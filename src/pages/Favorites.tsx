@@ -64,11 +64,11 @@ export function Favorites() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.titleBlock}>
-          <h1 className={styles.title}>Favoris</h1>
+          <h1 className={styles.title}>Ma Liste</h1>
           <p className={styles.pageSub}>
             {loading
               ? 'Chargement…'
-              : `${favorites.length} favori${favorites.length !== 1 ? 's' : ''} · chaînes, films & séries`}
+              : `${favorites.length} titre${favorites.length !== 1 ? 's' : ''} · chaînes, films & séries`}
           </p>
         </div>
       </header>
@@ -83,8 +83,8 @@ export function Favorites() {
 
       {isEmpty && (
         <p className={styles.empty}>
-          Aucun favori pour l'instant. Touchez l'étoile sur une chaîne, un film
-          ou une série pour le retrouver ici.
+          Votre liste est vide. Ajoutez des chaînes, films et séries via le
+          bouton « + Ma liste » sur leurs pages.
         </p>
       )}
 

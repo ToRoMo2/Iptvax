@@ -86,6 +86,19 @@ export const libraryService = {
     return (data ?? []).map((r) => rowToHistory(r as HistoryRow));
   },
 
+  async removeHistoryItem(profileId: string, contentId: string, contentType: ContentType): Promise<void> {
+    await supabase
+      .from('watch_history')
+      .delete()
+      .eq('profile_id', profileId)
+      .eq('content_id', contentId)
+      .eq('content_type', contentType);
+  },
+
+  async clearHistory(profileId: string): Promise<void> {
+    await supabase.from('watch_history').delete().eq('profile_id', profileId);
+  },
+
   async upsertHistory(
     userId: string,
     profileId: string,

@@ -27,7 +27,7 @@ export function MovieDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
-  const { addToHistory } = useLibrary();
+  const { addToHistory, isFavorite, toggleFavorite } = useLibrary();
 
   const passed = (location.state as LocationState)?.movie ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
@@ -38,7 +38,6 @@ export function MovieDetail() {
   const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
   const [loading, setLoading] = useState(!passed);
   const [error, setError] = useState<string | null>(null);
-  const [inList, setInList] = useState(false);
 
   // Deep-link / refresh : pas d'état de navigation → on retrouve le film par id.
   useEffect(() => {
@@ -209,10 +208,10 @@ export function MovieDetail() {
                 </Focusable>
                 <Focusable
                   className="btn btn-secondary"
-                  onEnter={() => setInList((v) => !v)}
-                  onClick={() => setInList((v) => !v)}
+                  onEnter={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
+                  onClick={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
                 >
-                  {inList ? '✓ Dans ma liste' : '+ Ma liste'}
+                  {isFavorite('movie', String(movie.stream_id)) ? '✓ Dans ma liste' : '+ Ma liste'}
                 </Focusable>
               </div>
 

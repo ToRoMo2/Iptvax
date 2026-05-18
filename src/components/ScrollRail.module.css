@@ -1,0 +1,69 @@
+.wrapper {
+  position: relative;
+}
+
+/* Gradient fondu sur les bords quand il y a du contenu hors champ */
+.wrapper::before,
+.wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100px;
+  z-index: 9;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.wrapper:has(.arrowLeft.arrowVisible)::before {
+  opacity: 1;
+  left: 0;
+  background: linear-gradient(to right, var(--bg-1) 0%, transparent 100%);
+}
+
+.wrapper:has(.arrowRight.arrowVisible)::after {
+  opacity: 1;
+  right: 0;
+  background: linear-gradient(to left, var(--bg-1) 0%, transparent 100%);
+}
+
+/* ── Boutons de navigation ──────────────────────────────────────────────── */
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  /* z-index > card:hover (5) pour ne pas être masqué quand la carte scale */
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 10, 10, 0.85);
+  color: var(--t-1);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.arrowLeft  { left: 8px; }
+.arrowRight { right: 8px; }
+
+.arrowVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.arrowVisible:hover {
+  background: rgba(35, 35, 35, 0.95);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.arrowVisible:active {
+  transform: translateY(-50%) scale(0.96);
+}

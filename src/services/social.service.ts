@@ -139,14 +139,12 @@ export const socialService = {
   },
 
   async getMemberWatched(profileId: string): Promise<WatchedTitle[]> {
-    const { data } = await supabase
-      .from('watched_titles')
-      .select(
-        'id, content_type, content_id, title_key, title, year, poster, backdrop, tmdb_id, rating, review, genres, cast_names, directors, auto_added, watched_at, updated_at',
-      )
-      .eq('profile_id', profileId)
-      .order('watched_at', { ascending: false });
-    return (data ?? []).map((r) => rowToWatched(r as WatchedRow));
+    // RPC SECURITY DEFINER : contourne la RLS iptv_profiles qui bloquerait
+    // la vérification is_public=true depuis un compte tiers.
+    const { data } = await supabase.rpc('get_member_watched', {
+      p_profile_id: profileId,
+    });
+    return (data as WatchedRow[] ?? []).map((r) => rowToWatched(r));
   },
 
   // ── Suivis ────────────────────────────────────────────────────────────────
