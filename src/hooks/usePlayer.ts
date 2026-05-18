@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
+import { apiUrl } from '../lib/api';
 
 // ── ffprobe probe result ──────────────────────────────────────────────────────
 interface ProbeTrack {
@@ -18,7 +19,7 @@ interface ProbeData {
 
 async function probeUrl(url: string): Promise<ProbeData> {
   try {
-    const res = await fetch(`/api/probe?url=${encodeURIComponent(url)}`, {
+    const res = await fetch(apiUrl(`/api/probe?url=${encodeURIComponent(url)}`), {
       signal: AbortSignal.timeout(30_000),
     });
     return (await res.json()) as ProbeData;
@@ -35,7 +36,7 @@ function buildStreamUrl(sourceUrl: string, audioTrack: number, seekSec?: number)
   const upstream = inner.searchParams.get('url') ?? sourceUrl;
   const params = new URLSearchParams({ url: upstream, audio: String(audioTrack) });
   if (seekSec && seekSec > 0) params.set('seek', seekSec.toFixed(1));
-  return `/api/stream?${params}`;
+  return apiUrl(`/api/stream?${params}`);
 }
 
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error' | 'buffering';
@@ -532,7 +533,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
           if (subCuesCacheRef.current.has(streamIdx)) return warmNext(i + 1);
           try {
             const r = await fetch(
-              `/api/subtitle?url=${encodeURIComponent(probeSource)}&track=${streamIdx}`,
+              apiUrl(`/api/subtitle?url=${encodeURIComponent(probeSource)}&track=${streamIdx}`),
               { signal: ac.signal },
             );
             if (r.ok) {
@@ -613,7 +614,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     // du probe (inutile pour live — pas de durée, pas de sous-titres, économie
     // de bande passante + démarrage plus rapide).
     const isLiveStream =
-      src.startsWith('/api/liveproxy') ||
+      src.startsWith(apiUrl('/api/liveproxy')) ||
       /\/live\//.test(extractUpstreamUrl(src)) ||
       /\/live\//.test(probeSource);
 
@@ -624,9 +625,9 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     };
 
     // Stream MPEG-TS live continu via /api/liveproxy
-    if (src.startsWith('/api/liveproxy') && mpegts.isSupported()) {
+    if (src.startsWith(apiUrl('/api/liveproxy')) && mpegts.isSupported()) {
       setIsLive(true);
-      const absoluteSrc = `${window.location.origin}${src}`;
+      const absoluteSrc = src.startsWith('http') ? src : `${window.location.origin}${src}`;
       const player = mpegts.createPlayer(
         { type: 'mpegts', url: absoluteSrc, isLive: true, hasAudio: true, hasVideo: true },
         {
@@ -933,7 +934,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   const correctSeekBase = useCallback((proxySrc: string, requestedPos: number, gen: number) => {
     const upstream = extractUpstreamUrl(proxySrc);
     const seekStr = requestedPos.toFixed(1); // même arrondi que buildStreamUrl
-    fetch(`/api/streambase?url=${encodeURIComponent(upstream)}&seek=${seekStr}`, {
+    fetch(apiUrl(`/api/streambase?url=${encodeURIComponent(upstream)}&seek=${seekStr}`), {
       signal: AbortSignal.timeout(20_000),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -1246,7 +1247,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     // Fetch + parse VTT côté JS. Le serveur extrait la piste demandée du fichier
     // source via ffmpeg et la convertit en WebVTT. La piste est référencée par
     // son streamIndex ABSOLU (résistant au filtrage des codecs image par le probe).
-    fetch(`/api/subtitle?url=${encodeURIComponent(mediaUrlRef.current)}&track=${streamIdx}`)
+    fetch(apiUrl(`/api/subtitle?url=${encodeURIComponent(mediaUrlRef.current)}&track=${streamIdx}`))
       .then((r) => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then((text) => {
         const cues = parseVtt(text);

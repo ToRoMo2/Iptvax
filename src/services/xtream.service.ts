@@ -10,6 +10,7 @@ import type {
   SeriesInfo,
   EpgListing,
 } from '../types/xtream.types';
+import { apiUrl } from '../lib/api';
 
 // ─── API Xtream (via proxy CORS) ──────────────────────────────────────────
 
@@ -20,7 +21,7 @@ function buildProxyUrl(creds: XtreamCredentials, params: Record<string, string>)
     password: creds.password,
     ...params,
   });
-  return `/api/xtream?${search}`;
+  return apiUrl(`/api/xtream?${search}`);
 }
 
 async function apiFetch<T>(creds: XtreamCredentials, params: Record<string, string>): Promise<T> {
@@ -126,36 +127,36 @@ export const xtreamService = {
   // resync segment-par-segment et de la gestion CDN.
   getLiveStreamUrl(creds: XtreamCredentials, streamId: number): string {
     const m3u8 = `${creds.serverUrl}/live/${creds.username}/${creds.password}/${streamId}.m3u8`;
-    return `/api/hlsproxy?url=${encodeURIComponent(m3u8)}`;
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   // Fallback : stream MPEG-TS continu via mpegts.js — utilisé si le serveur ne
   // sert pas le live en HLS (bascule automatique sur erreur HLS fatale).
   getLiveStreamTsUrl(creds: XtreamCredentials, streamId: number): string {
     const direct = `${creds.serverUrl}/live/${creds.username}/${creds.password}/${streamId}.ts`;
-    return `/api/liveproxy?url=${encodeURIComponent(direct)}`;
+    return apiUrl(`/api/liveproxy?url=${encodeURIComponent(direct)}`);
   },
 
   // Films : HLS (.m3u8) en premier — HLS.js expose correctement les pistes audio/sous-titres.
   // Fallback = fichier direct (mp4/mkv) si le serveur ne supporte pas le HLS pour ce contenu.
   getVodStreamUrl(creds: XtreamCredentials, streamId: number, _ext: string): string {
     const m3u8 = `${creds.serverUrl}/movie/${creds.username}/${creds.password}/${streamId}.m3u8`;
-    return `/api/hlsproxy?url=${encodeURIComponent(m3u8)}`;
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   getVodDirectUrl(creds: XtreamCredentials, streamId: number, ext: string): string {
     const direct = `${creds.serverUrl}/movie/${creds.username}/${creds.password}/${streamId}.${ext}`;
-    return `/api/hlsproxy?url=${encodeURIComponent(direct)}`;
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
   },
 
   // Épisodes : même logique — HLS en premier, fichier direct en fallback
   getSeriesStreamUrl(creds: XtreamCredentials, episodeId: string, _ext: string): string {
     const m3u8 = `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.m3u8`;
-    return `/api/hlsproxy?url=${encodeURIComponent(m3u8)}`;
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   getSeriesDirectUrl(creds: XtreamCredentials, episodeId: string, ext: string): string {
     const direct = `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.${ext}`;
-    return `/api/hlsproxy?url=${encodeURIComponent(direct)}`;
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
   },
 };

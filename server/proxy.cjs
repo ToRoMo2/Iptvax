@@ -5,13 +5,14 @@ const nodeHttps = require('https');
 const nodeHttp = require('http');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT ?? 4000;
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ?? '*';
 
 app.use((_req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
-  if (_req.method === 'OPTIONS') return res.sendStatus(200);
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
+  if (_req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
@@ -262,4 +263,4 @@ if (process.env.NODE_ENV === 'production') {
   app.get('/{*path}', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
 }
 
-app.listen(PORT, () => console.log(`[Proxy IPTV] http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`[server] port ${PORT}`));

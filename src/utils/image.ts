@@ -1,3 +1,5 @@
+import { apiUrl } from '../lib/api';
+
 /**
  * Valide qu'une URL d'image est absolue (commence par http:// ou https://) et
  * la fait transiter par le proxy `/api/img`.
@@ -11,12 +13,12 @@
  *     (`ERR_CERT_DATE_INVALID`) — aucune image ne s'affiche. Le proxy Node ignore cette
  *     erreur de cert et renvoie l'image au navigateur en same-origin (donc sans contrôle TLS).
  *
- * @returns Une URL same-origin (`/api/img?url=…`) prête à passer dans <img src>,
+ * @returns Une URL vers le proxy image prête à passer dans <img src>,
  *          ou `undefined` si l'URL d'entrée n'est pas absolue (le composant affichera son fallback).
  */
 export function safeImgUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
   const trimmed = url.trim();
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return undefined;
-  return `/api/img?url=${encodeURIComponent(trimmed)}`;
+  return apiUrl(`/api/img?url=${encodeURIComponent(trimmed)}`);
 }
