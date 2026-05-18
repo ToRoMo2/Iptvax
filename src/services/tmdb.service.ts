@@ -24,6 +24,16 @@ const API_KEY = (import.meta.env.VITE_TMDB_API_KEY as string | undefined)?.trim(
 const BASE = 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p';
 
+// Interrupteur runtime : TMDB est une fonctionnalité Premium. Le
+// SubscriptionContext appelle `setEnabled(isPremium)`. Coupé → mêmes
+// renvois null/{} que sans clé API → l'UI retombe sur Xtream (§IV).
+let enabled = true;
+
+/** TMDB exploitable : clé présente ET activé (Premium). */
+function active(): boolean {
+  return Boolean(API_KEY) && enabled;
+}
+
 const BACKDROP_SIZE = 'w1280';
 const POSTER_SIZE = 'w500';
 const PROFILE_SIZE = 'w185';
@@ -40,7 +50,7 @@ function img(path: string | null | undefined, size: string): string | undefined 
 const cache = new Map<string, Promise<unknown>>();
 
 async function tmdbGet<T>(path: string, params: Record<string, string>): Promise<T | null> {
-  if (!API_KEY) return null;
+  if (!active()) return null;
   const search = new URLSearchParams({ api_key: API_KEY, ...params });
   try {
     const res = await fetch(`${BASE}${path}?${search}`, {
@@ -181,7 +191,7 @@ async function enrich(
   year: string | undefined,
 ): Promise<TmdbEnrichment | null> {
   const q = title.trim();
-  if (!API_KEY || !q) return null;
+  if (!active() || !q) return null;
 
   return cached(`enrich:${kind}:${q.toLowerCase()}:${year ?? ''}`, async () => {
     const yearParam = kind === 'movie' ? 'year' : 'first_air_date_year';
@@ -223,7 +233,12 @@ async function enrich(
 export const tmdbService = {
   /** TMDB activable uniquement si une clé API est présente. */
   isEnabled(): boolean {
-    return Boolean(API_KEY);
+    return active();
+  },
+
+  /** Bascule Premium : coupe/active l'enrichissement à chaud. */
+  setEnabled(v: boolean): void {
+    enabled = v;
   },
 
   enrichMovie(title: string, year?: string): Promise<TmdbEnrichment | null> {
@@ -239,7 +254,7 @@ export const tmdbService = {
    * d'un backdrop (le hero a besoin d'une image paysage). `[]` si désactivé.
    */
   getTrending(kind: 'movie' | 'tv'): Promise<TmdbTrendingItem[]> {
-    if (!API_KEY) return Promise.resolve([]);
+    if (!active()) return Promise.resolve([]);
     return cached(`trending:${kind}`, async () => {
       const res = await tmdbGet<TmdbTrendingResponse>(`/trending/${kind}/week`, {
         language: 'fr-FR',
@@ -273,7 +288,7 @@ export const tmdbService = {
     year?: string,
   ): Promise<TmdbTrailer | null> {
     const q = title.trim();
-    if (!API_KEY || !q) return Promise.resolve(null);
+    if (!active() || !q) return Promise.resolve(null);
 
     return cached(`trailer:${kind}:${q.toLowerCase()}:${year ?? ''}`, async () => {
       const yearParam = kind === 'movie' ? 'year' : 'first_air_date_year';
@@ -319,7 +334,7 @@ export const tmdbService = {
 
   /** Vignettes d'épisodes (still) d'une saison TMDB : `episode_num` → URL. */
   getEpisodeStills(tmdbId: number, seasonNumber: number): Promise<TmdbEpisodeStills> {
-    if (!API_KEY) return Promise.resolve({});
+    if (!active()) return Promise.resolve({});
     return cached(`stills:${tmdbId}:${seasonNumber}`, async () => {
       const season = await tmdbGet<TmdbSeasonResponse>(
         `/tv/${tmdbId}/season/${seasonNumber}`,

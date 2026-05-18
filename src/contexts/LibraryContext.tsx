@@ -10,7 +10,9 @@ import {
 } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { useIptvProfile } from './IptvProfileContext';
+import { useSubscription } from './SubscriptionContext';
 import { libraryService } from '../services/library.service';
+import { localLibraryService } from '../services/library.local';
 import type { FavoriteItem, WatchHistoryItem, ContentType } from '../types/library.types';
 
 interface LibraryContextValue {
@@ -38,9 +40,14 @@ const favKey = (type: ContentType, id: string) => `${type}:${id}`;
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseAuth();
   const { activeProfile } = useIptvProfile();
+  const { isPremium } = useSubscription();
 
   const userId = user?.id ?? null;
   const profileId = activeProfile?.id ?? null;
+
+  // Premium → persistance Supabase (sync cross-device).
+  // Gratuit → persistance locale, liée à l'appareil (override §IV-12 assumé).
+  const lib = isPremium ? libraryService : localLibraryService;
 
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
@@ -64,8 +71,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      libraryService.listFavorites(profileId),
-      libraryService.listHistory(profileId),
+      lib.listFavorites(profileId),
+      lib.listHistory(profileId),
     ]).then(([favs, hist]) => {
       if (cancelled) return;
       setFavorites(favs);
@@ -75,7 +82,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, lib]);
 
   const isFavorite = useCallback(
     (type: ContentType, id: string) => favoriteKeys.has(favKey(type, id)),
@@ -96,8 +103,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       );
 
       const op = wasFav
-        ? libraryService.removeFavorite(profileId, fav.type, fav.id)
-        : libraryService.addFavorite(userId, profileId, fav);
+        ? lib.removeFavorite(profileId, fav.type, fav.id)
+        : lib.addFavorite(userId, profileId, fav);
 
       op.catch(() => {
         // Revert en cas d'échec réseau
@@ -108,7 +115,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         );
       });
     },
-    [userId, profileId, favoriteKeys],
+    [userId, profileId, favoriteKeys, lib],
   );
 
   const addToHistory = useCallback(
@@ -126,9 +133,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         watchedAt: Date.now(),
       };
       setHistory((list) => [merged, ...list.filter((h) => h.id !== merged.id)].slice(0, 24));
-      libraryService.upsertHistory(userId, profileId, merged).catch(() => {});
+      lib.upsertHistory(userId, profileId, merged).catch(() => {});
     },
-    [userId, profileId],
+    [userId, profileId, lib],
   );
 
   const removeFromHistory = useCallback(
@@ -137,23 +144,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const entry = historyRef.current.find((h) => h.id === historyId);
       if (!entry) return;
       setHistory((list) => list.filter((h) => h.id !== historyId));
-      libraryService.removeHistoryItem(profileId, historyId, entry.type).catch(() => {
+      lib.removeHistoryItem(profileId, historyId, entry.type).catch(() => {
         setHistory((list) =>
           [entry, ...list].sort((a, b) => b.watchedAt - a.watchedAt),
         );
       });
     },
-    [profileId],
+    [profileId, lib],
   );
 
   const clearHistory = useCallback(() => {
     if (!profileId) return;
     const prev = historyRef.current;
     setHistory([]);
-    libraryService.clearHistory(profileId).catch(() => {
+    lib.clearHistory(profileId).catch(() => {
       setHistory(prev);
     });
-  }, [profileId]);
+  }, [profileId, lib]);
 
   const saveProgress = useCallback(
     (
@@ -180,9 +187,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         watchedAt: Date.now(),
       };
       setHistory((list) => [updated, ...list.filter((h) => h.id !== historyId)].slice(0, 24));
-      libraryService.upsertHistory(userId, profileId, updated).catch(() => {});
+      lib.upsertHistory(userId, profileId, updated).catch(() => {});
     },
-    [userId, profileId],
+    [userId, profileId, lib],
   );
 
   const getResume = useCallback(

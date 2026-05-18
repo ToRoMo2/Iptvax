@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
 import { safeImgUrl } from '../utils/image';
+import { AppLogo } from './AppLogo';
 import styles from './ChannelPreview.module.css';
 
 interface Props {
@@ -62,7 +63,7 @@ export function ChannelPreview({ url, fallbackUrl, poster, title, onExpand }: Pr
 
       {isLoading && (
         <div className={styles.center}>
-          <div className={styles.spinner} />
+          <AppLogo spin size={32} />
         </div>
       )}
 

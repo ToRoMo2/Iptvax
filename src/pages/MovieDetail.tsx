@@ -14,6 +14,7 @@ import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
+import { AppLogo } from '../components/AppLogo';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
 import styles from './SeriesDetail.module.css';
 
@@ -174,7 +175,7 @@ export function MovieDetail() {
       <div className={styles.body}>
         {loading && (
           <div className={styles.loading}>
-            <div className="spinner" />
+            <AppLogo spin size={44} />
           </div>
         )}
 

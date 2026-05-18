@@ -1,5 +1,8 @@
 import { useState, useEffect, type FormEvent, type CSSProperties } from 'react';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { Premium } from './Premium';
+import { AppLogo } from '../components/AppLogo';
 import { xtreamService } from '../services/xtream.service';
 import {
   PROFILE_AVATARS,
@@ -20,18 +23,36 @@ function avatarStyle(color: ProfileColor): CSSProperties {
 
 export function ProfileSelect() {
   const { profiles, loading, selectProfile } = useIptvProfile();
+  const { isPremium } = useSubscription();
   const [manage, setManage] = useState(false);
   const [editor, setEditor] = useState<EditorState>(null);
+  const [upsell, setUpsell] = useState(false);
 
   // Aucun profil → ouvre directement le formulaire de création
   useEffect(() => {
     if (!loading && profiles.length === 0) setEditor({ mode: 'create' });
   }, [loading, profiles.length]);
 
+  // Tier gratuit : 1 seul profil. Au-delà → page Premium.
+  const canAddProfile = isPremium || profiles.length === 0;
+  const requestAdd = () => {
+    if (canAddProfile) setEditor({ mode: 'create' });
+    else setUpsell(true);
+  };
+
+  if (upsell) {
+    return (
+      <Premium
+        lockedFeature="Les profils multiples"
+        onBack={() => setUpsell(false)}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className={styles.screen}>
-        <div className="spinner" />
+        <AppLogo spin size={44} />
       </div>
     );
   }
@@ -49,7 +70,7 @@ export function ProfileSelect() {
   return (
     <div className={styles.screen}>
       <div className={styles.brand}>
-        <span className={styles.brandMark} />
+        <AppLogo size={28} />
         IPTVAX
       </div>
 
@@ -81,7 +102,7 @@ export function ProfileSelect() {
         ))}
 
         <div className={styles.cardWrap}>
-          <button className={styles.card} onClick={() => setEditor({ mode: 'create' })}>
+          <button className={styles.card} onClick={requestAdd}>
             <span className={styles.addAvatar}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="34" height="34" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14"/>
@@ -183,7 +204,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
   return (
     <div className={styles.screen}>
       <div className={styles.brand}>
-        <span className={styles.brandMark} />
+        <AppLogo size={28} />
         IPTVAX
       </div>
 
@@ -300,7 +321,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           <div className={styles.actions}>
             <button className={`btn btn-primary ${styles.save}`} type="submit" disabled={busy}>
               {busy ? (
-                <><span className={styles.spinner} />Vérification…</>
+                <><AppLogo spin size={18} />Vérification…</>
               ) : editing ? (
                 'Enregistrer'
               ) : (

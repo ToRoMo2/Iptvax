@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { PLAN_OPTIONS } from '../types/subscription.types';
 import styles from './Settings.module.css';
 
 type Tab = 'account' | 'playback' | 'about';
@@ -74,8 +77,20 @@ export function Settings() {
   const { userInfo, credentials } = useXtream();
   const { activeProfile, clearActiveProfile, setProfilePublic } =
     useIptvProfile();
+  const { isPremium, subscription } = useSubscription();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('account');
   const [publicBusy, setPublicBusy] = useState(false);
+
+  const planLabel =
+    PLAN_OPTIONS.find((o) => o.interval === subscription.plan)?.label ?? null;
+  const renewDate = subscription.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null;
 
   const handleTogglePublic = async (next: boolean) => {
     if (!activeProfile || publicBusy) return;
@@ -130,6 +145,46 @@ export function Settings() {
           {/* ── Account tab ── */}
           {tab === 'account' && (
             <>
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>Abonnement</div>
+                <div className={styles.row}>
+                  <span className={styles.rowLabel}>Formule</span>
+                  <span
+                    className={`${styles.badge} ${
+                      isPremium ? styles.badgeActive : styles.badgeExpired
+                    }`}
+                  >
+                    <span className={styles.badgePulse} />
+                    {isPremium ? 'Premium' : 'Gratuit'}
+                  </span>
+                </div>
+                {isPremium && planLabel && <InfoRow label="Type" value={planLabel} />}
+                {isPremium && renewDate && (
+                  <InfoRow
+                    label={subscription.cancelAtPeriodEnd ? 'Fin' : 'Renouvellement'}
+                    value={renewDate}
+                  />
+                )}
+                <div className={styles.row}>
+                  <div className={styles.rowText}>
+                    <div className={styles.rowLabel}>
+                      {isPremium ? "Gérer l'abonnement" : 'Passer Premium'}
+                    </div>
+                    <div className={styles.rowDesc}>
+                      {isPremium
+                        ? 'Formule, renouvellement et avantages'
+                        : 'Profils illimités · sync multi-appareils · Mon ciné · communauté'}
+                    </div>
+                  </div>
+                  <button
+                    className={styles.logoutBtn}
+                    onClick={() => navigate('/premium')}
+                  >
+                    {isPremium ? 'Gérer' : '✨ Passer Premium'}
+                  </button>
+                </div>
+              </section>
+
               {userInfo && (
                 <section className={styles.section}>
                   <div className={styles.sectionLabel}>Informations du compte</div>
@@ -159,7 +214,7 @@ export function Settings() {
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>Profil</div>
                 {activeProfile && <InfoRow label="Profil actif" value={`${activeProfile.avatar}  ${activeProfile.name}`} />}
-                {activeProfile && (
+                {activeProfile && isPremium && (
                   <ToggleRow
                     id="public-cine"
                     label="Rendre mon ciné public"
@@ -167,6 +222,22 @@ export function Settings() {
                     checked={activeProfile.is_public}
                     onChange={handleTogglePublic}
                   />
+                )}
+                {activeProfile && !isPremium && (
+                  <div className={styles.row}>
+                    <div className={styles.rowText}>
+                      <div className={styles.rowLabel}>🔒 Rendre mon ciné public</div>
+                      <div className={styles.rowDesc}>
+                        La communauté est réservée aux membres Premium.
+                      </div>
+                    </div>
+                    <button
+                      className={styles.logoutBtn}
+                      onClick={() => navigate('/premium')}
+                    >
+                      ✨ Passer Premium
+                    </button>
+                  </div>
                 )}
                 {activeProfile?.is_public && activeProfile.discriminator && (
                   <InfoRow

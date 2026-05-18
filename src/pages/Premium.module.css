@@ -1,0 +1,272 @@
+.screen {
+  min-height: 100%;
+  padding: clamp(24px, 5vw, 64px) clamp(20px, 6vw, 80px) 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--t-1);
+}
+.back {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--t-1);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  margin-right: 4px;
+}
+.back:hover { border-color: var(--line-strong); }
+.plus {
+  background: var(--accent);
+  color: #000;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hero {
+  max-width: 720px;
+}
+.eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-glow);
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  margin-bottom: 16px;
+}
+.title {
+  font-size: clamp(28px, 4.4vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--t-1);
+  margin: 0 0 12px;
+  line-height: 1.08;
+}
+.sub {
+  font-size: clamp(15px, 1.6vw, 18px);
+  color: var(--t-2);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.notice {
+  font-size: 14px;
+  color: var(--t-2);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 12px 16px;
+  max-width: 520px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+}
+@media (max-width: 880px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ── Offre ── */
+.offer {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.planToggle {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.planOpt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
+}
+.planOpt:hover { border-color: var(--line-strong); }
+.planOptActive {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+.planName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--t-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.planPrice {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--t-1);
+}
+.planPeriod {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--t-3);
+  margin-left: 6px;
+}
+.planHint {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  background: var(--accent);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+}
+
+.cta {
+  width: 100%;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.secure {
+  font-size: 12.5px;
+  color: var(--t-3);
+  text-align: center;
+  margin: 0;
+}
+.error {
+  font-size: 14px;
+  color: var(--t-1);
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--r-card);
+  padding: 10px 14px;
+}
+
+.tvBox {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+.tvText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tvText strong { color: var(--t-1); font-size: 14px; }
+.tvText span { color: var(--t-3); font-size: 12.5px; line-height: 1.4; }
+.qr {
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: #fff;
+  padding: 6px;
+}
+
+/* ── Avantages ── */
+.perks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 540px) {
+  .perks { grid-template-columns: 1fr; }
+}
+.perk {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+.perkIcon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.perkText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.perkTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t-1);
+}
+.perkDesc {
+  font-size: 13px;
+  color: var(--t-2);
+  line-height: 1.45;
+}
+
+/* ── Déjà Premium / confirmation ── */
+.activeCard {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 36px;
+  background: var(--bg-card);
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius-xl);
+}
+.activeBadge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-glow);
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+}
+.perksMini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.perkChip {
+  font-size: 12.5px;
+  color: var(--t-2);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+}

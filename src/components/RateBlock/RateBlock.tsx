@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useRatings } from '../../contexts/RatingsContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { RatingStars } from '../RatingStars/RatingStars';
 import { Focusable } from '../Focusable';
 import type { WatchedInput } from '../../types/ratings.types';
@@ -29,6 +31,8 @@ function toDateInput(ms: number): string {
  * Réactif via la liste `watched` (le ref `getWatched` n'est pas réactif).
  */
 export function RateBlock({ input, starsFocusKey }: Props) {
+  const navigate = useNavigate();
+  const { isPremium } = useSubscription();
   const {
     watched,
     rate,
@@ -81,6 +85,27 @@ export function RateBlock({ input, starsFocusKey }: Props) {
     if (!current || (current.review ?? '') === reviewDraft) return;
     setReview(input.contentType, input.titleKey, reviewDraft);
   };
+
+  if (!isPremium) {
+    return (
+      <div className={styles.block}>
+        <div className={styles.head}>
+          <span className={styles.label}>🔒 Votre note</span>
+        </div>
+        <p className={styles.lockedText}>
+          Notez, critiquez et gardez la trace de tout ce que vous regardez
+          avec « Mon ciné » — réservé aux membres Premium.
+        </p>
+        <Focusable
+          className={`btn btn-primary ${styles.lockedCta}`}
+          onEnter={() => navigate('/premium')}
+          onClick={() => navigate('/premium')}
+        >
+          Découvrir Premium
+        </Focusable>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.block}>

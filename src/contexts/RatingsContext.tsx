@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { useIptvProfile } from './IptvProfileContext';
+import { useSubscription } from './SubscriptionContext';
 import { useLibrary } from './LibraryContext';
 import { ratingsService } from '../services/ratings.service';
 import { titleKey as canonicalKey } from '../utils/catalog';
@@ -111,10 +112,13 @@ function newEntry(input: WatchedInput, autoAdded: boolean): WatchedTitle {
 export function RatingsProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseAuth();
   const { activeProfile } = useIptvProfile();
+  const { isPremium } = useSubscription();
   const { history } = useLibrary();
 
   const userId = user?.id ?? null;
-  const profileId = activeProfile?.id ?? null;
+  // « Mon ciné » est Premium : sans abonnement, aucune lecture/écriture de
+  // watched_titles (profileId null → persist & auto-vu deviennent no-op).
+  const profileId = isPremium ? (activeProfile?.id ?? null) : null;
 
   const [watched, setWatched] = useState<WatchedTitle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +136,11 @@ export function RatingsProvider({ children }: { children: ReactNode }) {
 
   // Chargement initial pour le profil actif (remonté via la key XtreamProvider).
   useEffect(() => {
-    if (!profileId) return;
+    if (!profileId) {
+      setWatched([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     ratingsService.listWatched(profileId).then((rows) => {

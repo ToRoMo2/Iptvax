@@ -1,0 +1,14 @@
+.logo {
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(0, 194, 255, 0.3));
+}
+
+.spinning {
+  animation: logo-spin 1.4s linear infinite;
+}
+
+@keyframes logo-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

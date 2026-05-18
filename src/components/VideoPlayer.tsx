@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
 import { safeImgUrl } from '../utils/image';
+import { AppLogo } from './AppLogo';
 import styles from './VideoPlayer.module.css';
 
 interface Props {
@@ -321,7 +322,7 @@ export function VideoPlayer({
       {/* Chargement */}
       {isLoading && (
         <div className={styles.centerOverlay}>
-          <div className={styles.spinner} />
+          <AppLogo spin size={52} />
           <span className={styles.overlayLabel}>
             {player.status === 'buffering' ? 'Mise en mémoire tampon…' : 'Chargement…'}
           </span>

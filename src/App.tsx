@@ -1,12 +1,15 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { IptvProfileProvider, useIptvProfile } from './contexts/IptvProfileContext';
 import { LibraryProvider } from './contexts/LibraryContext';
 import { RatingsProvider } from './contexts/RatingsContext';
 import { SocialProvider } from './contexts/SocialContext';
+import { PremiumOnly } from './components/PremiumOnly';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
 import { RemoteControl } from './components/RemoteControl';
+import { AppLogo } from './components/AppLogo';
 import { Login } from './pages/Login';
 import { ProfileSelect } from './pages/ProfileSelect';
 import { Home } from './pages/Home';
@@ -22,12 +25,13 @@ import { Watched } from './pages/Watched';
 import { Community } from './pages/Community';
 import { MemberCine } from './pages/MemberCine';
 import { Settings } from './pages/Settings';
+import { Premium } from './pages/Premium';
 import './styles/app.css';
 
 function LoadingScreen({ label }: { label: string }) {
   return (
     <div className="loading-screen">
-      <div className="spinner" />
+      <AppLogo spin size={44} />
       <span>{label}</span>
     </div>
   );
@@ -79,10 +83,20 @@ function Shell() {
             <Route path="/movie/:id" element={<MovieDetail />} />
             <Route path="/search" element={<Search />} />
             <Route path="/favorites" element={<Favorites />} />
-            <Route path="/journal" element={<Watched />} />
-            <Route path="/communaute" element={<Community />} />
-            <Route path="/communaute/:id" element={<MemberCine />} />
+            <Route
+              path="/journal"
+              element={<PremiumOnly feature="Mon ciné"><Watched /></PremiumOnly>}
+            />
+            <Route
+              path="/communaute"
+              element={<PremiumOnly feature="La communauté"><Community /></PremiumOnly>}
+            />
+            <Route
+              path="/communaute/:id"
+              element={<PremiumOnly feature="La communauté"><MemberCine /></PremiumOnly>}
+            />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/premium" element={<Premium />} />
           </Routes>
         </main>
       </div>
@@ -124,9 +138,11 @@ function AppGate() {
   if (!user) return <Login />;
 
   return (
-    <IptvProfileProvider>
-      <ProfileGate />
-    </IptvProfileProvider>
+    <SubscriptionProvider>
+      <IptvProfileProvider>
+        <ProfileGate />
+      </IptvProfileProvider>
+    </SubscriptionProvider>
   );
 }
 

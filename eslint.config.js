@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   // `.claude` contient des worktrees git (copies du repo) — ne pas les linter.
-  { ignores: ['dist', '.claude'] },
+  // `supabase` : Edge Functions runtime Deno (imports URL + global `Deno`),
+  // hors périmètre du lint frontend (typé/exécuté par Deno, pas Vite/tsc).
+  { ignores: ['dist', '.claude', 'supabase'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

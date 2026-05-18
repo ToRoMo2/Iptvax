@@ -12,7 +12,8 @@ En production, `server/proxy.cjs` remplace le plugin Vite et sert les mêmes rou
 
 **Backends orthogonaux** :
 - **Proxy média `/api/*`** (Vite/Express) — streaming, probe, sous-titres, images. Sans état.
-- **Supabase** (auth + Postgres + RLS) — compte utilisateur, profils IPTV, favoris, historique/reprise. Accédé via le SDK frontend (`src/lib/supabase.ts`), **jamais** via `/api/*`. Les données sont isolées par profil IPTV (`profile_id`) sous RLS `auth.uid()`. Le profil actif persiste localement (`active_iptv_profile_id`) ; tout le reste est en BDD pour la synchro cross-device.
+- **Supabase** (auth + Postgres + RLS) — compte utilisateur, profils IPTV, favoris, historique/reprise, abonnement. Accédé via le SDK frontend (`src/lib/supabase.ts`), **jamais** via `/api/*`. Données isolées par profil IPTV (`profile_id`) sous RLS `auth.uid()`. **Persistance bi-mode selon l'abonnement** : tier **Premium** → favoris/historique en BDD (sync cross-device, RLS `profile_id`) ; tier **gratuit** → `localStorage` (`library.local.ts`, lié à l'appareil) — override assumé de l'ancienne règle « localStorage interdit » (CLAUDE.md §IV-12). Credentials Xtream : **toujours** en BDD, jamais en local. Profil actif + prefs sous-titres : toujours local.
+- **Abonnement Premium (Stripe)** — table `subscriptions` au **niveau compte** (`user_id` PK, RLS lecture seule). Checkout via 2 **Edge Functions Deno** (`supabase/functions/`) : `create-checkout-session` (JWT) et `stripe-webhook` (**seul écrivain**, service-role, signature vérifiée, déployé `--no-verify-jwt`). Orthogonal au proxy média `/api/*`. `SubscriptionContext` calcule `isPremium`, écoute le Realtime (déblocage TV auto). Détail : CLAUDE.md §X.
 - **TMDB** (enrichissement métadonnées) — `src/services/tmdb.service.ts`, HTTP direct (CORS TMDB), **jamais** via `/api/*`. Couche `services/` standard (importe `types/` only). **Strictement additif** : clé absente (`VITE_TMDB_API_KEY`) ou échec réseau → `null`/`{}`, l'UI retombe sur Xtream, aucun `console.error`. Cache mémoire de session (Map, partage des Promises concurrentes). La déduplication des doublons IPTV est un pur util (`src/utils/catalog.ts`, zéro import) consommé par les pages.
 
 Le pipeline média est hybride :
@@ -34,7 +35,7 @@ Le pipeline média est hybride :
 │    ↓ importe                        ↑ lit context    │
 │  hooks/           (usePlayer — toute la logique AV)  │
 │    ↓ importe                                         │
-│  contexts/        (SupabaseAuth → IptvProfile → Library → Ratings) │
+│  contexts/        (SupabaseAuth → Subscription → IptvProfile → Library → Ratings) │
 │  context/         (XtreamContext — creds profil actif)│
 │    ↓ importe                                         │
 │  services/        (xtream.service, library.service)  │
@@ -60,6 +61,12 @@ Le pipeline média est hybride :
 │                              │  │   profile_id)        │
 └──────────────────────────────┘  └──────────────────────┘
 ```
+
+**Abonnement / facturation (Stripe — orthogonal au proxy `/api/*`)** :
+- Table `subscriptions` : **niveau compte** (`user_id` PK → `auth.users`), pas profil. RLS = lecture seule de sa propre ligne ; **aucune** policy insert/update/delete. Ajoutée à la publication `supabase_realtime`.
+- 2 **Edge Functions Deno** (`supabase/functions/`) : `create-checkout-session` (vérifie le JWT Supabase, mappe `plan`→Price ID secret, crée la session Stripe Checkout) et `stripe-webhook` (**seul écrivain** de `subscriptions`, service-role bypass RLS, signature Stripe vérifiée, déployé **`--no-verify-jwt`**).
+- Secrets **côté serveur uniquement** (`supabase secrets set`) : `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`. Aucun secret Stripe dans le frontend (le client n'envoie que `"monthly"|"yearly"`).
+- `SubscriptionContext` lit la ligne + écoute le Realtime → `isPremium` (déblocage TV auto après paiement mobile via QR).
 
 **Couche communautaire (opt-in, lecture seule)** — seule entorse à l'isolation par profil :
 - Tables : `profile_follows`, `profile_member_ratings` (RLS : côté acteur ∈ profils de `auth.uid()`, cible publique).
@@ -89,7 +96,7 @@ Le pipeline média est hybride :
 >
 > **Composants ↔ context** : un composant peut *consommer* un context via son hook (`useXtream`, `useIptvProfile`, `useLibrary`…) — ex. `TopNav`, `ProfilePanel`. Il ne doit jamais importer un `*.service` ni `lib/` en direct.
 >
-> **Ordre des providers** (`App.tsx`) : `SupabaseAuthProvider` → `IptvProfileProvider` → (profil actif) → `XtreamProvider key={profileId}` → `LibraryProvider` → `RatingsProvider` → `SocialProvider`. `LibraryProvider`/`XtreamProvider` sont remontés au changement de profil via la `key` → rechargement propre des données du nouveau profil. `RatingsProvider` est imbriqué **dans** `LibraryProvider` car il lit `useLibrary().history` pour l'auto-« vu » des films terminés (>90 %). `SocialProvider` (suivis + notes de membres du profil actif) est le plus interne. `IptvProfileContext` importe `socialService` pour la RPC `set_profile_public` (un `contexts/` peut importer un `services/`).
+> **Ordre des providers** (`App.tsx`) : `SupabaseAuthProvider` → `SubscriptionProvider` → `IptvProfileProvider` → (profil actif) → `XtreamProvider key={profileId}` → `LibraryProvider` → `RatingsProvider` → `SocialProvider`. `SubscriptionProvider` est monté juste sous l'auth (entre `SupabaseAuthProvider` et `IptvProfileProvider`) car `IptvProfileContext` (limite 1 profil gratuit), `LibraryContext` (choix adaptateur Supabase/localStorage) et `RatingsContext` (Mon ciné Premium) consomment tous `useSubscription().isPremium`. `LibraryProvider`/`XtreamProvider` sont remontés au changement de profil via la `key` → rechargement propre des données du nouveau profil. `RatingsProvider` est imbriqué **dans** `LibraryProvider` car il lit `useLibrary().history` pour l'auto-« vu » des films terminés (>90 %). `SocialProvider` (suivis + notes de membres du profil actif) est le plus interne. `IptvProfileContext` importe `socialService` pour la RPC `set_profile_public` (un `contexts/` peut importer un `services/`).
 >
 > **Identité de contenu « Mon ciné »** : `RatingsContext` et les fiches détail importent le pur `utils/catalog.titleKey()` comme clé canonique stable (un titre garde sa note malgré un changement de serveur Xtream ou de variante). C'est l'unique cas où un `contexts/` consomme `utils/` — autorisé car `utils/` est la couche la plus basse (zéro import runtime), strictement en dessous de `services/`.
 
@@ -130,7 +137,10 @@ Le pipeline média est hybride :
 | Image IPTV passée directement en `src` | Serveurs retournent des chemins relatifs → 404 | `safeImgUrl()` depuis `utils/image.ts` |
 | `useEffect` avec tableau vide `[]` et dépendances implicites | Fermeture stale non détectée par ESLint | Extraire la valeur via `useRef` ou ajouter la dep |
 | Recherche catalogue chargée paresseusement + repli sur catégorie courante | Avant fin du fetch global → résultats partiels trompeurs ; filtre + monte des milliers de `MediaCard` à chaque frappe → jank (surtout Films) | Précharger le dataset global au montage ; debounce ~200 ms ; `MIN_SEARCH_LEN` (3 car.) ; plafond `RESULT_LIMIT` (80) |
-| Favoris / historique / credentials Xtream en `localStorage` | Pas de synchro cross-device, pas d'isolation par profil — c'est la raison d'être de la BDD | Supabase scopé `profile_id` via `LibraryContext`/`IptvProfileContext` (RLS `auth.uid()`) ; localStorage réservé à l'id du profil actif + prefs sous-titres |
+| **Credentials Xtream** en `localStorage` (quel que soit le tier) | La table porte les mots de passe IPTV ; pas d'isolation par profil | `iptv_profiles` Supabase scopé `auth.uid()`, **toujours** — jamais en local |
+| Dupliquer la logique de persistance favoris/historique par tier (au lieu de basculer l'adaptateur) | Deux chemins à maintenir, désync garantie | `LibraryContext` choisit `libraryService` (Premium, Supabase) **ou** `localLibraryService` (gratuit, localStorage) via `useSubscription().isPremium` — **même signature**, un seul branchement |
+| Lire la table `subscriptions` en direct pour gater une feature, ou poser l'état Premium depuis le front | `subscriptions` est en lecture seule (RLS) ; seul `stripe-webhook` (service-role) écrit → tout write client est ignoré, tout gating ad-hoc dérive | Consommer `useSubscription().isPremium` (calculé une seule fois dans `SubscriptionContext` : `status ∈ {active,trialing}` + période non expirée). `VITE_DEV_FORCE_PREMIUM` n'agit que si `import.meta.env.DEV` |
+| Price IDs / clé secrète Stripe dans le frontend ou passés par le client | Falsification du montant / fuite de secret | Côté serveur uniquement (secrets Edge Function) ; le client n'envoie que `"monthly"\|"yearly"` |
 | Lire favoris/historique de façon synchrone (`useState(() => get())`) | Les données arrivent en async de Supabase → état figé vide au 1er rendu | Charger dans le provider, exposer via context ; mises à jour optimistes + upsert async |
 | Policy RLS de lecture publique sur `iptv_profiles` ou `select('*')` cross-profil pour le social | La table porte les credentials Xtream (RLS est par ligne, pas par colonne) → fuite massive de mots de passe IPTV | Lecture cross-compte UNIQUEMENT via vues definer `public_profiles`/`public_profile_stats` (sous-ensemble sûr, jamais `user_id`/credentials) + policy `watched_titles` `for select` si `is_public` |
 | `getWatched`/`isFollowing`/`memberRating` (lecture via `ref`) utilisés directement dans le rendu | Le `ref` n'est pas réactif → l'UI ne se rafraîchit pas au changement (note, suivi) | Dériver l'affichage de l'état réactif (`watched`/`following`/`memberRatings`) ; réserver les helpers `ref` aux callbacks |

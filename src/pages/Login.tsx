@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
+import { AppLogo } from '../components/AppLogo';
 import styles from './Login.module.css';
 
 type Mode = 'signin' | 'signup' | 'confirm';
@@ -36,7 +37,7 @@ export function Login() {
     return (
       <div className={styles.login}>
         <div className={styles.brand}>
-          <span className={styles.brandMark} />
+          <AppLogo size={28} />
           IPTVAX
         </div>
         <div className={styles.card}>
@@ -137,7 +138,7 @@ export function Login() {
             disabled={loading}
           >
             {loading ? (
-              <><span className={styles.spinner} />{mode === 'signin' ? 'Connexion…' : 'Création…'}</>
+              <><AppLogo spin size={18} />{mode === 'signin' ? 'Connexion…' : 'Création…'}</>
             ) : (
               mode === 'signin' ? 'Se connecter' : 'Créer mon compte'
             )}

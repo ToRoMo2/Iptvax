@@ -6,6 +6,7 @@ import { ProfilePanel } from './ProfilePanel';
 import { Focusable } from './Focusable';
 import { FIRST_NAV_FOCUS_KEY, HERO_FOCUS_KEY, DETAIL_BACK_FOCUS_KEY } from './RemoteControl';
 import { SEARCH_FOCUS_KEY } from './RemoteSearch';
+import { AppLogo } from './AppLogo';
 import './TopNav.css';
 
 /* ── Icônes ─────────────────────────────────────────────────────────── */
@@ -108,7 +109,7 @@ export function TopNav() {
     <>
       {/* ── Brand — fixé à gauche ───────────────────────────────────── */}
       <div className="brand-fixed" title="Iptvax">
-        <span className="brand-mark" />
+        <AppLogo size={22} />
         <span className="brand-name">IPTVAX</span>
       </div>
 

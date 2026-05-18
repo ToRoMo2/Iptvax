@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { useXtream } from '../context/XtreamContext';
 import styles from './ProfilePanel.module.css';
 
@@ -12,8 +13,14 @@ interface Props {
 export function ProfilePanel({ onClose }: Props) {
   const { user, signOut } = useSupabaseAuth();
   const { activeProfile, clearActiveProfile, updateProfile } = useIptvProfile();
+  const { isPremium } = useSubscription();
   const { userInfo } = useXtream();
   const navigate = useNavigate();
+
+  const handleOpenPremium = () => {
+    onClose();
+    navigate('/premium');
+  };
 
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -138,6 +145,13 @@ export function ProfilePanel({ onClose }: Props) {
 
       {/* ── Actions ────────────────────────────────────────────────── */}
       <div className={styles.divider} />
+      {isPremium ? (
+        <div className={styles.premiumBadge}>★ Membre Premium</div>
+      ) : (
+        <button className={styles.premiumCta} onClick={handleOpenPremium}>
+          ✨ Passer Premium
+        </button>
+      )}
       <button className={styles.actionBtn} onClick={handleOpenSettings}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="3"/>

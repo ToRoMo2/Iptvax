@@ -10,6 +10,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { socialService } from '../services/social.service';
 import { useSupabaseAuth } from './SupabaseAuthContext';
+import { useSubscription } from './SubscriptionContext';
 import type { IptvProfile, IptvProfileInput } from '../types/profile.types';
 
 const ACTIVE_KEY = 'active_iptv_profile_id';
@@ -31,6 +32,7 @@ const IptvProfileContext = createContext<IptvProfileContextValue | null>(null);
 
 export function IptvProfileProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseAuth();
+  const { isPremium } = useSubscription();
   const [profiles, setProfiles] = useState<IptvProfile[]>([]);
   const [activeProfile, setActiveProfile] = useState<IptvProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,10 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
   const createProfile = useCallback(
     async (input: IptvProfileInput): Promise<IptvProfile> => {
       if (!user) throw new Error('Non authentifié');
+      // Tier gratuit : 1 profil maximum (le multi-profil est Premium).
+      if (!isPremium && profiles.length >= 1) {
+        throw new Error('Les profils multiples sont réservés aux membres Premium');
+      }
       const { data, error } = await supabase
         .from('iptv_profiles')
         .insert({ ...input, user_id: user.id })
@@ -88,7 +94,7 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
       setProfiles((prev) => [...prev, created]);
       return created;
     },
-    [user],
+    [user, isPremium, profiles.length],
   );
 
   const updateProfile = useCallback(
