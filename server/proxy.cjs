@@ -47,7 +47,9 @@ app.get('/api/xtream', async (req, res) => {
       return res.json(JSON.parse(text));
     }
   } catch (err) {
-    return res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    const cause = err?.cause ? (err.cause?.code || err.cause?.message || String(err.cause)) : '';
+    process.stderr.write(`[xtream] fetch error: ${err.message}${cause ? ` (${cause})` : ''} — target: ${_server}\n`);
+    return res.status(502).json({ error: err instanceof Error ? err.message : String(err), cause });
   }
 });
 
