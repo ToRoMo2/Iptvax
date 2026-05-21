@@ -1,0 +1,48 @@
+# Déploiement automatique sur le VPS OVH à chaque push sur `main`.
+#
+# Pré-requis côté repo : 3 secrets dans Settings → Secrets and variables → Actions :
+#   - VPS_HOST    : IP publique du VPS (xxx.xxx.xxx.xxx)
+#   - VPS_USER    : ubuntu
+#   - VPS_SSH_KEY : clé privée ed25519 dédiée au déploiement (cf. doc setup)
+#
+# Pré-requis côté VPS : la clé publique correspondante doit être dans
+# ~/.ssh/authorized_keys de l'utilisateur ubuntu, et le repo cloné dans /opt/iptv.
+
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  # Permet aussi de relancer un déploiement manuellement depuis l'onglet Actions.
+  workflow_dispatch:
+
+# Évite que deux déploiements concurrents se marchent dessus (annule l'ancien).
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          # Important : -e fait échouer le script à la première commande KO,
+          # sinon un git pull foiré laisserait quand même tourner l'ancien build.
+          script: |
+            set -e
+            cd /opt/iptv
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose \
+              -f docker-compose.yml \
+              -f docker-compose.caddy.yml \
+              --env-file .env.local \
+              up --build -d
+            # Nettoie les vieux layers/images pour ne pas saturer le disque VPS.
+            docker image prune -f
+            echo "✅ Deploy OK — $(git rev-parse --short HEAD)"
