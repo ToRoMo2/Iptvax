@@ -47,41 +47,20 @@ function RemoveIcon() {
   );
 }
 
-// Logo attribution TMDB (inline SVG, fidèle à la charte couleurs de TMDB :
-// bleu #01b4e4 → turquoise #08c5b1 → vert #90cea1). Affiché obligatoirement
-// quand on expose des données TMDB côté UI — voir conditions d'utilisation
-// de l'API : https://www.themoviedb.org/about/logos-attribution
-function TmdbAttributionLogo() {
+// Logo officiel TMDB en pastille — affiché obligatoirement quand on expose
+// des données TMDB côté UI. Voir conditions d'attribution de l'API :
+// https://www.themoviedb.org/about/logos-attribution
+// `size` contrôle le diamètre de la pastille (badge hero plus petit que rail).
+function TmdbPill({ size = 48 }: { size?: number }) {
   return (
-    <svg
-      viewBox="0 0 158 22"
-      width="76"
-      height="14"
-      aria-label="TMDB"
+    <span
+      className={styles.tmdbPill}
+      style={{ width: size, height: size }}
+      aria-label="The Movie Database"
       role="img"
-      style={{ flexShrink: 0 }}
     >
-      <defs>
-        <linearGradient id="tmdb-grad-home" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#01b4e4" />
-          <stop offset="50%" stopColor="#08c5b1" />
-          <stop offset="100%" stopColor="#90cea1" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="158" height="22" rx="4" fill="#032541" />
-      <text
-        x="14"
-        y="15"
-        fontFamily="Inter, system-ui, sans-serif"
-        fontWeight="800"
-        fontSize="11"
-        letterSpacing="0.18em"
-        fill="#fff"
-      >
-        TMDB
-      </text>
-      <rect x="14" y="17" width="130" height="2" rx="1" fill="url(#tmdb-grad-home)" />
-    </svg>
+      <img src="/tmdb.png" alt="TMDB" />
+    </span>
   );
 }
 
@@ -620,6 +599,32 @@ export function Home() {
             </>
           )}
 
+          {/* Pastille source des reco (coin haut-droit du hero).
+              Mêmes règles que le bandeau plus bas — TMDB ou playlist — mais
+              en version minimaliste : juste la pastille, le texte vit dans
+              le bandeau complet juste avant la rangée Films populaires. */}
+          {isPremium ? (
+            <div
+              className={styles.heroRecoBadge}
+              title={t('home.recoBadgeTmdbTitle')}
+              aria-label={t('home.recoBadgeTmdbTitle')}
+            >
+              <TmdbPill size={40} />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={`${styles.heroRecoBadge} ${styles.heroRecoBadgeFree}`}
+              onClick={() => navigate('/premium')}
+              title={t('home.recoBadgePlaylistDesc')}
+              aria-label={t('home.recoBadgePlaylistDesc')}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" aria-hidden="true">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </button>
+          )}
+
           {/* Rail indicator */}
           {heroSlides.length > 1 && (
             <div className={styles.heroDots}>
@@ -760,7 +765,7 @@ export function Home() {
             faire comprendre que les vraies tendances sont derrière le paywall. */}
         {isPremium ? (
           <div className={`${styles.recoBadge} ${styles.recoBadgeTmdb}`}>
-            <TmdbAttributionLogo />
+            <TmdbPill size={52} />
             <div className={styles.recoBadgeText}>
               <span className={styles.recoBadgeTitle}>{t('home.recoBadgeTmdbTitle')}</span>
               <span className={styles.recoBadgeDesc}>{t('home.recoBadgeTmdbDesc')}</span>
