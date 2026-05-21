@@ -6,14 +6,22 @@ const { spawn } = require('child_process');
 const nodeHttps = require('https');
 const nodeHttp = require('http');
 
-// Préfère le ffmpeg/ffprobe système quand il existe (binaire apt dans Docker).
-// Le binaire de `ffmpeg-static` (johnvansickle 7.0.2) segfault sur tout input
-// HTTP/HTTPS dans Debian Bookworm. Le binaire système est plus fiable.
-// Hors Docker (Windows / dev local), on retombe sur les versions npm.
-const SYS_FFMPEG = '/usr/bin/ffmpeg';
-const SYS_FFPROBE = '/usr/bin/ffprobe';
-const ffmpegPath = fs.existsSync(SYS_FFMPEG) ? SYS_FFMPEG : require('ffmpeg-static');
-const ffprobePath = fs.existsSync(SYS_FFPROBE) ? SYS_FFPROBE : require('ffprobe-static').path;
+// Sélection du binaire ffmpeg/ffprobe par ordre de préférence :
+// 1. /usr/local/bin/ffmpeg → build statique BtbN 7.x installé dans le Docker
+//    (cf. Dockerfile). Bookworm ne shippe que 5.1.x qui régresse l'extraction
+//    WebVTT (sous-titres invisibles), et `ffmpeg-static` segfault sur HTTP
+//    en glibc Bookworm. BtbN = compromis fiable, ffmpeg 7.x sans segfault.
+// 2. /usr/bin/ffmpeg → apt système (Bookworm 5.1.x), filet de secours
+//    si l'image n'a pas été reconstruite après le passage à BtbN.
+// 3. ffmpeg-static (npm) → dev local Windows/macOS.
+function pickBinary(...candidates) {
+  for (const p of candidates) {
+    if (typeof p === 'string' && fs.existsSync(p)) return p;
+  }
+  return candidates[candidates.length - 1];
+}
+const ffmpegPath  = pickBinary('/usr/local/bin/ffmpeg',  '/usr/bin/ffmpeg',  require('ffmpeg-static'));
+const ffprobePath = pickBinary('/usr/local/bin/ffprobe', '/usr/bin/ffprobe', require('ffprobe-static').path);
 process.stdout.write(`[server] ffmpeg=${ffmpegPath}\n[server] ffprobe=${ffprobePath}\n`);
 
 const app = express();
@@ -539,11 +547,21 @@ app.get('/api/subtitle', async (req, res) => {
     });
     ff.on('error', reject);
     ff.on('close', code => {
-      if (code === 0 && out.trim()) {
+      // Une réponse "valide" doit contenir au moins une cue (≥ 1 timestamp
+      // `-->`). Un VTT vide (juste l'en-tête `WEBVTT`) signale un échec
+      // d'extraction silencieux — historiquement causé par ffmpeg 5.1.x de
+      // Bookworm qui sortait en code 0 sans cues sur certains MKV (cf.
+      // CLAUDE.md §IV-25). On NE met PAS en cache un VTT vide : sinon le
+      // résultat dégradé reste collé pour 1h.
+      const hasCues = code === 0 && /-->/.test(out);
+      if (hasCues) {
         subtitleCache.set(cacheKey, out);
         resolve(out);
       } else {
-        process.stderr.write(`[subtitle] ffmpeg exit ${code}: ${errBuf.slice(-300)}\n`);
+        process.stderr.write(
+          `[subtitle] ffmpeg exit=${code} bytes=${out.length} track=${trackIdx} ` +
+          `${hasCues ? '' : '(no cues) '}stderr: ${errBuf.slice(-300)}\n`,
+        );
         resolve('WEBVTT\n\n');
       }
     });
