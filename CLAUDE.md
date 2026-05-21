@@ -87,11 +87,12 @@ npm run preview      # Aperçu du build prod
 
 **Docker** (déploiement VPS / reproductibilité — voir `Dockerfile`, `docker-compose.yml`) :
 ```bash
-docker compose up --build     # build image + run (lit .env.local pour secrets runtime)
-docker compose up -d          # détaché
-docker compose logs -f iptv   # suivre les logs
-docker compose down           # arrêt
+docker compose --env-file .env.local up --build   # build + run (flag OBLIGATOIRE, voir ci-dessous)
+docker compose --env-file .env.local up -d        # détaché
+docker compose logs -f iptv                       # suivre les logs
+docker compose down                               # arrêt
 ```
+⚠ **`--env-file .env.local` obligatoire au build** : compose interpole les `${VITE_*}` depuis `.env` par défaut (et le repo n'a que `.env.local`). Sans ce flag, les `VITE_*` arrivent vides → bundle inliné sans Supabase URL → écran noir + `Error: supabaseUrl is required`. Alternative : symlinker/copier `.env.local` → `.env`.
 - Base : `node:20-bookworm-slim` (**pas Alpine** : `ffmpeg-static`/`ffprobe-static` shippent du glibc, incompatibles musl).
 - Multi-stage : `builder` compile (TS + Vite), `runner` ne contient que `dist/`, `server/`, deps prod, et `tini` (PID 1 → reaper des process `ffmpeg`).
 - Container tourne en user `node` (non-root).

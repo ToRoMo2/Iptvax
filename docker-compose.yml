@@ -1,5 +1,8 @@
-# Lancement local : `docker compose up --build`
-# Les variables sensibles (Supabase, TMDB) sont lues depuis .env.local — non commit.
+# Lancement local : `docker compose --env-file .env.local up --build`
+# ⚠ Le flag --env-file est OBLIGATOIRE : compose interpole les ${VAR} ci-dessous
+# depuis `.env` par défaut, pas `.env.local`. Sans ce flag, les VITE_* arrivent
+# vides au build → bundle JS sans Supabase URL → écran noir + erreur console
+# "supabaseUrl is required". Alternative : renommer/symlinker .env.local → .env.
 services:
   iptv:
     build:
