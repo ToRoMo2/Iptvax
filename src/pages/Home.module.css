@@ -403,21 +403,26 @@
 
 /* ── Pastille TMDB officielle (logo public/tmdb.png en grosse pastille)
    Réutilisable : taille pilotée par style inline (prop `size`).
-   Fond sombre fidèle à la charte TMDB (#032541) + glow accent au survol. */
+   Fond sombre fidèle à la charte TMDB (#032541). Le logo TMDB a déjà ses
+   propres marges blanches dans le PNG, donc le contour de la pastille suffit
+   — pas de padding (sinon `padding: <percent>` se calcule contre le PARENT,
+   gonfle la pastille à la taille du bandeau). */
 .tmdbPill {
-  display: inline-grid;
-  place-items: center;
+  display: inline-block;
+  position: relative;
   border-radius: 50%;
   background: #032541;
   border: 1px solid rgba(1, 180, 228, 0.35);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  padding: 16%;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 .tmdbPill img {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 18%;
+  width: 64%;
+  height: 64%;
   object-fit: contain;
   display: block;
 }
