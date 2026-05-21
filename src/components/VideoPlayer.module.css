@@ -642,12 +642,16 @@
   font-weight: 600;
 }
 
+/* Classes-hooks pour le regroupement mobile (sans effet sur desktop) */
+.primaryGroup {}
+.secondaryGroup {}
+.playPauseBtn {}
+
 /* ====================================================================
-   Responsive — player mobile
-   Le player passe en plein écran portrait : on rétrécit les marges, les
-   tailles de sous-titres, et on rend les contrôles assez gros pour le doigt.
+   Responsive — Tablette portrait (641px – 900px)
+   Marges réduites, capsule top compacte. Layout flat conservé.
    ==================================================================== */
-@media (max-width: 900px) {
+@media (max-width: 900px) and (min-width: 641px) {
   .topBar { padding: 18px 24px 18px 80px; gap: 12px; }
   .bottomSection { padding: 60px 24px 18px; }
   .controlBtn { min-width: 40px; height: 40px; padding: 0 8px; font-size: 14px; }
@@ -657,35 +661,221 @@
   .bigPlayBtn { width: 64px; height: 64px; font-size: 24px; }
 }
 
+/* ====================================================================
+   Responsive — Mobile portrait (≤ 640px) : REFONTE complète
+   Conventions Apple HIG / Material : zones tactiles 44px+ ; play/pause
+   en pastille blanche centrée comme ancre visuelle ; menus en bottom
+   sheet plein-écran (au lieu de popovers étriqués qui débordent).
+   ==================================================================== */
 @media (max-width: 640px) {
-  .topBar { padding: 12px 14px 12px 60px; gap: 8px; font-size: 12px; }
-  .crumb { font-size: 12px; }
-  .bottomSection { padding: 48px 14px 14px; gap: 10px; }
-  .progressArea { gap: 8px; }
-  .timeLabel { font-size: 11px; min-width: 36px; }
-  .bottomBar { gap: 4px; flex-wrap: wrap; }
-  .controlBtn { min-width: 38px; height: 38px; padding: 0 6px; font-size: 13px; }
-  /* On masque le volume sur mobile : géré par le système, gain de place */
+  /* ── Top bar : dégradé propre depuis le haut, back-btn intégré ─── */
+  .topBar {
+    padding: 14px 14px 14px 70px;
+    gap: 8px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0) 100%);
+    min-height: 60px;
+    align-items: flex-start;
+  }
+  .crumb { font-size: 13px; gap: 6px; }
+  .crumbNow { font-weight: 600; }
+  .channelPos { font-size: 11px; }
+  .liveBadge { font-size: 9px; }
+
+  /* ── Bottom panel : dégradé épais, panneau respirable ──────────── */
+  .bottomSection {
+    padding: 64px 14px calc(16px + var(--safe-bottom));
+    gap: 14px;
+    background: linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%);
+  }
+
+  /* ── Progress : piste plus épaisse, knob plus visible ────────── */
+  .progressArea { gap: 10px; }
+  .progressTrack { height: 4px; }
+  .progressTrack:hover { height: 6px; }
+  .progressKnob { width: 16px; height: 16px; }
+  .timeLabel { font-size: 11px; min-width: 38px; }
+
+  /* ── Bottom bar : 2 rangées via flex-wrap ─────────────────────── */
+  .bottomBar {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Boutons généraux : zone tactile 44px Apple HIG */
+  .controlBtn {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 10px;
+    font-size: 16px;
+    border-radius: 50%;
+  }
+  .controlBtn:disabled { opacity: 0.3; }
+
+  /* Volume masqué (géré par les boutons hardware sur mobile) */
   .volumeGroup { display: none; }
-  .bigPlayBtn { width: 56px; height: 56px; font-size: 20px; }
-  .subtitleOverlay { bottom: 64px; max-width: 92%; }
-  .subtitleLoading { bottom: 64px; font-size: 11px; padding: 5px 10px; }
-  /* Tailles sous-titres mobile : tout est globalement plus petit */
+
+  /* Spacer : devient une coupure de ligne pour wrapper sur 2 rangées */
+  .spacer {
+    flex: 1 0 100%;
+    height: 0;
+  }
+
+  /* Groupe primaire (back10/play/fwd10 OU prev/play/next) : rangée 1
+     centrée, plus aérée. */
+  .primaryGroup { flex: 0 0 auto; }
+
+  /* Bouton play/pause : pastille blanche distinctive, plus grosse */
+  .playPauseBtn {
+    background: #FFFFFF !important;
+    color: #000 !important;
+    min-width: 56px !important;
+    height: 56px !important;
+    font-size: 22px !important;
+    margin: 0 4px;
+  }
+  .playPauseBtn:hover:not(:disabled) { background: #FFFFFF !important; }
+  .playPauseBtn:active { transform: scale(0.94); }
+
+  /* Groupe secondaire (audio/cc/quality/fullscreen) : rangée 2, espacée */
+  .secondaryGroup {
+    flex: 1 1 0;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+  }
+  .secondaryGroup > .controlBtn,
+  .secondaryGroup .controlBtn {
+    width: 100%;
+    height: 40px;
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,0.08);
+    font-size: 12px;
+    padding: 0 10px;
+    max-width: 100px;
+  }
+  .secondaryGroup .controlBtn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.14);
+  }
+  .secondaryGroup .controlBtnOn { color: var(--accent) !important; }
+
+  /* ── Bouton play central en pause : plus gros ────────────────── */
+  .bigPlayBtn {
+    width: 72px;
+    height: 72px;
+    font-size: 26px;
+  }
+
+  /* ── Sous-titres mobile : tailles rapetissées ────────────────── */
+  .subtitleOverlay { bottom: 96px; max-width: 92%; }
+  .subtitleLoading { bottom: 96px; font-size: 11px; padding: 5px 10px; }
   .subSm .subtitleLine { font-size: 14px; }
   .subMd .subtitleLine { font-size: 18px; }
   .subLg .subtitleLine { font-size: 24px; }
   .subXl .subtitleLine { font-size: 32px; }
 
+  /* ── Menus audio/CC/qualité → bottom sheet plein-écran ────────
+       Sur mobile, le popover étriqué est inutilisable : on le bascule
+       en bottom sheet qui slide depuis le bas, avec swipe-to-dismiss
+       implicite (tap hors zone ferme via closeAllMenus). */
   .popupMenu, .qualityMenu {
-    min-width: 160px;
-    max-height: 60vh;
-    right: -4px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    max-height: 65vh;
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    border: 0;
+    border-top: 1px solid var(--line-strong);
+    padding: 8px 6px calc(20px + var(--safe-bottom));
+    background: rgba(8, 8, 8, 0.96);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.75);
+    z-index: 30;
+    animation: vp-sheet-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .menuOption { padding: 10px 10px; font-size: 13px; }
+  /* Petite poignée visuelle façon iOS pour signaler le « drawer » */
+  .popupMenu::before, .qualityMenu::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    margin: 4px auto 10px;
+  }
+  @keyframes vp-sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  /* Options : padding généreux, cibles tactiles confortables */
+  .menuHeader {
+    padding: 10px 14px 14px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--line-soft);
+    margin-bottom: 6px;
+  }
+  .menuOption, .qualityOption {
+    padding: 14px 14px;
+    font-size: 15px;
+    border-radius: var(--r-ui);
+  }
+  .menuOption + .menuOption { margin-top: 2px; }
+  .subSettings { padding: 12px 8px; gap: 14px; }
+  .subSettingsOpt { padding: 8px 12px; font-size: 13px; }
 }
 
-@media (max-width: 420px) {
-  .topBar { padding: 10px 10px 10px 52px; }
-  .bottomSection { padding: 40px 10px 12px; }
-  .controlBtn { min-width: 34px; height: 34px; padding: 0 4px; font-size: 12px; }
+/* ====================================================================
+   Petits écrans (≤ 380px) : encore plus compact
+   ==================================================================== */
+@media (max-width: 380px) {
+  .topBar { padding: 12px 10px 12px 60px; }
+  .bottomSection { padding: 48px 10px calc(14px + var(--safe-bottom)); }
+  .controlBtn { min-width: 40px; height: 40px; padding: 0 8px; font-size: 15px; }
+  .playPauseBtn {
+    min-width: 52px !important;
+    height: 52px !important;
+    font-size: 20px !important;
+  }
+  .secondaryGroup .controlBtn { height: 36px; font-size: 11px; max-width: 88px; }
+}
+
+/* ====================================================================
+   Landscape (paysage) : on retombe sur un layout flat plus dense.
+   Vidéo fill 100vw × 100vh, pas de wrap des contrôles.
+   ==================================================================== */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topBar { padding: 10px 16px 10px 76px; min-height: 0; }
+  .bottomSection { padding: 36px 16px 10px; gap: 8px; }
+  .bottomBar { flex-wrap: nowrap; gap: 6px; justify-content: flex-start; }
+  .spacer { display: block; flex: 1 0 auto; }
+  .playPauseBtn {
+    min-width: 44px !important;
+    height: 44px !important;
+    font-size: 18px !important;
+  }
+  .secondaryGroup { flex: 0 0 auto; }
+  .secondaryGroup .controlBtn { width: auto; max-width: none; }
+  /* Bottom sheets : redeviennent un popover normal en paysage (plus de place) */
+  .popupMenu, .qualityMenu {
+    position: absolute;
+    left: auto;
+    right: 0;
+    bottom: calc(100% + 8px);
+    width: auto;
+    min-width: 180px;
+    max-width: 280px;
+    border-radius: var(--r-card);
+    border: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    padding: 6px;
+    animation: none;
+  }
+  .popupMenu::before, .qualityMenu::before { display: none; }
 }

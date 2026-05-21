@@ -400,11 +400,17 @@ export function VideoPlayer({
             </div>
           )}
 
-          {/* Barre du bas */}
+          {/* Barre du bas
+              Classes additionnelles pour le mobile :
+              - .primaryGroup → boutons de lecture (prev/play/next ou ±10s) centrés
+              - .playPauseBtn → bouton play/pause distinctif (pastille blanche)
+              - .secondaryGroup → menus + plein écran (alignés à droite)
+              Sur desktop, .bottomBar reste un flex flat ; le visuel est inchangé.
+              CSS gère le regroupement en 2 lignes uniquement sur mobile. */}
           <div className={styles.bottomBar}>
             {isLive && (onPrevChannel || onNextChannel) && (
               <button
-                className={styles.controlBtn}
+                className={`${styles.controlBtn} ${styles.primaryGroup}`}
                 onClick={onPrevChannel}
                 disabled={!onPrevChannel}
                 title={t('player.prevChannel')}
@@ -413,13 +419,19 @@ export function VideoPlayer({
               </button>
             )}
 
-            <button className={styles.controlBtn} onClick={player.toggle} title={t('player.playPause')}>
+            {!isLive && (
+              <button className={`${styles.controlBtn} ${styles.primaryGroup}`} onClick={() => player.seek(player.currentTime - 10)} title={t('player.back10')}>
+                ↩ 10s
+              </button>
+            )}
+
+            <button className={`${styles.controlBtn} ${styles.playPauseBtn} ${styles.primaryGroup}`} onClick={player.toggle} title={t('player.playPause')}>
               {isPlaying ? '⏸' : '▶'}
             </button>
 
             {isLive && (onPrevChannel || onNextChannel) && (
               <button
-                className={styles.controlBtn}
+                className={`${styles.controlBtn} ${styles.primaryGroup}`}
                 onClick={onNextChannel}
                 disabled={!onNextChannel}
                 title={t('player.nextChannel')}
@@ -429,14 +441,9 @@ export function VideoPlayer({
             )}
 
             {!isLive && (
-              <>
-                <button className={styles.controlBtn} onClick={() => player.seek(player.currentTime - 10)} title={t('player.back10')}>
-                  ↩ 10s
-                </button>
-                <button className={styles.controlBtn} onClick={() => player.seek(player.currentTime + 10)} title={t('player.fwd10')}>
-                  10s ↪
-                </button>
-              </>
+              <button className={`${styles.controlBtn} ${styles.primaryGroup}`} onClick={() => player.seek(player.currentTime + 10)} title={t('player.fwd10')}>
+                10s ↪
+              </button>
             )}
 
             <div className={styles.spacer} />
@@ -459,7 +466,7 @@ export function VideoPlayer({
 
             {/* Sélecteur de piste audio */}
             {player.audioTracks.length > 0 && (
-              <div className={styles.menuContainer}>
+              <div className={`${styles.menuContainer} ${styles.secondaryGroup}`}>
                 <button
                   className={`${styles.controlBtn} ${showAudio ? styles.controlBtnActive : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowAudio((v) => !v); setShowQuality(false); setShowSubtitles(false); }}
@@ -487,7 +494,7 @@ export function VideoPlayer({
 
             {/* Sélecteur de sous-titres */}
             {player.subtitleTracks.length > 0 && (
-              <div className={styles.menuContainer}>
+              <div className={`${styles.menuContainer} ${styles.secondaryGroup}`}>
                 <button
                   className={`${styles.controlBtn} ${showSubtitles ? styles.controlBtnActive : ''} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowSubtitles((v) => !v); setShowQuality(false); setShowAudio(false); }}
@@ -567,7 +574,7 @@ export function VideoPlayer({
 
             {/* Sélecteur de qualité */}
             {player.levels.length > 1 && (
-              <div className={styles.menuContainer}>
+              <div className={`${styles.menuContainer} ${styles.secondaryGroup}`}>
                 <button
                   className={`${styles.controlBtn} ${showQuality ? styles.controlBtnActive : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowQuality((v) => !v); setShowAudio(false); setShowSubtitles(false); }}
@@ -604,7 +611,7 @@ export function VideoPlayer({
 
             {/* Plein écran */}
             <button
-              className={styles.controlBtn}
+              className={`${styles.controlBtn} ${styles.secondaryGroup}`}
               onClick={player.toggleFullscreen}
               title={t('player.fullscreen')}
             >

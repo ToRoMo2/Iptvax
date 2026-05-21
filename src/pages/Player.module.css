@@ -62,11 +62,17 @@
 }
 
 @media (max-width: 640px) {
+  /* Back btn intégré dans la top-bar du player ; reste cliquable au-dessus
+     du dégradé (z-index: 10 hérité). Padding tactile généreux. */
   .backBtn {
-    top: 14px;
-    left: 12px;
-    height: 32px;
+    top: 10px;
+    left: 10px;
+    height: 36px;
     padding: 0 12px;
     font-size: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-color: rgba(255, 255, 255, 0.15);
   }
 }
