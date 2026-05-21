@@ -1,11 +1,20 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
 const { spawn } = require('child_process');
 const nodeHttps = require('https');
 const nodeHttp = require('http');
-const ffmpegPath = require('ffmpeg-static');
-const ffprobePath = require('ffprobe-static').path;
+
+// Préfère le ffmpeg/ffprobe système quand il existe (binaire apt dans Docker).
+// Le binaire de `ffmpeg-static` (johnvansickle 7.0.2) segfault sur tout input
+// HTTP/HTTPS dans Debian Bookworm. Le binaire système est plus fiable.
+// Hors Docker (Windows / dev local), on retombe sur les versions npm.
+const SYS_FFMPEG = '/usr/bin/ffmpeg';
+const SYS_FFPROBE = '/usr/bin/ffprobe';
+const ffmpegPath = fs.existsSync(SYS_FFMPEG) ? SYS_FFMPEG : require('ffmpeg-static');
+const ffprobePath = fs.existsSync(SYS_FFPROBE) ? SYS_FFPROBE : require('ffprobe-static').path;
+process.stdout.write(`[server] ffmpeg=${ffmpegPath}\n[server] ffprobe=${ffprobePath}\n`);
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -105,41 +114,87 @@ app.get('/api/hlsproxy', async (req, res) => {
   const { url } = req.query;
   if (!url || typeof url !== 'string') return res.status(400).end();
 
-  try {
-    const upstream = await fetch(url, {
-      signal: AbortSignal.timeout(30_000),
-      headers: {
-        'User-Agent': isLivePath(url) ? UA_LIVE : UA_DEFAULT,
-      },
-    });
+  // Timeout uniquement sur l'établissement de la connexion (réception des
+  // headers) — sinon les streams longs (.mp4 entier, ~1h) sont coupés à 30s.
+  const controller = new AbortController();
+  const connTimeout = setTimeout(() => controller.abort(), 30_000);
+  req.on('close', () => controller.abort());
 
-    if (!upstream.ok) {
+  try {
+    const origin = new URL(url).origin;
+    const storedCookies = cookieStore.get(origin);
+    const isLive = isLivePath(url);
+
+    // Live : UA VLC seul (garde-fou §IV-8 — pas de Referer/Origin).
+    // VOD/movies : UA navigateur + Referer + Origin obligatoires, sinon
+    // beaucoup de serveurs Xtream (souvent derrière Cloudflare) renvoient
+    // 551/403 sur les manifests .m3u8.
+    const upstreamHeaders = isLive
+      ? { 'User-Agent': UA_LIVE }
+      : { 'User-Agent': UA_DEFAULT, 'Referer': `${origin}/`, 'Origin': origin };
+    if (storedCookies) upstreamHeaders['Cookie'] = storedCookies;
+    if (req.headers['range']) upstreamHeaders['Range'] = req.headers['range'];
+
+    const upstream = await fetch(url, {
+      signal: controller.signal,
+      headers: upstreamHeaders,
+    });
+    clearTimeout(connTimeout);
+
+    // Capture cookies de session pour les prochaines requêtes (segments).
+    const setCookie = upstream.headers.get('set-cookie');
+    if (setCookie) cookieStore.set(origin, mergeCookies(storedCookies, setCookie));
+
+    const ct = upstream.headers.get('content-type') ?? '';
+    const isManifest = url.includes('.m3u8') || ct.includes('mpegurl');
+
+    if (!upstream.ok && upstream.status !== 206) {
       console.warn(`[hlsproxy] ${upstream.status} pour ${url.slice(0, 80)}`);
+      if (isManifest) {
+        // Manifest échec : retourne 200 + contenu non parseable plutôt que
+        // propager le 5xx (Chrome log inévitablement "Failed to load resource"
+        // en console pour tout non-2xx). HLS.js échoue alors proprement avec
+        // MANIFEST_PARSING_ERROR, capté par le handler côté client.
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        return res.end(`#EXT-UNAVAILABLE:${upstream.status}`);
+      }
       return res.status(upstream.status).end();
     }
 
-    const ct = upstream.headers.get('content-type') ?? '';
-    res.setHeader('Content-Type', ct || 'application/octet-stream');
-
-    if (isM3u8(url, ct)) {
+    if (isManifest) {
       const text = await upstream.text();
+      // URL finale (après redirects Cloudflare → CDN) requise pour résoudre
+      // les chemins relatifs des segments — garde-fou §IV-9 CLAUDE.md.
       const finalUrl = upstream.url || url;
       const rewritten = rewriteM3u8(text, finalUrl);
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       return res.send(rewritten);
     }
 
+    // Segment .ts ou .mp4 — forward statut (préserver 206 Partial Content) +
+    // headers Range pour que la barre de progression / seek fonctionnent.
+    res.status(upstream.status);
+    res.setHeader('Content-Type', ct || 'application/octet-stream');
     const cl = upstream.headers.get('content-length');
+    const cr = upstream.headers.get('content-range');
+    const ar = upstream.headers.get('accept-ranges');
     if (cl) res.setHeader('Content-Length', cl);
+    if (cr) res.setHeader('Content-Range', cr);
+    if (ar) res.setHeader('Accept-Ranges', ar);
 
     if (upstream.body) {
-      Readable.fromWeb(upstream.body).pipe(res);
+      const bodyStream = Readable.fromWeb(upstream.body);
+      bodyStream.on('error', () => { try { res.end(); } catch { /* */ } });
+      req.on('close', () => { try { bodyStream.destroy(); } catch { /* */ } });
+      bodyStream.pipe(res);
     } else {
       res.end();
     }
   } catch (err) {
-    console.error('[hlsproxy]', err instanceof Error ? err.message : err);
-    if (!res.headersSent) res.status(502).end();
+    clearTimeout(connTimeout);
+    const isAbort = err && (err.name === 'AbortError' || err.code === 'ABORT_ERR');
+    if (!isAbort) console.error('[hlsproxy]', err instanceof Error ? err.message : err);
+    if (!res.headersSent) res.status(isAbort ? 499 : 502).end();
   }
 });
 

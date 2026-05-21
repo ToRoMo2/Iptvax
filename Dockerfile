@@ -37,10 +37,14 @@ ENV NODE_ENV=production \
     PORT=4000 \
     ALLOWED_ORIGINS=*
 
-# Dépendances système requises par les binaires ffmpeg/ffprobe statiques.
-# (libstdc++ déjà présent ; libc6 itou. On installe juste tini pour PID 1 propre.)
+# ffmpeg système : le binaire statique livré par `ffmpeg-static` (v7.0.2 de
+# johnvansickle.com) SEGFAULT sur tout input HTTP/HTTPS, y compris des URLs
+# publiques. Symptôme : /api/stream renvoie 0 bytes, lecteur affiche
+# "source incompatible". On installe le ffmpeg de Debian Bookworm (5.x stable)
+# et `proxy.cjs` préfère le binaire système quand il existe.
+# tini : reaper PID 1 pour ne pas laisser de zombies ffmpeg en cas de kill.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tini ca-certificates \
+ && apt-get install -y --no-install-recommends tini ca-certificates ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
 # Installer UNIQUEMENT les deps de production (ffmpeg-static + ffprobe-static
