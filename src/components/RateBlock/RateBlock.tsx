@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRatings } from '../../contexts/RatingsContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useI18n } from '../../contexts/I18nContext';
 import { RatingStars } from '../RatingStars/RatingStars';
 import { Focusable } from '../Focusable';
 import type { WatchedInput } from '../../types/ratings.types';
@@ -33,6 +34,7 @@ function toDateInput(ms: number): string {
 export function RateBlock({ input, starsFocusKey }: Props) {
   const navigate = useNavigate();
   const { isPremium } = useSubscription();
+  const { t } = useI18n();
   const {
     watched,
     rate,
@@ -90,18 +92,15 @@ export function RateBlock({ input, starsFocusKey }: Props) {
     return (
       <div className={styles.block}>
         <div className={styles.head}>
-          <span className={styles.label}>🔒 Votre note</span>
+          <span className={styles.label}>{t('rate.yourRatingLocked')}</span>
         </div>
-        <p className={styles.lockedText}>
-          Notez, critiquez et gardez la trace de tout ce que vous regardez
-          avec « Mon ciné » — réservé aux membres Premium.
-        </p>
+        <p className={styles.lockedText}>{t('rate.lockedText')}</p>
         <Focusable
           className={`btn btn-primary ${styles.lockedCta}`}
           onEnter={() => navigate('/premium')}
           onClick={() => navigate('/premium')}
         >
-          Découvrir Premium
+          {t('rate.discoverPremium')}
         </Focusable>
       </div>
     );
@@ -110,9 +109,11 @@ export function RateBlock({ input, starsFocusKey }: Props) {
   return (
     <div className={styles.block}>
       <div className={styles.head}>
-        <span className={styles.label}>Votre note</span>
+        <span className={styles.label}>{t('rate.yourRating')}</span>
         <span className={styles.value}>
-          {current?.rating != null ? `${fmtRating(current.rating)} / 5` : '—'}
+          {current?.rating != null
+            ? t('rate.ratingValue', { value: fmtRating(current.rating) })
+            : '—'}
         </span>
       </div>
 
@@ -122,14 +123,14 @@ export function RateBlock({ input, starsFocusKey }: Props) {
           onChange={(v) => rate(input, v)}
           size={30}
           focusKey={starsFocusKey}
-          ariaLabel="Noter ce titre"
+          ariaLabel={t('rate.rateAria')}
         />
         {current?.rating != null && (
           <button
             className={styles.linkBtn}
             onClick={() => clearRating(input.contentType, input.titleKey)}
           >
-            Effacer la note
+            {t('rate.clearRating')}
           </button>
         )}
       </div>
@@ -140,13 +141,13 @@ export function RateBlock({ input, starsFocusKey }: Props) {
           onEnter={() => markWatched(input)}
           onClick={() => markWatched(input)}
         >
-          ✓ Marquer comme vu
+          {t('rate.markWatched')}
         </Focusable>
       ) : (
         <>
           <div className={styles.metaRow}>
             <label className={styles.dateLabel}>
-              <span>Vu le</span>
+              <span>{t('rate.watchedOn')}</span>
               <input
                 type="date"
                 className={styles.dateInput}
@@ -177,14 +178,14 @@ export function RateBlock({ input, starsFocusKey }: Props) {
               }
               onBlurred={() => setConfirmRemove(false)}
             >
-              {confirmRemove ? 'Confirmer le retrait' : '🗑 Retirer des vues'}
+              {confirmRemove ? t('rate.confirmRemove') : t('rate.removeFromWatched')}
             </Focusable>
           </div>
 
           {showReview || current.review ? (
             <textarea
               className={styles.review}
-              placeholder="Votre critique (optionnelle)…"
+              placeholder={t('rate.reviewPlaceholder')}
               value={reviewDraft}
               onChange={(e) => setReviewDraft(e.target.value)}
               onBlur={commitReview}
@@ -195,7 +196,7 @@ export function RateBlock({ input, starsFocusKey }: Props) {
               className={styles.linkBtn}
               onClick={() => setShowReview(true)}
             >
-              ＋ Ajouter une critique
+              {t('rate.addReview')}
             </button>
           )}
         </>

@@ -3,6 +3,7 @@ import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import styles from './MediaCard.module.css';
 import { safeImgUrl } from '../utils/image';
 import { channelCode } from '../utils/channel';
+import { useI18n } from '../contexts/I18nContext';
 
 type CardVariant = 'channel' | 'movie' | 'series';
 
@@ -31,6 +32,7 @@ function MediaCardInner({
   onClick,
   onFavorite,
 }: Props) {
+  const { t } = useI18n();
   const { ref, focused } = useFocusable({ onEnterPress: () => onClick() });
   useEffect(() => {
     if (focused) {
@@ -115,7 +117,7 @@ function MediaCardInner({
         <button
           className={`${styles.favBtn} ${isFavorite ? styles.favActive : ''}`}
           onClick={(e) => { e.stopPropagation(); onFavorite(); }}
-          title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          title={isFavorite ? t('common.removeFavorite') : t('common.addFavorite')}
         >
           {isFavorite ? '★' : '☆'}
         </button>

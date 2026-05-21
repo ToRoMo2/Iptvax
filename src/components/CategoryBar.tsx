@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useFocusable, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { SEARCH_FOCUS_KEY } from './RemoteSearch';
+import { useI18n } from '../contexts/I18nContext';
 import styles from './CategoryBar.module.css';
 
 interface Category {
@@ -54,6 +55,7 @@ interface Props {
 }
 
 export function CategoryBar({ categories, selected, onSelect }: Props) {
+  const { t } = useI18n();
   const railRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft]   = useState(false);
   const [canRight, setCanRight] = useState(false);
@@ -101,7 +103,7 @@ export function CategoryBar({ categories, selected, onSelect }: Props) {
       <button
         className={`${styles.arrow} ${styles.arrowLeft} ${!canLeft ? styles.arrowHidden : ''}`}
         onClick={() => scroll('left')}
-        aria-label="Défiler à gauche"
+        aria-label={t('categoryBar.scrollLeft')}
         tabIndex={canLeft ? 0 : -1}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
@@ -129,7 +131,7 @@ export function CategoryBar({ categories, selected, onSelect }: Props) {
       <button
         className={`${styles.arrow} ${styles.arrowRight} ${!canRight ? styles.arrowHidden : ''}`}
         onClick={() => scroll('right')}
-        aria-label="Défiler à droite"
+        aria-label={t('categoryBar.scrollRight')}
         tabIndex={canRight ? 0 : -1}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">

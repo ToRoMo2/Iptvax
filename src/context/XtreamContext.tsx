@@ -4,11 +4,13 @@ import {
   useMemo,
   useState,
   useEffect,
+  useRef,
   type ReactNode,
 } from 'react';
 import type { XtreamCredentials, XtreamUserInfo } from '../types/xtream.types';
 import type { IptvProfile } from '../types/profile.types';
 import { xtreamService } from '../services/xtream.service';
+import { useI18n } from '../contexts/I18nContext';
 
 interface XtreamContextValue {
   credentials: XtreamCredentials | null;
@@ -42,6 +44,12 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // `t` dans une ref : l'effet d'auth ne doit se relancer que sur changement
+  // de profil, pas à chaque changement de langue.
+  const { t } = useI18n();
+  const tRef = useRef(t);
+  tRef.current = t;
+
   // Authentifie le profil IPTV actif (le composant est remonté via `key`
   // dans App.tsx à chaque changement de profil → re-auth automatique).
   useEffect(() => {
@@ -54,13 +62,13 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
       .then((response) => {
         if (cancelled) return;
         if (!response?.user_info || response.user_info.auth === 0) {
-          throw new Error('Identifiants incorrects');
+          throw new Error(tRef.current('profileSelect.badCredentials'));
         }
         setUserInfo(response.user_info);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setAuthError(e instanceof Error ? e.message : 'Erreur de connexion');
+        setAuthError(e instanceof Error ? e.message : tRef.current('profileSelect.connectFail'));
         setUserInfo(null);
       })
       .finally(() => {

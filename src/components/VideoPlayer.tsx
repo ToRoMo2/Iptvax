@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
+import { useI18n } from '../contexts/I18nContext';
 import styles from './VideoPlayer.module.css';
 
 interface Props {
@@ -81,6 +82,7 @@ export function VideoPlayer({
   resume,
   onPersist,
 }: Props) {
+  const { t } = useI18n();
   const player = usePlayer(url, mediaUrl);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
@@ -315,7 +317,7 @@ export function VideoPlayer({
       {player.subtitleLoading && !subtitleText && (
         <div className={styles.subtitleLoading}>
           <span className={styles.subtitleLoadingDot} />
-          Chargement des sous-titres…
+          {t('player.subtitlesLoading')}
         </div>
       )}
 
@@ -324,7 +326,7 @@ export function VideoPlayer({
         <div className={styles.centerOverlay}>
           <AppLogo spin size={52} />
           <span className={styles.overlayLabel}>
-            {player.status === 'buffering' ? 'Mise en mémoire tampon…' : 'Chargement…'}
+            {player.status === 'buffering' ? t('player.buffering') : t('player.loading')}
           </span>
         </div>
       )}
@@ -333,14 +335,14 @@ export function VideoPlayer({
       {hasError && (
         <div className={styles.centerOverlay}>
           <span className={styles.errorIcon}>⚠</span>
-          <p className={styles.errorMsg}>{player.error ?? 'Erreur de lecture'}</p>
+          <p className={styles.errorMsg}>{player.error ?? t('player.error')}</p>
           <div className={styles.errorActions}>
             <button className={styles.retryBtn} onClick={player.retry}>
-              ↺ Réessayer
+              {t('common.retry')}
             </button>
             {fallbackUrl && onFallback && (
               <button className={`${styles.retryBtn} ${styles.retryBtnAlt}`} onClick={onFallback}>
-                Essayer le format original
+                {t('player.tryOriginal')}
               </button>
             )}
           </div>
@@ -370,7 +372,7 @@ export function VideoPlayer({
           {isLive && (
             <span className={styles.liveBadge}>
               <span className={styles.livePulse} />
-              EN DIRECT
+              {t('player.onAir')}
             </span>
           )}
         </div>
@@ -405,13 +407,13 @@ export function VideoPlayer({
                 className={styles.controlBtn}
                 onClick={onPrevChannel}
                 disabled={!onPrevChannel}
-                title="Chaîne précédente (←)"
+                title={t('player.prevChannel')}
               >
                 ⏮
               </button>
             )}
 
-            <button className={styles.controlBtn} onClick={player.toggle} title="Lecture/Pause (Espace)">
+            <button className={styles.controlBtn} onClick={player.toggle} title={t('player.playPause')}>
               {isPlaying ? '⏸' : '▶'}
             </button>
 
@@ -420,7 +422,7 @@ export function VideoPlayer({
                 className={styles.controlBtn}
                 onClick={onNextChannel}
                 disabled={!onNextChannel}
-                title="Chaîne suivante (→)"
+                title={t('player.nextChannel')}
               >
                 ⏭
               </button>
@@ -428,10 +430,10 @@ export function VideoPlayer({
 
             {!isLive && (
               <>
-                <button className={styles.controlBtn} onClick={() => player.seek(player.currentTime - 10)} title="- 10s (←)">
+                <button className={styles.controlBtn} onClick={() => player.seek(player.currentTime - 10)} title={t('player.back10')}>
                   ↩ 10s
                 </button>
-                <button className={styles.controlBtn} onClick={() => player.seek(player.currentTime + 10)} title="+ 10s (→)">
+                <button className={styles.controlBtn} onClick={() => player.seek(player.currentTime + 10)} title={t('player.fwd10')}>
                   10s ↪
                 </button>
               </>
@@ -441,7 +443,7 @@ export function VideoPlayer({
 
             {/* Volume */}
             <div className={styles.volumeGroup}>
-              <button className={styles.controlBtn} onClick={player.toggleMute} title="Muet (M)">
+              <button className={styles.controlBtn} onClick={player.toggleMute} title={t('player.mute')}>
                 {volumeIcon}
               </button>
               <input
@@ -461,13 +463,13 @@ export function VideoPlayer({
                 <button
                   className={`${styles.controlBtn} ${showAudio ? styles.controlBtnActive : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowAudio((v) => !v); setShowQuality(false); setShowSubtitles(false); }}
-                  title="Piste audio"
+                  title={t('player.audioTrack')}
                 >
                   🎵 {player.audioTracks[player.currentAudio]?.language?.toUpperCase() || 'AUDIO'}
                 </button>
                 {showAudio && (
                   <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
-                    <div className={styles.menuHeader}>Piste audio</div>
+                    <div className={styles.menuHeader}>{t('player.audioTrack')}</div>
                     {player.audioTracks.map((t) => (
                       <button
                         key={t.index}
@@ -489,18 +491,18 @@ export function VideoPlayer({
                 <button
                   className={`${styles.controlBtn} ${showSubtitles ? styles.controlBtnActive : ''} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowSubtitles((v) => !v); setShowQuality(false); setShowAudio(false); }}
-                  title="Sous-titres"
+                  title={t('player.subtitles')}
                 >
                   CC{player.currentSubtitle >= 0 ? ` · ${player.subtitleTracks[player.currentSubtitle]?.language?.toUpperCase() || '●'}` : ''}
                 </button>
                 {showSubtitles && (
                   <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
                     <div className={styles.menuHeader}>
-                      Sous-titres
+                      {t('player.subtitles')}
                       <button
                         className={styles.menuSettingsBtn}
                         onClick={() => setShowSubSettings((v) => !v)}
-                        title="Personnaliser"
+                        title={t('player.customize')}
                       >
                         ⚙
                       </button>
@@ -509,7 +511,7 @@ export function VideoPlayer({
                     {showSubSettings && (
                       <div className={styles.subSettings}>
                         <div className={styles.subSettingsRow}>
-                          <span className={styles.subSettingsLabel}>Taille</span>
+                          <span className={styles.subSettingsLabel}>{t('player.size')}</span>
                           <div className={styles.subSettingsBtns}>
                             {(['sm', 'md', 'lg', 'xl'] as SubSize[]).map((s) => (
                               <button key={s} className={`${styles.subSettingsOpt} ${subSize === s ? styles.subSettingsOptActive : ''}`} onClick={() => setSubSize(s)}>
@@ -519,21 +521,21 @@ export function VideoPlayer({
                           </div>
                         </div>
                         <div className={styles.subSettingsRow}>
-                          <span className={styles.subSettingsLabel}>Fond</span>
+                          <span className={styles.subSettingsLabel}>{t('player.background')}</span>
                           <div className={styles.subSettingsBtns}>
                             {(['none', 'semi', 'solid'] as SubBg[]).map((b) => (
                               <button key={b} className={`${styles.subSettingsOpt} ${subBg === b ? styles.subSettingsOptActive : ''}`} onClick={() => setSubBg(b)}>
-                                {b === 'none' ? 'Aucun' : b === 'semi' ? 'Semi' : 'Plein'}
+                                {b === 'none' ? t('player.bgNone') : b === 'semi' ? t('player.bgSemi') : t('player.bgSolid')}
                               </button>
                             ))}
                           </div>
                         </div>
                         <div className={styles.subSettingsRow}>
-                          <span className={styles.subSettingsLabel}>Couleur</span>
+                          <span className={styles.subSettingsLabel}>{t('player.color')}</span>
                           <div className={styles.subSettingsBtns}>
                             {(['white', 'yellow', 'cyan', 'green'] as SubColor[]).map((c) => (
                               <button key={c} className={`${styles.subSettingsOpt} ${subColor === c ? styles.subSettingsOptActive : ''}`} onClick={() => setSubColor(c)}>
-                                {c === 'white' ? 'Blanc' : c === 'yellow' ? 'Jaune' : c === 'cyan' ? 'Cyan' : 'Vert'}
+                                {c === 'white' ? t('player.colWhite') : c === 'yellow' ? t('player.colYellow') : c === 'cyan' ? t('player.colCyan') : t('player.colGreen')}
                               </button>
                             ))}
                           </div>
@@ -546,7 +548,7 @@ export function VideoPlayer({
                       onClick={() => { player.setSubtitle(-1); setShowSubtitles(false); }}
                     >
                       <span className={styles.menuOptionIcon}>{player.currentSubtitle === -1 ? '✓' : ''}</span>
-                      Désactivés
+                      {t('player.subtitlesOff')}
                     </button>
                     {player.subtitleTracks.map((t) => (
                       <button
@@ -569,7 +571,7 @@ export function VideoPlayer({
                 <button
                   className={`${styles.controlBtn} ${showQuality ? styles.controlBtnActive : ''}`}
                   onClick={(e) => { e.stopPropagation(); setShowQuality((v) => !v); setShowAudio(false); setShowSubtitles(false); }}
-                  title="Qualité"
+                  title={t('player.quality')}
                 >
                   {player.currentLevel === -1
                     ? 'AUTO'
@@ -577,13 +579,13 @@ export function VideoPlayer({
                 </button>
                 {showQuality && (
                   <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
-                    <div className={styles.menuHeader}>Qualité vidéo</div>
+                    <div className={styles.menuHeader}>{t('player.videoQuality')}</div>
                     <button
                       className={`${styles.menuOption} ${player.currentLevel === -1 ? styles.menuOptionActive : ''}`}
                       onClick={() => { player.setLevel(-1); setShowQuality(false); }}
                     >
                       <span className={styles.menuOptionIcon}>{player.currentLevel === -1 ? '✓' : ''}</span>
-                      Auto
+                      {t('player.auto')}
                     </button>
                     {[...player.levels].reverse().map((lvl) => (
                       <button
@@ -604,7 +606,7 @@ export function VideoPlayer({
             <button
               className={styles.controlBtn}
               onClick={player.toggleFullscreen}
-              title="Plein écran (F)"
+              title={t('player.fullscreen')}
             >
               {player.isFullscreen ? '⊡' : '⊞'}
             </button>

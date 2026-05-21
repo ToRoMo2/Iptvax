@@ -4,6 +4,7 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
@@ -18,6 +19,7 @@ const RESULT_LIMIT = 80;
 export function Series() {
   const { credentials } = useXtream();
   const { isFavorite, toggleFavorite } = useLibrary();
+  const { t, tc } = useI18n();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<SeriesCategory[]>([]);
@@ -104,27 +106,31 @@ export function Series() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.titleBlock}>
-          <h1 className={styles.title}>Séries</h1>
+          <h1 className={styles.title}>{t('series.title')}</h1>
           <p className={styles.pageSub}>
             {isGlobalSearch
-              ? 'Recherche globale'
-              : `${groups.length} série${groups.length !== 1 ? 's' : ''}`}
+              ? t('live.globalSearch')
+              : tc('series.countOne', 'series.countOther', groups.length)}
           </p>
         </div>
         <RemoteSearch
           value={search}
           onChange={setSearch}
-          placeholder="Rechercher dans toutes les séries…"
+          placeholder={t('series.searchPlaceholder')}
           wrapperClassName={styles.searchWrapper}
           iconClassName={styles.searchIcon}
           inputClassName={styles.search}
         />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
-          <span className={styles.searchBadge}>Tapez au moins {MIN_SEARCH_LEN} caractères…</span>
+          <span className={styles.searchBadge}>{t('common.minChars', { n: MIN_SEARCH_LEN })}</span>
         )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll ? '⏳ Chargement…' : `${groups.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${groups.length !== 1 ? 's' : ''}`}
+            {loadingAll
+              ? t('common.loadingShort')
+              : tc('common.resultOne', 'common.resultOther', groups.length, {
+                  count: `${groups.length}${filtered.length >= RESULT_LIMIT ? '+' : ''}`,
+                })}
           </span>
         )}
       </header>
@@ -182,7 +188,7 @@ export function Series() {
       )}
 
       {!loadingItems && !loadingAll && filtered.length === 0 && !error && (
-        <p className={styles.empty}>Aucune série trouvée.</p>
+        <p className={styles.empty}>{t('series.none')}</p>
       )}
     </div>
   );

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSocial } from '../contexts/SocialContext';
+import { useI18n } from '../contexts/I18nContext';
+import type { TranslationKey } from '../i18n';
 import { socialService } from '../services/social.service';
 import { WatchedCard } from '../components/WatchedCard/WatchedCard';
 import { RatingStars } from '../components/RatingStars/RatingStars';
@@ -23,24 +25,24 @@ import type { PublicProfileStats } from '../types/social.types';
 import browse from './Browse.module.css';
 import styles from './MemberCine.module.css';
 
-const TYPE_TABS: { v: WatchedTypeFilter; label: string }[] = [
-  { v: 'all', label: 'Tout' },
-  { v: 'movie', label: 'Films' },
-  { v: 'series', label: 'Séries' },
+const TYPE_TABS: { v: WatchedTypeFilter; labelKey: TranslationKey }[] = [
+  { v: 'all', labelKey: 'watched.typeAll' },
+  { v: 'movie', labelKey: 'watched.typeMovie' },
+  { v: 'series', labelKey: 'watched.typeSeries' },
 ];
 
-const SORTS: { v: WatchedSort; label: string }[] = [
-  { v: 'recent', label: 'Récents' },
-  { v: 'rating-desc', label: 'Mieux notés' },
-  { v: 'rating-asc', label: 'Moins bien notés' },
-  { v: 'title', label: 'Titre' },
-  { v: 'year', label: 'Année' },
+const SORTS: { v: WatchedSort; labelKey: TranslationKey }[] = [
+  { v: 'recent', labelKey: 'watched.sortRecent' },
+  { v: 'rating-desc', labelKey: 'watched.sortRatingDesc' },
+  { v: 'rating-asc', labelKey: 'watched.sortRatingAsc' },
+  { v: 'title', labelKey: 'watched.sortTitle' },
+  { v: 'year', labelKey: 'watched.sortYear' },
 ];
 
-const FACET_GROUPS: { kind: FacetKind; label: string; field: keyof WatchedFilter }[] = [
-  { kind: 'genre', label: 'Genres', field: 'genre' },
-  { kind: 'director', label: 'Réalisateurs', field: 'director' },
-  { kind: 'cast', label: 'Acteurs', field: 'castName' },
+const FACET_GROUPS: { kind: FacetKind; labelKey: TranslationKey; field: keyof WatchedFilter }[] = [
+  { kind: 'genre', labelKey: 'watched.genres', field: 'genre' },
+  { kind: 'director', labelKey: 'watched.directors', field: 'director' },
+  { kind: 'cast', labelKey: 'watched.actors', field: 'castName' },
 ];
 
 const FACET_CAP = 14;
@@ -52,6 +54,7 @@ export function MemberCine() {
   const { activeProfile } = useIptvProfile();
   const { isFollowing, toggleFollow, memberRating, rateMember, clearMemberRating } =
     useSocial();
+  const { t, tc } = useI18n();
 
   const [stats, setStats] = useState<PublicProfileStats | null>(null);
   const [watched, setWatched] = useState<WatchedTitle[]>([]);
@@ -119,9 +122,9 @@ export function MemberCine() {
           className={styles.back}
           onEnter={() => navigate('/communaute')}
           onClick={() => navigate('/communaute')}
-          ariaLabel="Retour à la communauté"
+          ariaLabel={t('member.backAria')}
         >
-          ← Communauté
+          {t('member.backCommunity')}
         </Focusable>
 
         {stats && (
@@ -140,10 +143,10 @@ export function MemberCine() {
                 )}
               </h1>
               <p className={styles.statLine}>
-                {stats.watchedCount} vu{stats.watchedCount !== 1 ? 's' : ''} ·{' '}
-                {stats.ratedCount} noté{stats.ratedCount !== 1 ? 's' : ''} · ★{' '}
-                {fmt(stats.avgRating)} · {stats.followers} abonné
-                {stats.followers !== 1 ? 's' : ''}
+                {tc('member.watchedOne', 'member.watchedOther', stats.watchedCount)} ·{' '}
+                {tc('member.ratedOne', 'member.ratedOther', stats.ratedCount)} · ★{' '}
+                {fmt(stats.avgRating)} ·{' '}
+                {tc('member.followersOne', 'member.followersOther', stats.followers)}
               </p>
             </div>
 
@@ -156,10 +159,10 @@ export function MemberCine() {
                   onEnter={() => toggleFollow(stats.id)}
                   onClick={() => toggleFollow(stats.id)}
                 >
-                  {isFollowing(stats.id) ? '✓ Suivi' : '+ Suivre'}
+                  {isFollowing(stats.id) ? t('member.following') : t('member.follow')}
                 </Focusable>
                 <div className={styles.rateMember}>
-                  <span className={styles.rateLabel}>Votre avis sur ce membre</span>
+                  <span className={styles.rateLabel}>{t('member.yourOpinion')}</span>
                   <div className={styles.rateRow}>
                     <RatingStars
                       value={memberRating(stats.id) ?? null}
@@ -168,14 +171,14 @@ export function MemberCine() {
                       size={22}
                       onChange={(v) => rateMember(stats.id, v)}
                       focusKey="rc-member-rate"
-                      ariaLabel="Noter ce membre sur 5"
+                      ariaLabel={t('member.rateAria')}
                     />
                     {memberRating(stats.id) != null && (
                       <button
                         className={styles.clearLink}
                         onClick={() => clearMemberRating(stats.id)}
                       >
-                        Effacer
+                        {t('member.clear')}
                       </button>
                     )}
                   </div>
@@ -198,44 +201,42 @@ export function MemberCine() {
       )}
 
       {!loading && !stats && (
-        <p className={browse.empty}>
-          Ce membre n'existe pas ou a rendu son ciné privé.
-        </p>
+        <p className={browse.empty}>{t('member.notFound')}</p>
       )}
 
       {!loading && stats && watched.length === 0 && (
-        <p className={browse.empty}>Ce membre n'a encore rien partagé.</p>
+        <p className={browse.empty}>{t('member.nothingShared')}</p>
       )}
 
       {!loading && stats && watched.length > 0 && (
         <div className={styles.layout}>
           <aside className={styles.sidebar}>
             <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Type</span>
+              <span className={styles.filterLabel}>{t('watched.type')}</span>
               <div className={styles.tabs}>
-                {TYPE_TABS.map((t) => (
+                {TYPE_TABS.map((tab) => (
                   <Focusable
-                    key={t.v}
+                    key={tab.v}
                     className={`${styles.tab} ${
-                      filter.type === t.v ? styles.tabActive : ''
+                      filter.type === tab.v ? styles.tabActive : ''
                     }`}
-                    onEnter={() => setFilter((f) => ({ ...f, type: t.v }))}
-                    onClick={() => setFilter((f) => ({ ...f, type: t.v }))}
+                    onEnter={() => setFilter((f) => ({ ...f, type: tab.v }))}
+                    onClick={() => setFilter((f) => ({ ...f, type: tab.v }))}
                   >
-                    {t.label}
+                    {t(tab.labelKey)}
                   </Focusable>
                 ))}
               </div>
             </div>
 
-            {FACET_GROUPS.map(({ kind, label, field }) => {
+            {FACET_GROUPS.map(({ kind, labelKey, field }) => {
               const fl = facets[kind];
               if (fl.length === 0) return null;
               const open = expanded[kind];
               const shown = open ? fl : fl.slice(0, FACET_CAP);
               return (
                 <div key={kind} className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>{label}</span>
+                  <span className={styles.filterLabel}>{t(labelKey)}</span>
                   <div className={styles.chips}>
                     {shown.map((fc) => (
                       <Focusable
@@ -258,7 +259,7 @@ export function MemberCine() {
                           setExpanded((e) => ({ ...e, [kind]: !e[kind] }))
                         }
                       >
-                        {open ? 'Réduire' : `+${fl.length - FACET_CAP}`}
+                        {open ? t('watched.collapse') : `+${fl.length - FACET_CAP}`}
                       </button>
                     )}
                   </div>
@@ -278,13 +279,13 @@ export function MemberCine() {
                   onEnter={() => setSort(s.v)}
                   onClick={() => setSort(s.v)}
                 >
-                  {s.label}
+                  {t(s.labelKey)}
                 </Focusable>
               ))}
             </div>
 
             {visible.length === 0 ? (
-              <p className={browse.empty}>Aucun titre pour ces filtres.</p>
+              <p className={browse.empty}>{t('member.noTitles')}</p>
             ) : (
               <div className={`${browse.grid} ${browse.gridPoster}`}>
                 {visible.map((it) => (
@@ -330,18 +331,18 @@ export function MemberCine() {
               {viewing.rating != null ? (
                 <RatingStars value={viewing.rating} readOnly size={22} />
               ) : (
-                <span className={styles.panelUnrated}>Vu · non noté</span>
+                <span className={styles.panelUnrated}>{t('member.watchedUnrated')}</span>
               )}
               {viewing.review ? (
                 <p className={styles.panelReview}>{viewing.review}</p>
               ) : (
-                <p className={styles.panelNoReview}>Pas de critique.</p>
+                <p className={styles.panelNoReview}>{t('member.noReview')}</p>
               )}
               <button
                 className={styles.panelClose}
                 onClick={() => setViewing(null)}
               >
-                Fermer
+                {t('member.close')}
               </button>
             </div>
           </div>

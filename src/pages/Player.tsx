@@ -4,6 +4,7 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import type { PlayerState } from '../types/xtream.types';
 import styles from './Player.module.css';
 
@@ -12,6 +13,7 @@ export function Player() {
   const navigate = useNavigate();
   const { credentials } = useXtream();
   const { history, getResume, saveProgress } = useLibrary();
+  const { t } = useI18n();
   const state = (location.state as PlayerState) ?? null;
 
   // Permet de basculer sur l'URL de fallback si le m3u8 échoue
@@ -102,15 +104,15 @@ export function Player() {
   if (!state?.url) {
     return (
       <div className={styles.noMedia}>
-        <p>Aucun média sélectionné.</p>
-        <button className={styles.backBtn} onClick={() => navigate(-1)}>← Retour</button>
+        <p>{t('player.noMedia')}</p>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}>{t('common.back')}</button>
       </div>
     );
   }
 
   return (
     <div className={styles.page}>
-      <button className={styles.backBtn} onClick={() => navigate(-1)}>← Retour</button>
+      <button className={styles.backBtn} onClick={() => navigate(-1)}>{t('common.back')}</button>
       <div className={styles.playerWrapper}>
         <VideoPlayer
           url={activeUrl}

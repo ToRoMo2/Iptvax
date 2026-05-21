@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { safeImgUrl } from '../utils/image';
 import { perceptualHash, hammingDistance } from '../utils/imageHash';
+import { useI18n } from '../contexts/I18nContext';
 import styles from './BackdropSlideshow.module.css';
 
 interface Props {
@@ -20,6 +21,7 @@ const SIMILARITY_THRESHOLD = 12;
  * props — aucun accès service (règle de couplage).
  */
 export function BackdropSlideshow({ images, intervalMs = 6000 }: Props) {
+  const { t } = useI18n();
   const [display, setDisplay] = useState(images);
   const [idx, setIdx] = useState(0);
   const [navTick, setNavTick] = useState(0);
@@ -88,14 +90,14 @@ export function BackdropSlideshow({ images, intervalMs = 6000 }: Props) {
           <button
             className={`${styles.nav} ${styles.prev}`}
             onClick={() => step(-1)}
-            aria-label="Image précédente"
+            aria-label={t('slideshow.prev')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <button
             className={`${styles.nav} ${styles.next}`}
             onClick={() => step(1)}
-            aria-label="Image suivante"
+            aria-label={t('slideshow.next')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m9 18 6-6-6-6"/></svg>
           </button>

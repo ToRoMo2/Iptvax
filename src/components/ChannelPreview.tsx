@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
+import { useI18n } from '../contexts/I18nContext';
 import styles from './ChannelPreview.module.css';
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 // Remonté via une `key` par chaîne côté parent → l'état (src, fallback) repart
 // toujours propre, pas besoin de resynchroniser sur le changement de prop `url`.
 export function ChannelPreview({ url, fallbackUrl, poster, title, onExpand }: Props) {
+  const { t } = useI18n();
   // Bascule HLS → MPEG-TS si le live HLS échoue (même logique que VideoPlayer).
   const [src, setSrc] = useState(url);
   const triedFallbackRef = useRef(false);
@@ -51,7 +53,7 @@ export function ChannelPreview({ url, fallbackUrl, poster, title, onExpand }: Pr
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onExpand()}
-      title={`${title} — plein écran`}
+      title={t('channelPreview.fullscreenTitle', { title })}
     >
       <video
         ref={player.videoRef}
@@ -70,20 +72,20 @@ export function ChannelPreview({ url, fallbackUrl, poster, title, onExpand }: Pr
       {failed && (
         <div className={styles.center}>
           <span className={styles.errorIcon}>⚠</span>
-          <span className={styles.errorMsg}>Aperçu indisponible</span>
+          <span className={styles.errorMsg}>{t('channelPreview.unavailable')}</span>
         </div>
       )}
 
       <span className={styles.livePill}>
         <span className={styles.liveDot} />
-        EN DIRECT
+        {t('channelPreview.onAir')}
       </span>
 
       <div className={styles.expandHint}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
         </svg>
-        Plein écran
+        {t('channelPreview.fullscreen')}
       </div>
     </div>
   );

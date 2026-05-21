@@ -2,14 +2,37 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useI18n } from '../contexts/I18nContext';
+import type { TranslationKey } from '../i18n';
 import { AppLogo } from '../components/AppLogo';
 import { Focusable } from '../components/Focusable';
 import {
   PLAN_OPTIONS,
-  PREMIUM_PERKS,
   type PlanInterval,
 } from '../types/subscription.types';
 import styles from './Premium.module.css';
+
+// Libellés traduits par formule (le prix/devise reste dans subscription.types).
+const PLAN_I18N: Record<
+  PlanInterval,
+  { labelKey: TranslationKey; periodKey: TranslationKey; hintKey?: TranslationKey }
+> = {
+  yearly: {
+    labelKey: 'premium.planYearly',
+    periodKey: 'premium.periodYear',
+    hintKey: 'premium.planYearlyHint',
+  },
+  monthly: { labelKey: 'premium.planMonthly', periodKey: 'premium.periodMonth' },
+};
+
+const PERKS_I18N: { icon: string; titleKey: TranslationKey; descKey: TranslationKey }[] = [
+  { icon: '👥', titleKey: 'premium.perkProfilesTitle', descKey: 'premium.perkProfilesDesc' },
+  { icon: '☁️', titleKey: 'premium.perkSyncTitle', descKey: 'premium.perkSyncDesc' },
+  { icon: '🎬', titleKey: 'premium.perkCineTitle', descKey: 'premium.perkCineDesc' },
+  { icon: '🌐', titleKey: 'premium.perkCommunityTitle', descKey: 'premium.perkCommunityDesc' },
+  { icon: '🖼️', titleKey: 'premium.perkVisualsTitle', descKey: 'premium.perkVisualsDesc' },
+  { icon: '⚡', titleKey: 'premium.perkSupportTitle', descKey: 'premium.perkSupportDesc' },
+];
 
 interface Props {
   /** Si rendu via le garde de route : nom de la section bloquée. */
@@ -21,17 +44,10 @@ interface Props {
 const PREMIUM_PUBLIC_URL =
   (import.meta.env.VITE_PREMIUM_URL as string | undefined)?.replace(/\/$/, '') || '';
 
-function fmtDate(ms: number | null): string {
-  if (!ms) return '—';
-  return new Date(ms).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
 export function Premium({ lockedFeature, onBack }: Props) {
   const { isPremium, subscription, startCheckout, refresh } = useSubscription();
+  const { t, fmtDate } = useI18n();
+  const fmtD = (ms: number | null): string => (ms ? fmtDate(ms) : '—');
   const [params, setParams] = useSearchParams();
   const [plan, setPlan] = useState<PlanInterval>('yearly');
   const [busy, setBusy] = useState(false);
@@ -74,7 +90,7 @@ export function Premium({ lockedFeature, onBack }: Props) {
       await startCheckout(plan);
       // startCheckout redirige : si on revient ici, c'est une erreur.
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Paiement indisponible');
+      setError(e instanceof Error ? e.message : t('premium.unavailable'));
       setBusy(false);
     }
   };
@@ -87,7 +103,7 @@ export function Premium({ lockedFeature, onBack }: Props) {
   const header = (
     <div className={styles.brand}>
       {onBack && (
-        <button className={styles.back} onClick={onBack} aria-label="Retour">
+        <button className={styles.back} onClick={onBack} aria-label={t('premium.back')}>
           ←
         </button>
       )}
@@ -103,22 +119,28 @@ export function Premium({ lockedFeature, onBack }: Props) {
       <div className={styles.screen}>
         {header}
         <div className={styles.activeCard}>
-          <div className={styles.activeBadge}>✓ Abonnement actif</div>
-          <h1 className={styles.title}>Vous êtes Premium</h1>
+          <div className={styles.activeBadge}>{t('premium.subActive')}</div>
+          <h1 className={styles.title}>{t('premium.youArePremium')}</h1>
           <p className={styles.sub}>
-            {opt ? `Formule ${opt.label.toLowerCase()}` : 'Abonnement actif'}
+            {opt
+              ? t('premium.planFmt', {
+                  plan: t(PLAN_I18N[opt.interval].labelKey).toLowerCase(),
+                })
+              : t('premium.planActive')}
             {subscription.currentPeriodEnd && (
               <>
                 {' · '}
-                {subscription.cancelAtPeriodEnd ? 'se termine le ' : 'renouvellement le '}
-                {fmtDate(subscription.currentPeriodEnd)}
+                {subscription.cancelAtPeriodEnd
+                  ? t('premium.endsOn')
+                  : t('premium.renewsOn')}
+                {fmtD(subscription.currentPeriodEnd)}
               </>
             )}
           </p>
           <div className={styles.perksMini}>
-            {PREMIUM_PERKS.map((p) => (
-              <span key={p.title} className={styles.perkChip}>
-                {p.icon} {p.title}
+            {PERKS_I18N.map((p) => (
+              <span key={p.titleKey} className={styles.perkChip}>
+                {p.icon} {t(p.titleKey)}
               </span>
             ))}
           </div>
@@ -134,15 +156,13 @@ export function Premium({ lockedFeature, onBack }: Props) {
         {header}
         <div className={styles.activeCard}>
           <div className={styles.activeBadge}>
-            {isPremium ? '✓ Paiement confirmé' : '⏳ Activation en cours…'}
+            {isPremium ? t('premium.paymentConfirmed') : t('premium.activating')}
           </div>
           <h1 className={styles.title}>
-            {isPremium ? 'Bienvenue chez Premium !' : 'Paiement reçu'}
+            {isPremium ? t('premium.welcome') : t('premium.paymentReceived')}
           </h1>
           <p className={styles.sub}>
-            {isPremium
-              ? 'Toutes les fonctionnalités Premium sont débloquées sur cet appareil et tous les autres.'
-              : 'Nous activons votre compte… cela prend quelques secondes. Cette page se met à jour automatiquement.'}
+            {isPremium ? t('premium.unlockedAll') : t('premium.activatingDesc')}
           </p>
           {isPremium && (
             <Focusable
@@ -150,7 +170,7 @@ export function Premium({ lockedFeature, onBack }: Props) {
               onEnter={clearStatus}
               onClick={clearStatus}
             >
-              Continuer
+              {t('premium.continue')}
             </Focusable>
           )}
           {!isPremium && <AppLogo spin size={28} />}
@@ -172,20 +192,15 @@ export function Premium({ lockedFeature, onBack }: Props) {
       <div className={styles.hero}>
         {lockedFeature && (
           <div className={styles.eyebrow}>
-            🔒 {lockedFeature} est réservé aux membres Premium
+            {t('premium.lockedFeature', { feature: lockedFeature })}
           </div>
         )}
-        <h1 className={styles.title}>Débloquez tout IPTVAX</h1>
-        <p className={styles.sub}>
-          Profils illimités, synchronisation sur tous vos appareils, votre mur
-          de cinéma personnel et bien plus. Annulable à tout moment.
-        </p>
+        <h1 className={styles.title}>{t('premium.unlockAll')}</h1>
+        <p className={styles.sub}>{t('premium.pitch')}</p>
       </div>
 
       {checkoutStatus === 'cancel' && (
-        <div className={styles.notice}>
-          Paiement annulé — aucun montant n'a été débité.
-        </div>
+        <div className={styles.notice}>{t('premium.cancelled')}</div>
       )}
 
       <div className={styles.layout}>
@@ -201,12 +216,14 @@ export function Premium({ lockedFeature, onBack }: Props) {
                 onEnter={() => setPlan(o.interval)}
                 onClick={() => setPlan(o.interval)}
               >
-                <span className={styles.planName}>{o.label}</span>
+                <span className={styles.planName}>{t(PLAN_I18N[o.interval].labelKey)}</span>
                 <span className={styles.planPrice}>
                   {o.price}
-                  <span className={styles.planPeriod}>{o.period}</span>
+                  <span className={styles.planPeriod}>{t(PLAN_I18N[o.interval].periodKey)}</span>
                 </span>
-                {o.hint && <span className={styles.planHint}>{o.hint}</span>}
+                {PLAN_I18N[o.interval].hintKey && (
+                  <span className={styles.planHint}>{t(PLAN_I18N[o.interval].hintKey!)}</span>
+                )}
               </Focusable>
             ))}
           </div>
@@ -219,39 +236,37 @@ export function Premium({ lockedFeature, onBack }: Props) {
             onClick={() => void handleSubscribe()}
           >
             {busy ? (
-              <><AppLogo spin size={18} />Redirection vers le paiement…</>
+              <><AppLogo spin size={18} />{t('premium.redirecting')}</>
             ) : (
-              `S'abonner — ${selected.price} ${selected.period}`
+              t('premium.subscribe', {
+                price: selected.price,
+                period: t(PLAN_I18N[selected.interval].periodKey),
+              })
             )}
           </Focusable>
 
-          <p className={styles.secure}>
-            🔒 Paiement sécurisé par Stripe · Sans engagement · Résiliable en 1 clic
-          </p>
+          <p className={styles.secure}>{t('premium.secure')}</p>
 
           {/* ── QR TV ── */}
           {qr && (
             <div className={styles.tvBox}>
               <div className={styles.tvText}>
-                <strong>Vous êtes sur une TV ?</strong>
-                <span>
-                  Scannez ce code avec votre téléphone pour payer
-                  facilement. Le déblocage est instantané sur la TV.
-                </span>
+                <strong>{t('premium.onTv')}</strong>
+                <span>{t('premium.scanQr')}</span>
               </div>
-              <img className={styles.qr} src={qr} alt="QR code paiement" width={120} height={120} />
+              <img className={styles.qr} src={qr} alt={t('premium.qrAlt')} width={120} height={120} />
             </div>
           )}
         </div>
 
         {/* ── Avantages ── */}
         <div className={styles.perks}>
-          {PREMIUM_PERKS.map((p) => (
-            <div key={p.title} className={styles.perk}>
+          {PERKS_I18N.map((p) => (
+            <div key={p.titleKey} className={styles.perk}>
               <span className={styles.perkIcon}>{p.icon}</span>
               <div className={styles.perkText}>
-                <span className={styles.perkTitle}>{p.title}</span>
-                <span className={styles.perkDesc}>{p.desc}</span>
+                <span className={styles.perkTitle}>{t(p.titleKey)}</span>
+                <span className={styles.perkDesc}>{t(p.descKey)}</span>
               </div>
             </div>
           ))}

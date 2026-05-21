@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { RatingStars } from '../RatingStars/RatingStars';
 import { safeImgUrl } from '../../utils/image';
+import { useI18n } from '../../contexts/I18nContext';
 import type { WatchedTitle } from '../../types/ratings.types';
 import styles from './WatchedCard.module.css';
 
@@ -20,6 +21,7 @@ interface Props {
  * télécommande). `useFocusable` direct (parité MediaCard).
  */
 export function WatchedCard({ item, onOpen, onRemove, readOnly }: Props) {
+  const { t } = useI18n();
   const canRemove = !readOnly && !!onRemove;
   const { ref, focused } = useFocusable({ onEnterPress: () => onOpen() });
   const [imgError, setImgError] = useState(false);
@@ -69,14 +71,14 @@ export function WatchedCard({ item, onOpen, onRemove, readOnly }: Props) {
           </div>
         )}
 
-        {!rated && <span className={styles.todo}>À noter</span>}
+        {!rated && <span className={styles.todo}>{t('watchedCard.toRate')}</span>}
 
         {canRemove && (
           <button
             className={`${styles.removeBtn} ${
               confirming ? styles.removeConfirm : ''
             }`}
-            title={confirming ? 'Confirmer le retrait' : 'Retirer des vues'}
+            title={confirming ? t('watchedCard.confirmRemove') : t('watchedCard.removeFromWatched')}
             onClick={(e) => {
               e.stopPropagation();
               if (confirming) {
@@ -86,7 +88,7 @@ export function WatchedCard({ item, onOpen, onRemove, readOnly }: Props) {
               }
             }}
           >
-            {confirming ? 'Retirer ?' : '✕'}
+            {confirming ? t('watchedCard.removeQ') : '✕'}
           </button>
         )}
       </div>
@@ -98,13 +100,13 @@ export function WatchedCard({ item, onOpen, onRemove, readOnly }: Props) {
         <div className={styles.sub}>
           {item.year && <span>{item.year}</span>}
           <span className={styles.type}>
-            {item.contentType === 'series' ? 'Série' : 'Film'}
+            {item.contentType === 'series' ? t('watchedCard.series') : t('watchedCard.film')}
           </span>
         </div>
         {rated ? (
           <RatingStars value={item.rating} readOnly size={16} />
         ) : (
-          <span className={styles.unrated}>☆ Pas encore noté</span>
+          <span className={styles.unrated}>{t('watchedCard.notRatedYet')}</span>
         )}
       </div>
     </div>

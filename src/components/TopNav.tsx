@@ -2,6 +2,8 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
+import { useI18n } from '../contexts/I18nContext';
+import type { TranslationKey } from '../i18n';
 import { ProfilePanel } from './ProfilePanel';
 import { Focusable } from './Focusable';
 import { FIRST_NAV_FOCUS_KEY, HERO_FOCUS_KEY, DETAIL_BACK_FOCUS_KEY } from './RemoteControl';
@@ -34,19 +36,20 @@ const Ic = {
   ),
 };
 
-const LINKS = [
-  { to: '/',         label: 'Accueil', icon: Ic.home,   end: true  },
-  { to: '/live',     label: 'Live TV', icon: Ic.tv,     end: false },
-  { to: '/movies',   label: 'Films',   icon: Ic.film,   end: false },
-  { to: '/series',   label: 'Séries',  icon: Ic.series, end: false },
-  { to: '/favorites',label: 'Ma Liste', icon: Ic.star,   end: false },
-  { to: '/journal',  label: 'Mon ciné',icon: Ic.cine,   end: false },
+const LINKS: { to: string; labelKey: TranslationKey; icon: () => JSX.Element; end: boolean }[] = [
+  { to: '/',         labelKey: 'nav.home',   icon: Ic.home,   end: true  },
+  { to: '/live',     labelKey: 'nav.live',   icon: Ic.tv,     end: false },
+  { to: '/movies',   labelKey: 'nav.movies', icon: Ic.film,   end: false },
+  { to: '/series',   labelKey: 'nav.series', icon: Ic.series, end: false },
+  { to: '/favorites',labelKey: 'nav.myList', icon: Ic.star,   end: false },
+  { to: '/journal',  labelKey: 'nav.myCine', icon: Ic.cine,   end: false },
 ];
 
 export function TopNav() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { activeProfile } = useIptvProfile();
+  const { t } = useI18n();
 
   // Depuis la navbar, flèche bas → cible explicite selon la page courante.
   // IMPORTANT : on utilise === (pas startsWith) pour les listes, sinon
@@ -102,7 +105,7 @@ export function TopNav() {
     return () => main.removeEventListener('scroll', onScroll);
   }, []);
 
-  const profileName = activeProfile?.name ?? 'Profil';
+  const profileName = activeProfile?.name ?? t('nav.profile');
   const avatarVar   = { '--pf': `var(--${activeProfile?.color ?? 'profile-1'})` } as CSSProperties;
 
   return (
@@ -116,7 +119,9 @@ export function TopNav() {
       {/* ── Capsule navbar — centrée, liens uniquement ──────────────── */}
       <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>
         <nav className="links" aria-label="Primary">
-          {LINKS.map(({ to, label, icon: Icon, end }, i) => (
+          {LINKS.map(({ to, labelKey, icon: Icon, end }, i) => {
+            const label = t(labelKey);
+            return (
             <Focusable
               key={to}
               focusKey={i === 0 ? FIRST_NAV_FOCUS_KEY : undefined}
@@ -137,7 +142,8 @@ export function TopNav() {
                 <span className="lbl">{label}</span>
               </NavLink>
             </Focusable>
-          ))}
+            );
+          })}
         </nav>
 
         <span className="nav-sep-right" />
@@ -149,8 +155,8 @@ export function TopNav() {
           onFocused={onNavFocus}
           onBlurred={onNavBlur}
           onArrow={navArrow}
-          title="Recherche"
-          ariaLabel="Recherche"
+          title={t('nav.search')}
+          ariaLabel={t('nav.search')}
         >
           <Ic.search />
         </Focusable>
@@ -176,7 +182,7 @@ export function TopNav() {
             </div>
             <div className="who">
               <span className="name">{profileName}</span>
-              <span className="plan">Profil IPTV</span>
+              <span className="plan">{t('nav.iptvProfile')}</span>
             </div>
           </Focusable>
 

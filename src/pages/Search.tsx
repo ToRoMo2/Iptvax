@@ -4,6 +4,7 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
@@ -25,6 +26,7 @@ const RESULT_LIMIT = 60;
 export function Search() {
   const { credentials } = useXtream();
   const { isFavorite, toggleFavorite } = useLibrary();
+  const { t, tc } = useI18n();
   const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
@@ -55,10 +57,10 @@ export function Search() {
         series.status === 'rejected'
       ) {
         loadedRef.current = false;
-        setError('Impossible de charger le catalogue.');
+        setError(t('search.catalogError'));
       }
     });
-  }, [credentials]);
+  }, [credentials, t]);
 
   useEffect(() => {
     const id = setTimeout(() => setQuery(search.trim()), 200);
@@ -138,28 +140,28 @@ export function Search() {
     <div className={browse.page}>
       <header className={browse.header}>
         <div className={browse.titleBlock}>
-          <h1 className={browse.title}>Recherche</h1>
+          <h1 className={browse.title}>{t('search.title')}</h1>
           <p className={browse.pageSub}>
             {isSearching && !loading
-              ? `${totalResults} résultat${totalResults !== 1 ? 's' : ''} · Live · Films · Séries`
-              : 'Live · Films · Séries'}
+              ? tc('search.subResultsOne', 'search.subResultsOther', totalResults)
+              : t('search.subIdle')}
           </p>
         </div>
         <RemoteSearch
           value={search}
           onChange={setSearch}
-          placeholder="Rechercher une chaîne, un film, une série…"
+          placeholder={t('search.placeholder')}
           wrapperClassName={browse.searchWrapper}
           iconClassName={browse.searchIcon}
           inputClassName={browse.search}
         />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
           <span className={browse.searchBadge}>
-            Tapez au moins {MIN_SEARCH_LEN} caractères…
+            {t('common.minChars', { n: MIN_SEARCH_LEN })}
           </span>
         )}
         {isSearching && loading && (
-          <span className={browse.searchBadge}>⏳ Chargement du catalogue…</span>
+          <span className={browse.searchBadge}>{t('search.loadingCatalog')}</span>
         )}
       </header>
 
@@ -167,8 +169,7 @@ export function Search() {
 
       {!isSearching && !error && (
         <p className={browse.empty}>
-          Tapez au moins {MIN_SEARCH_LEN} caractères pour rechercher dans les
-          chaînes, films et séries.
+          {t('search.hint', { n: MIN_SEARCH_LEN })}
         </p>
       )}
 
@@ -184,13 +185,13 @@ export function Search() {
       )}
 
       {isSearching && !loading && totalResults === 0 && !error && (
-        <p className={browse.empty}>Aucun résultat pour « {query} ».</p>
+        <p className={browse.empty}>{t('search.noResults', { query })}</p>
       )}
 
       {isSearching && !loading && liveResults.length > 0 && (
         <section className={styles.section}>
           <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>Chaînes</h2>
+            <h2 className={styles.sectionTitle}>{t('search.channels')}</h2>
             <span className={styles.sectionCount}>{liveResults.length}</span>
           </div>
           <div className={`${browse.grid} ${browse.gridChannel}`}>
@@ -220,7 +221,7 @@ export function Search() {
       {isSearching && !loading && movieGroups.length > 0 && (
         <section className={styles.section}>
           <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>Films</h2>
+            <h2 className={styles.sectionTitle}>{t('search.movies')}</h2>
             <span className={styles.sectionCount}>{movieGroups.length}</span>
           </div>
           <div className={`${browse.grid} ${browse.gridPoster}`}>
@@ -268,7 +269,7 @@ export function Search() {
       {isSearching && !loading && seriesGroups.length > 0 && (
         <section className={styles.section}>
           <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>Séries</h2>
+            <h2 className={styles.sectionTitle}>{t('search.series')}</h2>
             <span className={styles.sectionCount}>{seriesGroups.length}</span>
           </div>
           <div className={`${browse.grid} ${browse.gridPoster}`}>

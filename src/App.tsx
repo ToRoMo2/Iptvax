@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { IptvProfileProvider, useIptvProfile } from './contexts/IptvProfileContext';
@@ -40,20 +41,21 @@ function LoadingScreen({ label }: { label: string }) {
 function AppContent() {
   const { isAuthenticated, isAuthenticating, authError } = useXtream();
   const { activeProfile, clearActiveProfile } = useIptvProfile();
+  const { t } = useI18n();
 
   if (isAuthenticating) {
-    return <LoadingScreen label="Connexion en cours…" />;
+    return <LoadingScreen label={t('app.connecting')} />;
   }
 
   if (!isAuthenticated) {
     return (
       <div className="loading-screen">
-        <span>Impossible de se connecter au profil « {activeProfile?.name} ».</span>
+        <span>{t('app.profileConnectFail', { name: activeProfile?.name ?? '' })}</span>
         <span style={{ color: 'var(--t-3)', fontSize: 13 }}>
-          {authError ?? 'Vérifiez les identifiants IPTV de ce profil.'}
+          {authError ?? t('app.checkCredentials')}
         </span>
         <button className="btn btn-primary" onClick={clearActiveProfile}>
-          Changer de profil
+          {t('app.changeProfile')}
         </button>
       </div>
     );
@@ -68,6 +70,7 @@ function AppContent() {
 }
 
 function Shell() {
+  const { t } = useI18n();
   return (
     <div className="app-shell">
       <div className="layout">
@@ -85,15 +88,15 @@ function Shell() {
             <Route path="/favorites" element={<Favorites />} />
             <Route
               path="/journal"
-              element={<PremiumOnly feature="Mon ciné"><Watched /></PremiumOnly>}
+              element={<PremiumOnly feature={t('nav.myCine')}><Watched /></PremiumOnly>}
             />
             <Route
               path="/communaute"
-              element={<PremiumOnly feature="La communauté"><Community /></PremiumOnly>}
+              element={<PremiumOnly feature={t('community.title')}><Community /></PremiumOnly>}
             />
             <Route
               path="/communaute/:id"
-              element={<PremiumOnly feature="La communauté"><MemberCine /></PremiumOnly>}
+              element={<PremiumOnly feature={t('community.title')}><MemberCine /></PremiumOnly>}
             />
             <Route path="/settings" element={<Settings />} />
             <Route path="/premium" element={<Premium />} />
@@ -106,9 +109,10 @@ function Shell() {
 
 function ProfileGate() {
   const { activeProfile, loading } = useIptvProfile();
+  const { t } = useI18n();
 
   if (loading) {
-    return <LoadingScreen label="Chargement des profils…" />;
+    return <LoadingScreen label={t('app.loadingProfiles')} />;
   }
 
   if (!activeProfile) {
@@ -130,9 +134,10 @@ function ProfileGate() {
 
 function AppGate() {
   const { user, loading } = useSupabaseAuth();
+  const { t } = useI18n();
 
   if (loading) {
-    return <LoadingScreen label="Chargement…" />;
+    return <LoadingScreen label={t('app.loading')} />;
   }
 
   if (!user) return <Login />;
@@ -149,9 +154,11 @@ function AppGate() {
 function App() {
   return (
     <BrowserRouter>
-      <SupabaseAuthProvider>
-        <AppGate />
-      </SupabaseAuthProvider>
+      <I18nProvider>
+        <SupabaseAuthProvider>
+          <AppGate />
+        </SupabaseAuthProvider>
+      </I18nProvider>
     </BrowserRouter>
   );
 }

@@ -4,6 +4,8 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
+import type { TranslationKey } from '../i18n';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { PreviewCard } from '../components/PreviewCard';
 import { Focusable } from '../components/Focusable';
@@ -51,7 +53,7 @@ interface HeroSlide {
   genre: string;
   rating: string;
   description: string;
-  eyebrow: string;
+  eyebrowKey: TranslationKey;
   bgImage?: string;
   artTag: string;
   playerState: PlayerState;
@@ -99,6 +101,11 @@ function RowSkeleton({ type }: { type: 'cw' | 'channel' | 'poster' }) {
 export function Home() {
   const { credentials } = useXtream();
   const { history, removeFromHistory, clearHistory } = useLibrary();
+  const { t } = useI18n();
+  // `t` dans une ref : composeHero/composeRows ne doivent pas se relancer à
+  // chaque changement de langue (la trad du hero se fait au rendu via eyebrowKey).
+  const tRef = useRef(t);
+  tRef.current = t;
   const navigate = useNavigate();
 
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
@@ -213,10 +220,10 @@ export function Home() {
         movieSlides.push({
           id: String(m.stream_id),
           title: g.title,
-          genre: m.genre ?? 'Film',
+          genre: m.genre ?? tRef.current('common.film'),
           rating: t.rating?.toFixed(1) ?? (m.rating || '—'),
           description: t.overview ?? m.plot ?? '',
-          eyebrow: 'Tendance · Film',
+          eyebrowKey: 'home.trendingMovie',
           bgImage: t.backdrop ?? m.backdrop_path?.[0] ?? m.stream_icon,
           artTag: 'BACKDROP · 16:9',
           playerState: {
@@ -238,10 +245,10 @@ export function Home() {
         seriesSlides.push({
           id: `s${s.series_id}`,
           title: g.title,
-          genre: s.genre ?? 'Série',
+          genre: s.genre ?? tRef.current('common.series'),
           rating: t.rating?.toFixed(1) ?? (s.rating || '—'),
           description: t.overview ?? s.plot ?? '',
-          eyebrow: 'Tendance · Série',
+          eyebrowKey: 'home.trendingSeriesEyebrow',
           bgImage: t.backdrop ?? s.cover,
           artTag: 'BACKDROP · 16:9',
           playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: t.overview ?? s.plot },
@@ -265,10 +272,10 @@ export function Home() {
         slides.push({
           id: String(m.stream_id),
           title: g.title,
-          genre: m.genre ?? 'Film',
+          genre: m.genre ?? tRef.current('common.film'),
           rating: m.rating || (m.rating_5based ? (m.rating_5based * 2).toFixed(1) : '—'),
           description: m.plot ?? '',
-          eyebrow: 'Film · À la une',
+          eyebrowKey: 'home.featuredMovie',
           bgImage: m.backdrop_path?.[0] ?? m.stream_icon,
           artTag: 'BACKDROP · 16:9',
           playerState: {
@@ -293,10 +300,10 @@ export function Home() {
         slides.push({
           id: `s${s.series_id}`,
           title: g.title,
-          genre: s.genre ?? 'Série',
+          genre: s.genre ?? tRef.current('common.series'),
           rating: s.rating || '—',
           description: s.plot ?? '',
-          eyebrow: 'Série · À la une',
+          eyebrowKey: 'home.featuredSeries',
           bgImage: s.cover,
           artTag: 'BACKDROP · 16:9',
           playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: s.plot },
@@ -509,7 +516,7 @@ export function Home() {
               <div className={styles.heroContent}>
                 <div className={styles.heroEyebrow}>
                   <span className={styles.heroEyebrowDot} />
-                  {slide.eyebrow}
+                  {t(slide.eyebrowKey)}
                 </div>
                 <h1 className={styles.heroTitle}>{slide.title}</h1>
                 <div className={styles.heroMeta}>
@@ -536,7 +543,7 @@ export function Home() {
                     onEnter={() => playHero(slide)}
                     onClick={() => playHero(slide)}
                   >
-                    <PlayIcon /> Regarder
+                    <PlayIcon /> {t('home.watch')}
                   </Focusable>
                   <Focusable
                     className={styles.heroInfoBtn}
@@ -546,7 +553,7 @@ export function Home() {
                     onEnter={() => infoHero(slide)}
                     onClick={() => infoHero(slide)}
                   >
-                    <InfoIcon /> Plus d'infos
+                    <InfoIcon /> {t('home.moreInfo')}
                   </Focusable>
                 </div>
               </div>
@@ -559,14 +566,14 @@ export function Home() {
               <button
                 className={`${styles.heroNav} ${styles.heroNavPrev}`}
                 onClick={() => stepSlide(-1)}
-                aria-label="Slide précédent"
+                aria-label={t('home.prevSlide')}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m15 18-6-6 6-6"/></svg>
               </button>
               <button
                 className={`${styles.heroNav} ${styles.heroNavNext}`}
                 onClick={() => stepSlide(1)}
-                aria-label="Slide suivant"
+                aria-label={t('home.nextSlide')}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m9 18 6-6-6-6"/></svg>
               </button>
@@ -581,7 +588,7 @@ export function Home() {
                   key={i}
                   className={`${styles.heroDot} ${i === heroIdx ? styles.heroDotActive : ''}`}
                   onClick={() => goToSlide(i)}
-                  aria-label={`Slide ${i + 1}`}
+                  aria-label={t('home.slideN', { n: i + 1 })}
                 />
               ))}
             </div>
@@ -596,12 +603,12 @@ export function Home() {
         {history.length > 0 && (
           <div className={styles.row}>
             <div className={styles.rowHeader}>
-              <span className={styles.rowTitle}>Reprendre</span>
+              <span className={styles.rowTitle}>{t('home.resume')}</span>
               <button
                 className={`${styles.rowSeeAll} ${clearConfirm ? styles.clearConfirmActive : ''}`}
                 onClick={clearConfirm ? handleClearAll : handleClearConfirmRequest}
               >
-                {clearConfirm ? 'Confirmer ?' : 'Tout vider'}
+                {clearConfirm ? t('home.confirmClear') : t('home.clearAll')}
               </button>
             </div>
             <ScrollRail railClassName={styles.rowRail}>
@@ -637,8 +644,8 @@ export function Home() {
                     <button
                       className={styles.cwRemoveBtn}
                       onClick={(e) => { e.stopPropagation(); removeFromHistory(item.id); }}
-                      title="Retirer de l'historique"
-                      aria-label="Retirer de l'historique"
+                      title={t('home.removeFromHistory')}
+                      aria-label={t('home.removeFromHistory')}
                     >
                       <RemoveIcon />
                     </button>
@@ -660,9 +667,9 @@ export function Home() {
         {/* Live Now */}
         <div className={styles.row}>
           <div className={styles.rowHeader}>
-            <span className={styles.rowTitle}>Live maintenant</span>
+            <span className={styles.rowTitle}>{t('home.liveNow')}</span>
             <button className={styles.rowSeeAll} onClick={() => navigate('/live')}>
-              Voir tout <ChevronRight />
+              {t('common.seeAll')} <ChevronRight />
             </button>
           </div>
           {loadingLive ? (
@@ -708,9 +715,9 @@ export function Home() {
         {/* Top Films */}
         <div className={styles.row}>
           <div className={styles.rowHeader}>
-            <span className={styles.rowTitle}>Films populaires</span>
+            <span className={styles.rowTitle}>{t('home.popularMovies')}</span>
             <button className={styles.rowSeeAll} onClick={() => navigate('/movies')}>
-              Voir tout <ChevronRight />
+              {t('common.seeAll')} <ChevronRight />
             </button>
           </div>
           {loadingMovies ? (
@@ -719,7 +726,7 @@ export function Home() {
             <ScrollRail railClassName={styles.rowRail}>
               {movies.map((g) => {
                 const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
-                const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Film');
+                const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : t('common.film'));
                 return (
                   <PreviewCard
                     key={g.primary.stream_id}
@@ -743,9 +750,9 @@ export function Home() {
         {/* Séries tendances */}
         <div className={styles.row}>
           <div className={styles.rowHeader}>
-            <span className={styles.rowTitle}>Séries tendances</span>
+            <span className={styles.rowTitle}>{t('home.trendingSeries')}</span>
             <button className={styles.rowSeeAll} onClick={() => navigate('/series')}>
-              Voir tout <ChevronRight />
+              {t('common.seeAll')} <ChevronRight />
             </button>
           </div>
           {loadingSeries ? (
@@ -754,7 +761,7 @@ export function Home() {
             <ScrollRail railClassName={styles.rowRail}>
               {series.map((g) => {
                 const r = tmdbRatings[g.key] ?? (g.primary.rating_5based > 0 ? g.primary.rating_5based * 2 : 0);
-                const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : 'Série');
+                const yr = g.year ?? (g.primary.releaseDate ? g.primary.releaseDate.slice(0, 4) : t('common.series'));
                 return (
                   <PreviewCard
                     key={g.primary.series_id}

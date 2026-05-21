@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { PLAN_OPTIONS } from '../types/subscription.types';
+import { useI18n } from '../contexts/I18nContext';
+import { LOCALE_NAMES, type Locale, type TranslationKey } from '../i18n';
 import styles from './Settings.module.css';
 
 type Tab = 'account' | 'playback' | 'about';
@@ -67,10 +68,10 @@ function IconLogout() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>;
 }
 
-const TABS: { id: Tab; label: string; Icon: () => JSX.Element }[] = [
-  { id: 'account',  label: 'Compte',    Icon: IconUser },
-  { id: 'playback', label: 'Lecture',   Icon: IconPlay },
-  { id: 'about',    label: 'À propos',  Icon: IconInfo },
+const TABS: { id: Tab; labelKey: TranslationKey; Icon: () => JSX.Element }[] = [
+  { id: 'account',  labelKey: 'settings.tabAccount',  Icon: IconUser },
+  { id: 'playback', labelKey: 'settings.tabPlayback', Icon: IconPlay },
+  { id: 'about',    labelKey: 'settings.tabAbout',    Icon: IconInfo },
 ];
 
 export function Settings() {
@@ -78,18 +79,19 @@ export function Settings() {
   const { activeProfile, clearActiveProfile, setProfilePublic } =
     useIptvProfile();
   const { isPremium, subscription } = useSubscription();
+  const { t, locale, locales, setLocale, fmtDate } = useI18n();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('account');
   const [publicBusy, setPublicBusy] = useState(false);
 
   const planLabel =
-    PLAN_OPTIONS.find((o) => o.interval === subscription.plan)?.label ?? null;
+    subscription.plan === 'yearly'
+      ? t('premium.planYearly')
+      : subscription.plan === 'monthly'
+        ? t('premium.planMonthly')
+        : null;
   const renewDate = subscription.currentPeriodEnd
-    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
+    ? fmtDate(subscription.currentPeriodEnd)
     : null;
 
   const handleTogglePublic = async (next: boolean) => {
@@ -111,7 +113,7 @@ export function Settings() {
 
   // Expiry
   const expiryDate = userInfo?.exp_date
-    ? new Date(parseInt(userInfo.exp_date) * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? fmtDate(parseInt(userInfo.exp_date) * 1000)
     : null;
 
   const isExpired = userInfo?.status === 'Expired';
@@ -121,20 +123,20 @@ export function Settings() {
       <div className={styles.page}>
         {/* ── Header ── */}
         <header className={styles.header}>
-          <h1 className={styles.title}>Paramètres</h1>
-          <p className={styles.sub}>Compte, lecture et informations de l'application.</p>
+          <h1 className={styles.title}>{t('settings.title')}</h1>
+          <p className={styles.sub}>{t('settings.subtitle')}</p>
         </header>
 
         {/* ── Tab bar ── */}
         <div className={styles.tabs}>
-          {TABS.map(({ id, label, Icon }) => (
+          {TABS.map(({ id, labelKey, Icon }) => (
             <button
               key={id}
               className={`${styles.tab} ${tab === id ? styles.tabActive : ''}`}
               onClick={() => setTab(id)}
             >
               <Icon />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -146,79 +148,79 @@ export function Settings() {
           {tab === 'account' && (
             <>
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Abonnement</div>
+                <div className={styles.sectionLabel}>{t('settings.subscription')}</div>
                 <div className={styles.row}>
-                  <span className={styles.rowLabel}>Formule</span>
+                  <span className={styles.rowLabel}>{t('settings.plan')}</span>
                   <span
                     className={`${styles.badge} ${
                       isPremium ? styles.badgeActive : styles.badgeExpired
                     }`}
                   >
                     <span className={styles.badgePulse} />
-                    {isPremium ? 'Premium' : 'Gratuit'}
+                    {isPremium ? t('common.premium') : t('common.free')}
                   </span>
                 </div>
-                {isPremium && planLabel && <InfoRow label="Type" value={planLabel} />}
+                {isPremium && planLabel && <InfoRow label={t('settings.type')} value={planLabel} />}
                 {isPremium && renewDate && (
                   <InfoRow
-                    label={subscription.cancelAtPeriodEnd ? 'Fin' : 'Renouvellement'}
+                    label={subscription.cancelAtPeriodEnd ? t('settings.end') : t('settings.renewal')}
                     value={renewDate}
                   />
                 )}
                 <div className={styles.row}>
                   <div className={styles.rowText}>
                     <div className={styles.rowLabel}>
-                      {isPremium ? "Gérer l'abonnement" : 'Passer Premium'}
+                      {isPremium ? t('settings.manageSub') : t('settings.goPremiumTitle')}
                     </div>
                     <div className={styles.rowDesc}>
                       {isPremium
-                        ? 'Formule, renouvellement et avantages'
-                        : 'Profils illimités · sync multi-appareils · Mon ciné · communauté'}
+                        ? t('settings.manageDesc')
+                        : t('settings.goPremiumDesc')}
                     </div>
                   </div>
                   <button
                     className={styles.logoutBtn}
                     onClick={() => navigate('/premium')}
                   >
-                    {isPremium ? 'Gérer' : '✨ Passer Premium'}
+                    {isPremium ? t('settings.manage') : t('common.goPremium')}
                   </button>
                 </div>
               </section>
 
               {userInfo && (
                 <section className={styles.section}>
-                  <div className={styles.sectionLabel}>Informations du compte</div>
-                  <InfoRow label="Utilisateur" value={userInfo.username} />
+                  <div className={styles.sectionLabel}>{t('settings.accountInfo')}</div>
+                  <InfoRow label={t('settings.user')} value={userInfo.username} />
                   <div className={styles.row}>
-                    <span className={styles.rowLabel}>Statut</span>
+                    <span className={styles.rowLabel}>{t('settings.status')}</span>
                     <span className={`${styles.badge} ${isExpired ? styles.badgeExpired : styles.badgeActive}`}>
                       <span className={styles.badgePulse} />
-                      {isExpired ? 'Expiré' : 'Actif'}
+                      {isExpired ? t('settings.expired') : t('settings.active')}
                     </span>
                   </div>
-                  {expiryDate && <InfoRow label="Expiration" value={expiryDate} />}
-                  <InfoRow label="Connexions max" value={userInfo.max_connections} />
-                  <InfoRow label="Connexions actives" value={userInfo.active_cons} />
+                  {expiryDate && <InfoRow label={t('settings.expiration')} value={expiryDate} />}
+                  <InfoRow label={t('settings.maxConnections')} value={userInfo.max_connections} />
+                  <InfoRow label={t('settings.activeConnections')} value={userInfo.active_cons} />
                 </section>
               )}
 
               {credentials && (
                 <section className={styles.section}>
-                  <div className={styles.sectionLabel}>Serveur</div>
-                  <InfoRow label="URL" value={credentials.serverUrl} />
-                  <InfoRow label="Identifiant" value={credentials.username} />
-                  <InfoRow label="Protocole" value={credentials.serverUrl.startsWith('https') ? 'HTTPS · Chiffré' : 'HTTP'} muted />
+                  <div className={styles.sectionLabel}>{t('settings.server')}</div>
+                  <InfoRow label={t('settings.url')} value={credentials.serverUrl} />
+                  <InfoRow label={t('settings.login')} value={credentials.username} />
+                  <InfoRow label={t('settings.protocol')} value={credentials.serverUrl.startsWith('https') ? t('settings.protocolHttps') : t('settings.protocolHttp')} muted />
                 </section>
               )}
 
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Profil</div>
-                {activeProfile && <InfoRow label="Profil actif" value={`${activeProfile.avatar}  ${activeProfile.name}`} />}
+                <div className={styles.sectionLabel}>{t('settings.profile')}</div>
+                {activeProfile && <InfoRow label={t('settings.activeProfile')} value={`${activeProfile.avatar}  ${activeProfile.name}`} />}
                 {activeProfile && isPremium && (
                   <ToggleRow
                     id="public-cine"
-                    label="Rendre mon ciné public"
-                    description="Vos notes et critiques deviennent visibles par la communauté. Vos identifiants IPTV restent privés."
+                    label={t('settings.makePublic')}
+                    description={t('settings.makePublicDesc')}
                     checked={activeProfile.is_public}
                     onChange={handleTogglePublic}
                   />
@@ -226,34 +228,54 @@ export function Settings() {
                 {activeProfile && !isPremium && (
                   <div className={styles.row}>
                     <div className={styles.rowText}>
-                      <div className={styles.rowLabel}>🔒 Rendre mon ciné public</div>
+                      <div className={styles.rowLabel}>{t('settings.makePublicLocked')}</div>
                       <div className={styles.rowDesc}>
-                        La communauté est réservée aux membres Premium.
+                        {t('settings.communityPremiumOnly')}
                       </div>
                     </div>
                     <button
                       className={styles.logoutBtn}
                       onClick={() => navigate('/premium')}
                     >
-                      ✨ Passer Premium
+                      {t('common.goPremium')}
                     </button>
                   </div>
                 )}
                 {activeProfile?.is_public && activeProfile.discriminator && (
                   <InfoRow
-                    label="Identifiant public"
+                    label={t('settings.publicId')}
                     value={`${activeProfile.name}#${activeProfile.discriminator}`}
                   />
                 )}
                 <div className={styles.row}>
                   <div className={styles.rowText}>
-                    <div className={styles.rowLabel}>Changer de profil</div>
-                    <div className={styles.rowDesc}>Revenir à l'écran de sélection des profils IPTV</div>
+                    <div className={styles.rowLabel}>{t('settings.changeProfile')}</div>
+                    <div className={styles.rowDesc}>{t('settings.changeProfileDesc')}</div>
                   </div>
                   <button className={styles.logoutBtn} onClick={clearActiveProfile}>
                     <IconLogout />
-                    Changer de profil
+                    {t('settings.changeProfile')}
                   </button>
+                </div>
+              </section>
+
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>{t('settings.languageSection')}</div>
+                <div className={styles.row}>
+                  <div className={styles.rowText}>
+                    <div className={styles.rowLabel}>{t('settings.language')}</div>
+                    <div className={styles.rowDesc}>{t('settings.languageDesc')}</div>
+                  </div>
+                  <select
+                    className={styles.logoutBtn}
+                    value={locale}
+                    onChange={(e) => setLocale(e.target.value as Locale)}
+                    aria-label={t('settings.language')}
+                  >
+                    {locales.map((l) => (
+                      <option key={l} value={l}>{LOCALE_NAMES[l]}</option>
+                    ))}
+                  </select>
                 </div>
               </section>
             </>
@@ -263,39 +285,39 @@ export function Settings() {
           {tab === 'playback' && (
             <>
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Lecture automatique</div>
+                <div className={styles.sectionLabel}>{t('settings.autoplaySection')}</div>
                 <ToggleRow
                   id="autoplay"
-                  label="Lecture automatique"
-                  description="Démarre la vidéo dès qu'une chaîne est sélectionnée"
+                  label={t('settings.autoplay')}
+                  description={t('settings.autoplayDesc')}
                   checked={autoPlay}
                   onChange={setAutoPlay}
                 />
                 <ToggleRow
                   id="remembpos"
-                  label="Mémoriser la position"
-                  description="Reprend depuis là où vous vous êtes arrêté"
+                  label={t('settings.rememberPos')}
+                  description={t('settings.rememberPosDesc')}
                   checked={remembPos}
                   onChange={setRemembPos}
                 />
               </section>
 
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Performance</div>
+                <div className={styles.sectionLabel}>{t('settings.performance')}</div>
                 <ToggleRow
                   id="hwdecode"
-                  label="Décodage matériel"
-                  description="Utilise le GPU pour décoder H.264 / H.265 (recommandé)"
+                  label={t('settings.hwDecode')}
+                  description={t('settings.hwDecodeDesc')}
                   checked={hwDecode}
                   onChange={setHwDecode}
                 />
               </section>
 
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Format de flux</div>
-                <InfoRow label="Live TV" value="MPEG-TS via proxy" muted />
-                <InfoRow label="Films" value="HLS (.m3u8) · Fallback MP4" muted />
-                <InfoRow label="Séries" value="HLS (.m3u8) · Fallback extension" muted />
+                <div className={styles.sectionLabel}>{t('settings.streamFormat')}</div>
+                <InfoRow label={t('settings.liveTv')} value={t('settings.liveTvVal')} muted />
+                <InfoRow label={t('settings.moviesLabel')} value={t('settings.moviesVal')} muted />
+                <InfoRow label={t('settings.seriesLabel')} value={t('settings.seriesVal')} muted />
               </section>
             </>
           )}
@@ -305,21 +327,21 @@ export function Settings() {
             <>
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>Iptvax</div>
-                <InfoRow label="Version" value="2.4.0" />
-                <InfoRow label="Build" value="2026.05" muted />
-                <InfoRow label="Framework" value="React 18 · Vite · TypeScript" muted />
-                <InfoRow label="Rendu vidéo" value="HLS.js · Video.js" muted />
+                <InfoRow label={t('settings.version')} value="2.4.0" />
+                <InfoRow label={t('settings.build')} value="2026.05" muted />
+                <InfoRow label={t('settings.framework')} value="React 18 · Vite · TypeScript" muted />
+                <InfoRow label={t('settings.videoRender')} value="HLS.js · Video.js" muted />
               </section>
 
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Fonctionnalités</div>
-                <InfoRow label="Live TV" value="✓ Supporté" />
-                <InfoRow label="Films VOD" value="✓ Supporté" />
-                <InfoRow label="Séries" value="✓ Supporté" />
-                <InfoRow label="Favoris" value="✓ Supporté" />
-                <InfoRow label="Recherche globale" value="✓ Supporté" />
-                <InfoRow label="Historique de lecture" value="✓ Supporté" />
-                <InfoRow label="4K · HDR" value="Selon le serveur" muted />
+                <div className={styles.sectionLabel}>{t('settings.features')}</div>
+                <InfoRow label={t('settings.liveTv')} value={t('settings.supported')} />
+                <InfoRow label={t('settings.moviesVod')} value={t('settings.supported')} />
+                <InfoRow label={t('settings.seriesLabel')} value={t('settings.supported')} />
+                <InfoRow label={t('settings.favorites')} value={t('settings.supported')} />
+                <InfoRow label={t('settings.globalSearch')} value={t('settings.supported')} />
+                <InfoRow label={t('settings.playHistory')} value={t('settings.supported')} />
+                <InfoRow label={t('settings.fourK')} value={t('settings.perServer')} muted />
               </section>
 
               <div className={styles.versionChip}>
@@ -327,7 +349,7 @@ export function Settings() {
                 <span className={styles.versionDot} />
                 <span>v2.4.0</span>
                 <span className={styles.versionDot} />
-                <span>TLS sécurisé</span>
+                <span>{t('settings.tlsSecure')}</span>
               </div>
             </>
           )}

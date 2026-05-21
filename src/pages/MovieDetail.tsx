@@ -4,6 +4,7 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
@@ -29,6 +30,7 @@ export function MovieDetail() {
   const navigate = useNavigate();
   const { credentials } = useXtream();
   const { addToHistory, isFavorite, toggleFavorite } = useLibrary();
+  const { t } = useI18n();
 
   const passed = (location.state as LocationState)?.movie ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
@@ -48,14 +50,14 @@ export function MovieDetail() {
       .getVodStreams(credentials)
       .then((all) => {
         const found = all.find((v) => String(v.stream_id) === id) ?? null;
-        if (!found) setError('Film introuvable.');
+        if (!found) setError(t('detail.movieNotFound'));
         setMovie(found);
         setSelected(found);
         setVariants(found ? [found] : []);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [passed, credentials, id]);
+  }, [passed, credentials, id, t]);
 
   const displayTitle = movie ? cleanTitle(movie.name) : '';
   const year = useMemo(
@@ -98,7 +100,7 @@ export function MovieDetail() {
       title: displayTitle,
       image: landscape || '',
       progress: 0,
-      subtitle: year ?? 'Film',
+      subtitle: year ?? t('detail.film'),
       playerState: state,
     });
     navigate('/player', { state });
@@ -159,7 +161,7 @@ export function MovieDetail() {
           focusKey={DETAIL_BACK_FOCUS_KEY}
           onEnter={() => navigate(-1)}
           onClick={() => navigate(-1)}
-          ariaLabel="Retour"
+          ariaLabel={t('common.backWord')}
           onArrow={(direction) => {
             if (direction === 'down') {
               setFocus(DETAIL_PLAY_FOCUS_KEY);
@@ -168,7 +170,7 @@ export function MovieDetail() {
             return true;
           }}
         >
-          ← Retour
+          {t('common.back')}
         </Focusable>
       </section>
 
@@ -186,7 +188,7 @@ export function MovieDetail() {
             <div>
               <div className={styles.cat}>
                 <span className={styles.catDot} />
-                Film
+                {t('detail.film')}
               </div>
               <h1 className={styles.title}>{displayTitle}</h1>
 
@@ -205,14 +207,14 @@ export function MovieDetail() {
                   onEnter={handlePlay}
                   onClick={handlePlay}
                 >
-                  ▶ Lire le film
+                  {t('detail.playMovie')}
                 </Focusable>
                 <Focusable
                   className="btn btn-secondary"
                   onEnter={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
                   onClick={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
                 >
-                  {isFavorite('movie', String(movie.stream_id)) ? '✓ Dans ma liste' : '+ Ma liste'}
+                  {isFavorite('movie', String(movie.stream_id)) ? t('common.inList') : t('common.addToList')}
                 </Focusable>
               </div>
 
@@ -222,7 +224,7 @@ export function MovieDetail() {
 
               {showVariants && (
                 <div className={styles.versionBlock}>
-                  <div className={styles.sectionLabel}>Version</div>
+                  <div className={styles.sectionLabel}>{t('detail.version')}</div>
                   <div className={styles.versionBtns}>
                     {variants.map((v, i) => (
                       <Focusable
@@ -231,7 +233,7 @@ export function MovieDetail() {
                         onEnter={() => setSelected(v)}
                         onClick={() => setSelected(v)}
                       >
-                        {versionLabel(v.name, `Source ${i + 1}`)}
+                        {versionLabel(v.name, t('detail.source', { n: i + 1 }))}
                       </Focusable>
                     ))}
                   </div>
@@ -242,7 +244,7 @@ export function MovieDetail() {
 
               {tmdb && tmdb.cast.length > 0 ? (
                 <div className={styles.castBlock}>
-                  <div className={styles.sectionLabel}>Casting</div>
+                  <div className={styles.sectionLabel}>{t('detail.casting')}</div>
                   <div className={styles.castGrid}>
                     {tmdb.cast.map((c) => (
                       <Focusable
@@ -266,7 +268,7 @@ export function MovieDetail() {
               ) : (
                 xtreamCast.length > 0 && (
                   <div className={styles.castBlock}>
-                    <div className={styles.sectionLabel}>Casting</div>
+                    <div className={styles.sectionLabel}>{t('detail.casting')}</div>
                     <div className={styles.castGrid}>
                       {xtreamCast.map((name) => (
                         <Focusable key={name} className={styles.castRow} ariaLabel={name}>
@@ -274,7 +276,7 @@ export function MovieDetail() {
                             {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
                           </div>
                           <span className={styles.castName}>{name}</span>
-                          <span className={styles.castRole}>Acteur</span>
+                          <span className={styles.castRole}>{t('detail.actor')}</span>
                         </Focusable>
                       ))}
                     </div>
@@ -284,39 +286,39 @@ export function MovieDetail() {
             </div>
 
             <aside className={styles.side}>
-              <h4 className={styles.sideTitle}>À propos</h4>
+              <h4 className={styles.sideTitle}>{t('detail.about')}</h4>
               {genre && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Genre</span>
+                  <span className={styles.factKey}>{t('detail.genre')}</span>
                   <span className={styles.factVal}>{genre}</span>
                 </div>
               )}
               {movie.releaseDate && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Sortie</span>
+                  <span className={styles.factKey}>{t('detail.release')}</span>
                   <span className={styles.factVal}>{movie.releaseDate}</span>
                 </div>
               )}
               {movie.director && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Réal.</span>
+                  <span className={styles.factKey}>{t('detail.director')}</span>
                   <span className={styles.factVal}>{movie.director}</span>
                 </div>
               )}
               {rating && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Note</span>
+                  <span className={styles.factKey}>{t('detail.rating')}</span>
                   <span className={styles.factVal}>★ {rating}</span>
                 </div>
               )}
               {showVariants && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Versions</span>
+                  <span className={styles.factKey}>{t('detail.versions')}</span>
                   <span className={styles.factVal}>{variants.length}</span>
                 </div>
               )}
               <div className={styles.factRow}>
-                <span className={styles.factKey}>Format</span>
+                <span className={styles.factKey}>{t('detail.format')}</span>
                 <span className={styles.factVal}>{(selected ?? movie).container_extension?.toUpperCase() || '—'}</span>
               </div>
             </aside>

@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSocial } from '../contexts/SocialContext';
+import { useI18n } from '../contexts/I18nContext';
+import type { TranslationKey } from '../i18n';
 import { socialService } from '../services/social.service';
 import { Focusable } from '../components/Focusable';
 import type { PublicProfileStats, DirectorySort } from '../types/social.types';
 import browse from './Browse.module.css';
 import styles from './Community.module.css';
 
-const SORTS: { v: DirectorySort; label: string }[] = [
-  { v: 'active', label: 'Actifs' },
-  { v: 'top-members', label: 'Mieux notés' },
-  { v: 'recent', label: 'Récents' },
-  { v: 'most-watched', label: 'Plus gros catalogue' },
+const SORTS: { v: DirectorySort; labelKey: TranslationKey }[] = [
+  { v: 'active', labelKey: 'community.sortActive' },
+  { v: 'top-members', labelKey: 'community.sortTop' },
+  { v: 'recent', labelKey: 'community.sortRecent' },
+  { v: 'most-watched', labelKey: 'community.sortMostWatched' },
 ];
 
 const fmt = (v: number | null) => (v == null ? '—' : v.toFixed(1).replace('.', ','));
@@ -21,6 +23,7 @@ export function Community() {
   const navigate = useNavigate();
   const { activeProfile } = useIptvProfile();
   const { isFollowing, toggleFollow } = useSocial();
+  const { t, tc } = useI18n();
 
   const [sort, setSort] = useState<DirectorySort>('active');
   const [list, setList] = useState<PublicProfileStats[]>([]);
@@ -43,11 +46,11 @@ export function Community() {
     <div className={browse.page}>
       <header className={browse.header}>
         <div className={browse.titleBlock}>
-          <h1 className={browse.title}>Communauté</h1>
+          <h1 className={browse.title}>{t('community.title')}</h1>
           <p className={browse.pageSub}>
             {loading
-              ? 'Chargement…'
-              : `${list.length} membre${list.length !== 1 ? 's' : ''} au ciné public`}
+              ? t('common.loading')
+              : tc('community.countOne', 'community.countOther', list.length)}
           </p>
         </div>
         <Focusable
@@ -55,7 +58,7 @@ export function Community() {
           onEnter={() => navigate('/journal')}
           onClick={() => navigate('/journal')}
         >
-          ← Mon ciné
+          {t('community.backCine')}
         </Focusable>
       </header>
 
@@ -69,7 +72,7 @@ export function Community() {
             onEnter={() => setSort(s.v)}
             onClick={() => setSort(s.v)}
           >
-            {s.label}
+            {t(s.labelKey)}
           </Focusable>
         ))}
       </div>
@@ -83,10 +86,7 @@ export function Community() {
       )}
 
       {!loading && list.length === 0 && (
-        <p className={browse.empty}>
-          Aucun membre public pour l'instant. Activez « Rendre mon ciné public »
-          dans les paramètres pour ouvrir la voie !
-        </p>
+        <p className={browse.empty}>{t('community.empty')}</p>
       )}
 
       {!loading && list.length > 0 && (
@@ -116,13 +116,13 @@ export function Community() {
                     {m.discriminator && (
                       <span className={styles.disc}>#{m.discriminator}</span>
                     )}
-                    {isMe && <span className={styles.youTag}>vous</span>}
+                    {isMe && <span className={styles.youTag}>{t('community.you')}</span>}
                   </span>
                   <span className={styles.stats}>
-                    {m.ratedCount} noté{m.ratedCount !== 1 ? 's' : ''} · ★{' '}
-                    {fmt(m.avgRating)} · {m.followers} abonné
-                    {m.followers !== 1 ? 's' : ''} · réput. ★{' '}
-                    {fmt(m.memberAvg)} ({m.memberVotes})
+                    {tc('community.ratedOne', 'community.ratedOther', m.ratedCount)} · ★{' '}
+                    {fmt(m.avgRating)} ·{' '}
+                    {tc('community.followersOne', 'community.followersOther', m.followers)} ·{' '}
+                    {t('community.reput')} {fmt(m.memberAvg)} ({m.memberVotes})
                   </span>
                 </div>
                 {!isMe && (
@@ -135,7 +135,7 @@ export function Community() {
                       toggleFollow(m.id);
                     }}
                   >
-                    {isFollowing(m.id) ? '✓ Suivi' : '+ Suivre'}
+                    {isFollowing(m.id) ? t('community.following') : t('community.follow')}
                   </button>
                 )}
               </Focusable>

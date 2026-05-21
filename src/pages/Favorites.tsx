@@ -4,6 +4,7 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import { MediaCard } from '../components/MediaCard';
 import { PreviewCard } from '../components/PreviewCard';
 import { cleanTitle } from '../utils/catalog';
@@ -15,6 +16,7 @@ import fav from './Favorites.module.css';
 export function Favorites() {
   const { credentials } = useXtream();
   const { favorites, loading, isFavorite, toggleFavorite } = useLibrary();
+  const { t, tc } = useI18n();
   const navigate = useNavigate();
 
   const channels = useMemo(
@@ -64,11 +66,11 @@ export function Favorites() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.titleBlock}>
-          <h1 className={styles.title}>Ma Liste</h1>
+          <h1 className={styles.title}>{t('favorites.title')}</h1>
           <p className={styles.pageSub}>
             {loading
-              ? 'Chargement…'
-              : `${favorites.length} titre${favorites.length !== 1 ? 's' : ''} · chaînes, films & séries`}
+              ? t('common.loading')
+              : tc('favorites.countOne', 'favorites.countOther', favorites.length)}
           </p>
         </div>
       </header>
@@ -82,18 +84,15 @@ export function Favorites() {
       )}
 
       {isEmpty && (
-        <p className={styles.empty}>
-          Votre liste est vide. Ajoutez des chaînes, films et séries via le
-          bouton « + Ma liste » sur leurs pages.
-        </p>
+        <p className={styles.empty}>{t('favorites.empty')}</p>
       )}
 
       {channels.length > 0 && (
         <section className={fav.section}>
           <div className={fav.sectionHead}>
-            <h2 className={fav.sectionTitle}>Chaînes</h2>
+            <h2 className={fav.sectionTitle}>{t('favorites.channels')}</h2>
             <span className={fav.sectionCount}>
-              {channels.length} chaîne{channels.length !== 1 ? 's' : ''}
+              {tc('favorites.channelsOne', 'favorites.channelsOther', channels.length)}
             </span>
           </div>
           <div className={`${styles.grid} ${styles.gridChannel}`}>
@@ -116,9 +115,9 @@ export function Favorites() {
       {movies.length > 0 && (
         <section className={fav.section}>
           <div className={fav.sectionHead}>
-            <h2 className={fav.sectionTitle}>Films</h2>
+            <h2 className={fav.sectionTitle}>{t('favorites.movies')}</h2>
             <span className={fav.sectionCount}>
-              {movies.length} film{movies.length !== 1 ? 's' : ''}
+              {tc('favorites.moviesOne', 'favorites.moviesOther', movies.length)}
             </span>
           </div>
           <div className={`${styles.grid} ${styles.gridPoster}`}>
@@ -141,9 +140,9 @@ export function Favorites() {
       {series.length > 0 && (
         <section className={fav.section}>
           <div className={fav.sectionHead}>
-            <h2 className={fav.sectionTitle}>Séries</h2>
+            <h2 className={fav.sectionTitle}>{t('favorites.series')}</h2>
             <span className={fav.sectionCount}>
-              {series.length} série{series.length !== 1 ? 's' : ''}
+              {tc('favorites.seriesOne', 'favorites.seriesOther', series.length)}
             </span>
           </div>
           <div className={`${styles.grid} ${styles.gridPoster}`}>

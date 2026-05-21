@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { clampToStep, RATING_MIN, RATING_STEP, RATING_MAX } from '../../utils/ratings';
+import { useI18n } from '../../contexts/I18nContext';
 import styles from './RatingStars.module.css';
 
 interface Props {
@@ -43,6 +44,7 @@ export function RatingStars({
   focusKey,
   ariaLabel,
 }: Props) {
+  const { t } = useI18n();
   const [hover, setHover] = useState<number | null>(null);
   const snap = (v: number) => clampToStep(v, step, min, RATING_MAX);
 
@@ -91,7 +93,9 @@ export function RatingStars({
       role={readOnly ? 'img' : 'slider'}
       aria-label={
         ariaLabel ??
-        (value != null ? `Note ${value} sur ${RATING_MAX}` : 'Non noté')
+        (value != null
+          ? t('ratingStars.valueAria', { value, max: RATING_MAX })
+          : t('ratingStars.unrated'))
       }
       aria-valuenow={value ?? undefined}
       aria-valuemin={min}

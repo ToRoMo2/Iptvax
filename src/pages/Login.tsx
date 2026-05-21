@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { AppLogo } from '../components/AppLogo';
 import styles from './Login.module.css';
 
@@ -7,6 +8,7 @@ type Mode = 'signin' | 'signup' | 'confirm';
 
 export function Login() {
   const { signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, authError } = useSupabaseAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +27,7 @@ export function Login() {
         setMode('confirm');
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      setFormError(err instanceof Error ? err.message : t('login.genericError'));
     } finally {
       setLoading(false);
     }
@@ -41,13 +43,11 @@ export function Login() {
           IPTVAX
         </div>
         <div className={styles.card}>
-          <div className={styles.eyebrow}>Inscription réussie</div>
-          <h1 className={styles.title}>Vérifiez votre email</h1>
-          <p className={styles.sub}>
-            Un lien de confirmation a été envoyé à <strong>{email}</strong>. Cliquez dessus pour activer votre compte.
-          </p>
+          <div className={styles.eyebrow}>{t('login.signupSuccess')}</div>
+          <h1 className={styles.title}>{t('login.verifyEmail')}</h1>
+          <p className={styles.sub}>{t('login.confirmSent', { email })}</p>
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setMode('signin')}>
-            Retour à la connexion
+            {t('login.backToLogin')}
           </button>
         </div>
       </div>
@@ -62,12 +62,10 @@ export function Login() {
       </div>
 
       <div className={styles.card}>
-        <div className={styles.eyebrow}>Votre compte</div>
-        <h1 className={styles.title}>{mode === 'signin' ? 'Connexion' : 'Créer un compte'}</h1>
+        <div className={styles.eyebrow}>{t('login.account')}</div>
+        <h1 className={styles.title}>{mode === 'signin' ? t('login.signin') : t('login.createAccount')}</h1>
         <p className={styles.sub}>
-          {mode === 'signin'
-            ? 'Connectez-vous pour accéder à vos favoris et votre historique sur tous vos appareils.'
-            : 'Créez un compte gratuit pour synchroniser vos données.'}
+          {mode === 'signin' ? t('login.signinSub') : t('login.signupSub')}
         </p>
 
         {/* Social login */}
@@ -79,29 +77,29 @@ export function Login() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continuer avec Google
+            {t('login.continueGoogle')}
           </button>
 
           <button className={styles.socialBtn} onClick={() => void signInWithApple()} type="button">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.39.07 2.35.74 3.15.8 1.19-.24 2.33-.93 3.6-.84 1.54.12 2.7.72 3.44 1.84-3.17 1.9-2.42 5.77.51 6.93-.6 1.48-1.38 2.95-2.7 4.15M12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25"/>
             </svg>
-            Continuer avec Apple
+            {t('login.continueApple')}
           </button>
         </div>
 
         <div className={styles.divider}>
-          <span>ou</span>
+          <span>{t('login.or')}</span>
         </div>
 
         {/* Email / password form */}
         <form onSubmit={handleEmailSubmit}>
           <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="login-email">Adresse email</label>
+            <label className={styles.fieldLabel} htmlFor="login-email">{t('login.emailLabel')}</label>
             <input
               id="login-email"
               type="email"
-              placeholder="vous@exemple.com"
+              placeholder={t('login.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -110,7 +108,7 @@ export function Login() {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="login-password">Mot de passe</label>
+            <label className={styles.fieldLabel} htmlFor="login-password">{t('login.passwordLabel')}</label>
             <input
               id="login-password"
               type="password"
@@ -138,21 +136,21 @@ export function Login() {
             disabled={loading}
           >
             {loading ? (
-              <><AppLogo spin size={18} />{mode === 'signin' ? 'Connexion…' : 'Création…'}</>
+              <><AppLogo spin size={18} />{mode === 'signin' ? t('login.signinLoading') : t('login.signupLoading')}</>
             ) : (
-              mode === 'signin' ? 'Se connecter' : 'Créer mon compte'
+              mode === 'signin' ? t('login.signinBtn') : t('login.signupBtn')
             )}
           </button>
         </form>
 
         <div className={styles.toggle}>
           {mode === 'signin' ? (
-            <>Pas encore de compte ?{' '}
-              <button onClick={() => { setMode('signup'); setFormError(null); }}>S'inscrire</button>
+            <>{t('login.noAccount')}{' '}
+              <button onClick={() => { setMode('signup'); setFormError(null); }}>{t('login.signupLink')}</button>
             </>
           ) : (
-            <>Déjà un compte ?{' '}
-              <button onClick={() => { setMode('signin'); setFormError(null); }}>Se connecter</button>
+            <>{t('login.haveAccount')}{' '}
+              <button onClick={() => { setMode('signin'); setFormError(null); }}>{t('login.signinLink')}</button>
             </>
           )}
         </div>

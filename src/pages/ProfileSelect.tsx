@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent, type CSSProperties } from 'react';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useI18n } from '../contexts/I18nContext';
 import { Premium } from './Premium';
 import { AppLogo } from '../components/AppLogo';
 import { xtreamService } from '../services/xtream.service';
@@ -24,6 +25,7 @@ function avatarStyle(color: ProfileColor): CSSProperties {
 export function ProfileSelect() {
   const { profiles, loading, selectProfile } = useIptvProfile();
   const { isPremium } = useSubscription();
+  const { t } = useI18n();
   const [manage, setManage] = useState(false);
   const [editor, setEditor] = useState<EditorState>(null);
   const [upsell, setUpsell] = useState(false);
@@ -43,7 +45,7 @@ export function ProfileSelect() {
   if (upsell) {
     return (
       <Premium
-        lockedFeature="Les profils multiples"
+        lockedFeature={t('profileSelect.multiProfileFeature')}
         onBack={() => setUpsell(false)}
       />
     );
@@ -74,8 +76,8 @@ export function ProfileSelect() {
         IPTVAX
       </div>
 
-      <h1 className={styles.title}>Qui regarde&nbsp;?</h1>
-      <p className={styles.sub}>Choisissez un profil pour accéder à son contenu.</p>
+      <h1 className={styles.title}>{t('profileSelect.who')}</h1>
+      <p className={styles.sub}>{t('profileSelect.choose')}</p>
 
       <div className={styles.grid}>
         {profiles.map((p) => (
@@ -108,7 +110,7 @@ export function ProfileSelect() {
                 <path d="M12 5v14M5 12h14"/>
               </svg>
             </span>
-            <span className={styles.cardName}>Ajouter un profil</span>
+            <span className={styles.cardName}>{t('profileSelect.add')}</span>
           </button>
         </div>
       </div>
@@ -118,7 +120,7 @@ export function ProfileSelect() {
           className={`${styles.manageBtn} ${manage ? styles.manageBtnActive : ''}`}
           onClick={() => setManage((m) => !m)}
         >
-          {manage ? 'Terminé' : 'Gérer les profils'}
+          {manage ? t('profileSelect.done') : t('profileSelect.manage')}
         </button>
       )}
     </div>
@@ -135,6 +137,7 @@ interface EditorProps {
 
 function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
   const { createProfile, updateProfile, deleteProfile, selectProfile } = useIptvProfile();
+  const { t } = useI18n();
   const editing = state.mode === 'edit' ? state.profile : null;
 
   const [name, setName] = useState(editing?.name ?? '');
@@ -159,7 +162,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
     try {
       const res = await xtreamService.authenticate(creds);
       if (!res?.user_info || res.user_info.auth === 0) {
-        throw new Error('Identifiants incorrects');
+        throw new Error('badCredentials');
       }
 
       const payload = {
@@ -180,9 +183,9 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
       }
     } catch (err) {
       setError(
-        err instanceof Error && err.message === 'Identifiants incorrects'
-          ? 'Identifiants incorrects'
-          : 'Connexion au serveur impossible. Vérifiez l\'URL et les identifiants.',
+        err instanceof Error && err.message === 'badCredentials'
+          ? t('profileSelect.badCredentials')
+          : t('profileSelect.connectFail'),
       );
     } finally {
       setBusy(false);
@@ -196,7 +199,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
       await deleteProfile(editing.id);
       onClose();
     } catch {
-      setError('Suppression impossible');
+      setError(t('profileSelect.deleteFail'));
       setBusy(false);
     }
   };
@@ -210,23 +213,23 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
 
       <div className={styles.editor}>
         <h1 className={styles.title}>
-          {editing ? 'Modifier le profil' : 'Nouveau profil'}
+          {editing ? t('profileSelect.edit') : t('profileSelect.create')}
         </h1>
 
         <div className={styles.preview}>
           <span className={styles.avatarLg} style={avatarStyle(color)}>
             <span className={styles.avatarEmojiLg}>{avatar}</span>
           </span>
-          <span className={styles.previewName}>{name.trim() || 'Profil'}</span>
+          <span className={styles.previewName}>{name.trim() || t('profileSelect.defaultName')}</span>
         </div>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="pf-name">Nom du profil</label>
+            <label className={styles.fieldLabel} htmlFor="pf-name">{t('profileSelect.nameLabel')}</label>
             <input
               id="pf-name"
               type="text"
-              placeholder="Ex : Salon, Enfants, Papa…"
+              placeholder={t('profileSelect.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={32}
@@ -236,7 +239,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           </div>
 
           <div className={styles.pickerGroup}>
-            <span className={styles.fieldLabel}>Avatar</span>
+            <span className={styles.fieldLabel}>{t('profileSelect.avatar')}</span>
             <div className={styles.emojiGrid}>
               {PROFILE_AVATARS.map((e) => (
                 <button
@@ -252,7 +255,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           </div>
 
           <div className={styles.pickerGroup}>
-            <span className={styles.fieldLabel}>Couleur</span>
+            <span className={styles.fieldLabel}>{t('profileSelect.color')}</span>
             <div className={styles.colorRow}>
               {PROFILE_COLORS.map((c) => (
                 <button
@@ -268,14 +271,14 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           </div>
 
           <div className={styles.divider} />
-          <span className={styles.sectionLabel}>Source IPTV</span>
+          <span className={styles.sectionLabel}>{t('profileSelect.iptvSource')}</span>
 
           <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="pf-server">URL du serveur</label>
+            <label className={styles.fieldLabel} htmlFor="pf-server">{t('profileSelect.serverUrlLabel')}</label>
             <input
               id="pf-server"
               type="text"
-              placeholder="http://votre-serveur.com:8080"
+              placeholder={t('profileSelect.serverUrlPlaceholder')}
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
               autoComplete="off"
@@ -284,11 +287,11 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="pf-user">Nom d'utilisateur</label>
+            <label className={styles.fieldLabel} htmlFor="pf-user">{t('profileSelect.usernameLabel')}</label>
             <input
               id="pf-user"
               type="text"
-              placeholder="username"
+              placeholder={t('profileSelect.usernamePlaceholder')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="off"
@@ -297,7 +300,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="pf-pass">Mot de passe</label>
+            <label className={styles.fieldLabel} htmlFor="pf-pass">{t('profileSelect.passwordLabel')}</label>
             <input
               id="pf-pass"
               type="password"
@@ -321,23 +324,23 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
           <div className={styles.actions}>
             <button className={`btn btn-primary ${styles.save}`} type="submit" disabled={busy}>
               {busy ? (
-                <><AppLogo spin size={18} />Vérification…</>
+                <><AppLogo spin size={18} />{t('profileSelect.verifying')}</>
               ) : editing ? (
-                'Enregistrer'
+                t('profileSelect.save')
               ) : (
-                'Créer le profil'
+                t('profileSelect.createBtn')
               )}
             </button>
 
             {editing && (
               <button type="button" className={styles.deleteBtn} onClick={() => void handleDelete()} disabled={busy}>
-                Supprimer ce profil
+                {t('profileSelect.delete')}
               </button>
             )}
 
             {!editing && canCancel && (
               <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>
-                Annuler
+                {t('common.cancel')}
               </button>
             )}
           </div>

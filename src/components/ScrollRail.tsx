@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
+import { useI18n } from '../contexts/I18nContext';
 import styles from './ScrollRail.module.css';
 
 function ChevLeft() {
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function ScrollRail({ children, railClassName }: Props) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
@@ -58,7 +60,7 @@ export function ScrollRail({ children, railClassName }: Props) {
       <button
         className={`${styles.arrow} ${styles.arrowLeft} ${canLeft ? styles.arrowVisible : ''}`}
         onClick={() => scroll(-1)}
-        aria-label="Défiler à gauche"
+        aria-label={t('categoryBar.scrollLeft')}
         tabIndex={-1}
       >
         <ChevLeft />
@@ -71,7 +73,7 @@ export function ScrollRail({ children, railClassName }: Props) {
       <button
         className={`${styles.arrow} ${styles.arrowRight} ${canRight ? styles.arrowVisible : ''}`}
         onClick={() => scroll(1)}
-        aria-label="Défiler à droite"
+        aria-label={t('categoryBar.scrollRight')}
         tabIndex={-1}
       >
         <ChevRight />

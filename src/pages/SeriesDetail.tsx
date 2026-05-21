@@ -4,6 +4,7 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
@@ -29,6 +30,7 @@ export function SeriesDetail() {
   const navigate = useNavigate();
   const { credentials } = useXtream();
   const { addToHistory, isFavorite, toggleFavorite } = useLibrary();
+  const { t, tc } = useI18n();
 
   const seriesMeta = (location.state as LocationState)?.series ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
@@ -73,7 +75,8 @@ export function SeriesDetail() {
     }
   }, [loading]);
 
-  const title = info?.info.name ?? variant?.name ?? seriesMeta?.name ?? 'Série';
+  const seriesFallback = t('detail.seriesDefault');
+  const title = info?.info.name ?? variant?.name ?? seriesMeta?.name ?? seriesFallback;
   const displayTitle = cleanTitle(title);
   const releaseDate = info?.info.releaseDate;
   const year = useMemo(
@@ -84,13 +87,13 @@ export function SeriesDetail() {
   // Enrichissement TMDB (image paysage / casting / note / synopsis).
   useEffect(() => {
     setTmdb(null);
-    if (!tmdbService.isEnabled() || displayTitle === 'Série') return;
+    if (!tmdbService.isEnabled() || displayTitle === seriesFallback) return;
     let alive = true;
     tmdbService.enrichSeries(displayTitle, year).then((res) => {
       if (alive) setTmdb(res);
     });
     return () => { alive = false; };
-  }, [displayTitle, year]);
+  }, [displayTitle, year, seriesFallback]);
 
   // Vignettes d'épisodes TMDB pour la saison sélectionnée.
   useEffect(() => {
@@ -105,7 +108,7 @@ export function SeriesDetail() {
 
   const handlePlayEpisode = (episode: Episode) => {
     if (!credentials) return;
-    const epLabel = episode.title || `Épisode ${episode.episode_num}`;
+    const epLabel = episode.title || t('detail.episodeN', { n: episode.episode_num });
     const historyId = `episode-${episode.id}`;
     // Image paysage (16:9) pour « Reprendre » + poster vidéo : le still
     // d'épisode TMDB est déjà du 16:9 → idéal. URLs BRUTES (safeImgUrl est
@@ -202,7 +205,7 @@ export function SeriesDetail() {
           focusKey={DETAIL_BACK_FOCUS_KEY}
           onEnter={() => navigate(-1)}
           onClick={() => navigate(-1)}
-          ariaLabel="Retour"
+          ariaLabel={t('common.backWord')}
           onArrow={(direction) => {
             if (direction === 'down') {
               if (!loading) {
@@ -215,7 +218,7 @@ export function SeriesDetail() {
             return true;
           }}
         >
-          ← Retour
+          {t('common.back')}
         </Focusable>
       </section>
 
@@ -234,7 +237,7 @@ export function SeriesDetail() {
             <div>
               <div className={styles.cat}>
                 <span className={styles.catDot} />
-                Série
+                {t('detail.series')}
               </div>
               <h1 className={styles.title}>{displayTitle}</h1>
 
@@ -245,7 +248,7 @@ export function SeriesDetail() {
                 {(year || genre) && seasons.length > 0 && <span className={styles.metaSep} />}
                 {seasons.length > 0 && (
                   <span>
-                    {seasons.length} saison{seasons.length > 1 ? 's' : ''}
+                    {tc('detail.seasonsCountOne', 'detail.seasonsCountOther', seasons.length)}
                   </span>
                 )}
                 {rating && <span className={styles.metaSep} />}
@@ -259,14 +262,14 @@ export function SeriesDetail() {
                   onEnter={handlePlayFirst}
                   onClick={handlePlayFirst}
                 >
-                  ▶ Lire
+                  {t('detail.play')}
                 </Focusable>
                 <Focusable
                   className="btn btn-secondary"
                   onEnter={() => toggleFavorite({ type: 'series', id: String(seriesId), name: displayTitle, image: tmdb?.poster ?? info?.info.cover ?? variant?.cover ?? '' })}
                   onClick={() => toggleFavorite({ type: 'series', id: String(seriesId), name: displayTitle, image: tmdb?.poster ?? info?.info.cover ?? variant?.cover ?? '' })}
                 >
-                  {isFavorite('series', String(seriesId)) ? '✓ Dans ma liste' : '+ Ma liste'}
+                  {isFavorite('series', String(seriesId)) ? t('common.inList') : t('common.addToList')}
                 </Focusable>
               </div>
 
@@ -276,7 +279,7 @@ export function SeriesDetail() {
 
               {showVariants && (
                 <div className={styles.versionBlock}>
-                  <div className={styles.sectionLabel}>Version</div>
+                  <div className={styles.sectionLabel}>{t('detail.version')}</div>
                   <div className={styles.versionBtns}>
                     {variants.map((v, i) => (
                       <Focusable
@@ -285,7 +288,7 @@ export function SeriesDetail() {
                         onEnter={() => setVariant(v)}
                         onClick={() => setVariant(v)}
                       >
-                        {versionLabel(v.name, `Source ${i + 1}`)}
+                        {versionLabel(v.name, t('detail.source', { n: i + 1 }))}
                       </Focusable>
                     ))}
                   </div>
@@ -296,7 +299,7 @@ export function SeriesDetail() {
 
               {tmdb && tmdb.cast.length > 0 ? (
                 <div className={styles.castBlock}>
-                  <div className={styles.sectionLabel}>Casting</div>
+                  <div className={styles.sectionLabel}>{t('detail.casting')}</div>
                   <div className={styles.castGrid}>
                     {tmdb.cast.map((c) => (
                       <Focusable
@@ -320,7 +323,7 @@ export function SeriesDetail() {
               ) : (
                 xtreamCast.length > 0 && (
                   <div className={styles.castBlock}>
-                    <div className={styles.sectionLabel}>Casting</div>
+                    <div className={styles.sectionLabel}>{t('detail.casting')}</div>
                     <div className={styles.castGrid}>
                       {xtreamCast.map((name) => (
                         <Focusable key={name} className={styles.castRow} ariaLabel={name}>
@@ -328,7 +331,7 @@ export function SeriesDetail() {
                             {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
                           </div>
                           <span className={styles.castName}>{name}</span>
-                          <span className={styles.castRole}>Acteur</span>
+                          <span className={styles.castRole}>{t('detail.actor')}</span>
                         </Focusable>
                       ))}
                     </div>
@@ -338,7 +341,7 @@ export function SeriesDetail() {
 
               {/* Seasons / Episodes */}
               <div className={styles.seasonsBlock}>
-                <div className={styles.sectionLabel}>Épisodes</div>
+                <div className={styles.sectionLabel}>{t('detail.episodesTitle')}</div>
 
                 {seasons.length > 1 && (
                   <div className={styles.seasons}>
@@ -349,7 +352,7 @@ export function SeriesDetail() {
                         onEnter={() => setSelectedSeason(s)}
                         onClick={() => setSelectedSeason(s)}
                       >
-                        Saison {s}
+                        {t('detail.seasonN', { n: s })}
                       </Focusable>
                     ))}
                   </div>
@@ -371,8 +374,8 @@ export function SeriesDetail() {
                           <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
                         )}
                         <div className={styles.epInfo}>
-                          <span className={styles.epNum}>Épisode {ep.episode_num}</span>
-                          <span className={styles.epTitle}>{ep.title || `Épisode ${ep.episode_num}`}</span>
+                          <span className={styles.epNum}>{t('detail.episodeN', { n: ep.episode_num })}</span>
+                          <span className={styles.epTitle}>{ep.title || t('detail.episodeN', { n: ep.episode_num })}</span>
                           {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
                           {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
                         </div>
@@ -385,44 +388,44 @@ export function SeriesDetail() {
             </div>
 
             <aside className={styles.side}>
-              <h4 className={styles.sideTitle}>À propos</h4>
+              <h4 className={styles.sideTitle}>{t('detail.about')}</h4>
               {genre && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Genre</span>
+                  <span className={styles.factKey}>{t('detail.genre')}</span>
                   <span className={styles.factVal}>{genre}</span>
                 </div>
               )}
               {releaseDate && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Sortie</span>
+                  <span className={styles.factKey}>{t('detail.release')}</span>
                   <span className={styles.factVal}>{releaseDate}</span>
                 </div>
               )}
               {director && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Réal.</span>
+                  <span className={styles.factKey}>{t('detail.director')}</span>
                   <span className={styles.factVal}>{director}</span>
                 </div>
               )}
               {rating && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Note</span>
+                  <span className={styles.factKey}>{t('detail.rating')}</span>
                   <span className={styles.factVal}>★ {rating}</span>
                 </div>
               )}
               <div className={styles.factRow}>
-                <span className={styles.factKey}>Saisons</span>
+                <span className={styles.factKey}>{t('detail.seasons')}</span>
                 <span className={styles.factVal}>{seasons.length}</span>
               </div>
               {episodeCount > 0 && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Épisodes</span>
+                  <span className={styles.factKey}>{t('detail.episodesFact')}</span>
                   <span className={styles.factVal}>{episodeCount}</span>
                 </div>
               )}
               {showVariants && (
                 <div className={styles.factRow}>
-                  <span className={styles.factKey}>Versions</span>
+                  <span className={styles.factKey}>{t('detail.versions')}</span>
                   <span className={styles.factVal}>{variants.length}</span>
                 </div>
               )}

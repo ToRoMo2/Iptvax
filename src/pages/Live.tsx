@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useI18n } from '../contexts/I18nContext';
 import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
@@ -39,6 +40,7 @@ function epgTime(raw: string): string {
 export function Live() {
   const { credentials } = useXtream();
   const { isFavorite, toggleFavorite } = useLibrary();
+  const { t, tc } = useI18n();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<LiveCategory[]>([]);
@@ -180,9 +182,9 @@ export function Live() {
   };
 
   const catName = isGlobalSearch
-    ? 'Recherche globale'
+    ? t('live.globalSearch')
     : categories.find((c) => c.category_id === selectedCat)?.category_name ??
-      'Toutes les catégories';
+      t('live.allCategories');
 
   // Certains panels Xtream renvoient chaque programme en double (même créneau,
   // l'un marqué `now_playing`). On dédoublonne par horaire de début, on décode
@@ -233,27 +235,31 @@ export function Live() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.titleBlock}>
-          <h1 className={styles.title}>Live TV</h1>
+          <h1 className={styles.title}>{t('live.title')}</h1>
           <p className={styles.pageSub}>
             {isGlobalSearch
-              ? `Recherche globale · ${filtered.length} résultat${filtered.length !== 1 ? 's' : ''}`
-              : `${filtered.length} chaîne${filtered.length !== 1 ? 's' : ''} en direct · ${catName}`}
+              ? tc('live.globalResultsOne', 'live.globalResultsOther', filtered.length)
+              : tc('live.channelsOne', 'live.channelsOther', filtered.length, { cat: catName })}
           </p>
         </div>
         <RemoteSearch
           value={search}
           onChange={setSearch}
-          placeholder="Rechercher dans toutes les chaînes…"
+          placeholder={t('live.searchPlaceholder')}
           wrapperClassName={styles.searchWrapper}
           iconClassName={styles.searchIcon}
           inputClassName={styles.search}
         />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
-          <span className={styles.searchBadge}>Tapez au moins {MIN_SEARCH_LEN} caractères…</span>
+          <span className={styles.searchBadge}>{t('common.minChars', { n: MIN_SEARCH_LEN })}</span>
         )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll ? '⏳ Chargement…' : `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''} résultat${filtered.length !== 1 ? 's' : ''}`}
+            {loadingAll
+              ? t('common.loadingShort')
+              : tc('live.badgeOne', 'live.badgeOther', filtered.length, {
+                  count: `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''}`,
+                })}
           </span>
         )}
       </header>
@@ -306,7 +312,7 @@ export function Live() {
           )}
 
           {!loadingStreams && !loadingAll && filtered.length === 0 && !error && (
-            <p className={styles.empty}>Aucune chaîne trouvée.</p>
+            <p className={styles.empty}>{t('live.none')}</p>
           )}
         </div>
 
@@ -329,7 +335,7 @@ export function Live() {
                 </span>
                 <span className={live.panelLiveTag}>
                   <span className={live.panelLiveDot} />
-                  EN DIRECT
+                  {t('live.onAir')}
                 </span>
               </div>
             </div>
@@ -345,13 +351,13 @@ export function Live() {
 
             {nowProgram && (
               <div className={live.nowBlock}>
-                <span className={live.nowLabel}>EN COURS</span>
+                <span className={live.nowLabel}>{t('live.now')}</span>
                 <span className={live.nowTitle}>{nowProgram.title || selectedStream.name}</span>
                 {nowProgram.desc && <p className={live.nowDesc}>{nowProgram.desc}</p>}
               </div>
             )}
 
-            <div className={live.epgHead}>Programme</div>
+            <div className={live.epgHead}>{t('live.schedule')}</div>
             {epgLoading ? (
               <div className={live.epgSkeleton}>
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -359,7 +365,7 @@ export function Live() {
                 ))}
               </div>
             ) : epgRows.length === 0 ? (
-              <p className={live.epgEmpty}>Aucun programme disponible pour cette chaîne.</p>
+              <p className={live.epgEmpty}>{t('live.noProgram')}</p>
             ) : (
               <ul className={live.epgList}>
                 {epgRows.map((r) => (

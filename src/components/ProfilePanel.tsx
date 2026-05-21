@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useI18n } from '../contexts/I18nContext';
 import { useXtream } from '../context/XtreamContext';
 import styles from './ProfilePanel.module.css';
 
@@ -15,6 +16,7 @@ export function ProfilePanel({ onClose }: Props) {
   const { activeProfile, clearActiveProfile, updateProfile } = useIptvProfile();
   const { isPremium } = useSubscription();
   const { userInfo } = useXtream();
+  const { t, fmtDate } = useI18n();
   const navigate = useNavigate();
 
   const handleOpenPremium = () => {
@@ -26,15 +28,11 @@ export function ProfilePanel({ onClose }: Props) {
   const [nameInput, setNameInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const profileName = activeProfile?.name ?? 'Profil';
+  const profileName = activeProfile?.name ?? t('nav.profile');
   const email = user?.email ?? '';
 
   const expDate = userInfo?.exp_date
-    ? new Date(parseInt(userInfo.exp_date) * 1000).toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
+    ? fmtDate(parseInt(userInfo.exp_date) * 1000)
     : null;
 
   const startEditing = () => {
@@ -106,7 +104,7 @@ export function ProfilePanel({ onClose }: Props) {
               maxLength={32}
             />
           ) : (
-            <button className={styles.nameBtn} onClick={startEditing} title="Renommer le profil">
+            <button className={styles.nameBtn} onClick={startEditing} title={t('profilePanel.rename')}>
               <span className={styles.displayName}>{profileName}</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="11" height="11" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -123,7 +121,7 @@ export function ProfilePanel({ onClose }: Props) {
         <>
           <div className={styles.divider} />
           <div className={styles.section}>
-            <div className={styles.sectionLabel}>Serveur IPTV</div>
+            <div className={styles.sectionLabel}>{t('profilePanel.iptvServer')}</div>
             <div className={styles.serverUrl}>
               {activeProfile.xtream_server_url.replace(/^https?:\/\//, '')}
             </div>
@@ -146,10 +144,10 @@ export function ProfilePanel({ onClose }: Props) {
       {/* ── Actions ────────────────────────────────────────────────── */}
       <div className={styles.divider} />
       {isPremium ? (
-        <div className={styles.premiumBadge}>★ Membre Premium</div>
+        <div className={styles.premiumBadge}>{t('profilePanel.premiumMember')}</div>
       ) : (
         <button className={styles.premiumCta} onClick={handleOpenPremium}>
-          ✨ Passer Premium
+          {t('common.goPremium')}
         </button>
       )}
       <button className={styles.actionBtn} onClick={handleOpenSettings}>
@@ -157,13 +155,13 @@ export function ProfilePanel({ onClose }: Props) {
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-        Paramètres
+        {t('profilePanel.settings')}
       </button>
       <button className={styles.actionBtn} onClick={handleSwitchProfile}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/>
         </svg>
-        Changer de profil
+        {t('profilePanel.changeProfile')}
       </button>
       <button className={`${styles.actionBtn} ${styles.signOut}`} onClick={() => void handleSignOut()}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
@@ -171,7 +169,7 @@ export function ProfilePanel({ onClose }: Props) {
           <polyline points="16 17 21 12 16 7"/>
           <line x1="21" y1="12" x2="9" y2="12"/>
         </svg>
-        Se déconnecter du compte
+        {t('profilePanel.signOut')}
       </button>
     </div>
   );

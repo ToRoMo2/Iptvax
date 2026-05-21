@@ -4,6 +4,7 @@ import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { safeImgUrl } from '../utils/image';
 import { youtubeId } from '../utils/youtube';
 import type { TmdbTrailer } from '../types/tmdb.types';
+import { useI18n } from '../contexts/I18nContext';
 import styles from './PreviewCard.module.css';
 
 /* ── API YouTube IFrame (chargée une seule fois, globalement) ──────────────
@@ -122,6 +123,7 @@ export function PreviewCard({
   onOpen,
   onFavorite,
 }: Props) {
+  const { t } = useI18n();
   const ytMountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const [open, setOpen] = useState(false);
@@ -421,7 +423,7 @@ export function PreviewCard({
           <button
             className={`${styles.fav} ${isFavorite ? styles.favOn : ''}`}
             onClick={(e) => { e.stopPropagation(); onFavorite(); }}
-            title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            title={isFavorite ? t('common.removeFavorite') : t('common.addFavorite')}
           >
             {isFavorite ? '★' : '☆'}
           </button>
@@ -471,13 +473,13 @@ export function PreviewCard({
                 className={styles.play}
                 onClick={(e) => { e.stopPropagation(); onOpen(); }}
               >
-                ▶ Lire
+                {t('common.play')}
               </button>
               {onFavorite && (
                 <button
                   className={`${styles.ovFav} ${isFavorite ? styles.ovFavOn : ''}`}
                   onClick={(e) => { e.stopPropagation(); onFavorite(); }}
-                  title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                  title={isFavorite ? t('common.removeFavorite') : t('common.addFavorite')}
                 >
                   {isFavorite ? '★' : '☆'}
                 </button>
