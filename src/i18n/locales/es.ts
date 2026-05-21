@@ -128,6 +128,11 @@ const es: typeof frDict = {
     trendingSeriesEyebrow: 'Tendencia · Serie',
     featuredMovie: 'Película · Destacado',
     featuredSeries: 'Serie · Destacado',
+    recoBadgeTmdbTitle: 'Tendencias en tiempo real',
+    recoBadgeTmdbDesc: 'Selección actualizada con TMDB',
+    recoBadgePlaylistTitle: 'Basado en tu playlist',
+    recoBadgePlaylistDesc: 'Pásate a Premium para tendencias reales vía TMDB',
+    recoBadgeUpsellCta: 'Ver Premium',
   },
   live: {
     title: 'TV en vivo',

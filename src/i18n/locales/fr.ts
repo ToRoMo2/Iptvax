@@ -129,6 +129,12 @@ const fr = {
     trendingSeriesEyebrow: 'Tendance · Série',
     featuredMovie: 'Film · À la une',
     featuredSeries: 'Série · À la une',
+    // Bandeau d'attribution des reco (au-dessus des rails Films/Séries)
+    recoBadgeTmdbTitle: 'Tendances actualisées',
+    recoBadgeTmdbDesc: 'Sélection en temps réel propulsée par TMDB',
+    recoBadgePlaylistTitle: 'Recommandations basées sur votre playlist',
+    recoBadgePlaylistDesc: 'Passez Premium pour de vraies tendances actualisées via TMDB',
+    recoBadgeUpsellCta: 'Voir Premium',
   },
   live: {
     title: 'Live TV',

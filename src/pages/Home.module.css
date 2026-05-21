@@ -361,6 +361,87 @@
   color: var(--t-1);
 }
 
+/* ── Badge "source des recommandations" ───────────────────────────────────
+   S'insère entre les rails "Live" et "Films populaires" pour clarifier
+   d'où viennent les reco. 2 variantes :
+   - .recoBadgeTmdb (Premium) : statique informatif + logo TMDB
+   - .recoBadgeFree (Free) : cliquable, redirige vers /premium (upsell) */
+.recoBadge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 var(--pad-edge) calc(var(--row-gap) * 0.6);
+  padding: 14px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: calc(100% - var(--pad-edge) * 2);
+}
+
+.recoBadgeTmdb {
+  /* Liseré accent côté gauche pour rappeler la marque TMDB */
+  border-left: 3px solid #01b4e4;
+  background: linear-gradient(90deg, rgba(1, 180, 228, 0.06) 0%, var(--bg-card) 60%);
+}
+
+.recoBadgeFree {
+  cursor: pointer;
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, var(--accent-faint) 0%, var(--bg-card) 60%);
+  transition: border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.recoBadgeFree:hover {
+  border-color: var(--line-strong);
+  background: linear-gradient(90deg, var(--accent-faint) 0%, var(--bg-card-hover) 60%);
+}
+
+.recoBadgeIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-faint);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.recoBadgeText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.recoBadgeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--t-1);
+  letter-spacing: 0.005em;
+}
+
+.recoBadgeDesc {
+  font-size: 12.5px;
+  color: var(--t-2);
+  line-height: 1.4;
+}
+
+.recoBadgeCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
 .rowRail {
   display: flex;
   gap: 20px;
@@ -762,6 +843,18 @@
 }
 
 @media (max-width: 640px) {
+  /* Badge reco mobile : empile, CTA passe en bas pour pouce confortable */
+  .recoBadge {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .recoBadgeText { flex-basis: calc(100% - 50px); }
+  .recoBadgeTitle { font-size: 13px; }
+  .recoBadgeDesc { font-size: 12px; }
+  .recoBadgeCta { font-size: 11px; margin-left: auto; }
+
   .hero {
     height: auto;
     min-height: 0;

@@ -4,6 +4,7 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { TranslationKey } from '../i18n';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
@@ -43,6 +44,44 @@ function ChevronRight() {
 function RemoveIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="12" height="12"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  );
+}
+
+// Logo attribution TMDB (inline SVG, fidèle à la charte couleurs de TMDB :
+// bleu #01b4e4 → turquoise #08c5b1 → vert #90cea1). Affiché obligatoirement
+// quand on expose des données TMDB côté UI — voir conditions d'utilisation
+// de l'API : https://www.themoviedb.org/about/logos-attribution
+function TmdbAttributionLogo() {
+  return (
+    <svg
+      viewBox="0 0 158 22"
+      width="76"
+      height="14"
+      aria-label="TMDB"
+      role="img"
+      style={{ flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id="tmdb-grad-home" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#01b4e4" />
+          <stop offset="50%" stopColor="#08c5b1" />
+          <stop offset="100%" stopColor="#90cea1" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="158" height="22" rx="4" fill="#032541" />
+      <text
+        x="14"
+        y="15"
+        fontFamily="Inter, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="11"
+        letterSpacing="0.18em"
+        fill="#fff"
+      >
+        TMDB
+      </text>
+      <rect x="14" y="17" width="130" height="2" rx="1" fill="url(#tmdb-grad-home)" />
+    </svg>
   );
 }
 
@@ -101,6 +140,7 @@ function RowSkeleton({ type }: { type: 'cw' | 'channel' | 'poster' }) {
 export function Home() {
   const { credentials } = useXtream();
   const { history, removeFromHistory, clearHistory } = useLibrary();
+  const { isPremium } = useSubscription();
   const { t } = useI18n();
   // `t` dans une ref : composeHero/composeRows ne doivent pas se relancer à
   // chaque changement de langue (la trad du hero se fait au rendu via eyebrowKey).
@@ -711,6 +751,44 @@ export function Home() {
             </ScrollRail>
           )}
         </div>
+
+        {/* ── Source des recommandations ──
+            Au-dessus des rails "Films populaires" + "Séries tendances".
+            Premium → logo TMDB + mention temps-réel (l'utilisateur sait que les
+            reco sont propulsées par la vraie base TMDB, pas un mock).
+            Free → mention "basé sur ta playlist" + CTA upsell Premium pour
+            faire comprendre que les vraies tendances sont derrière le paywall. */}
+        {isPremium ? (
+          <div className={`${styles.recoBadge} ${styles.recoBadgeTmdb}`}>
+            <TmdbAttributionLogo />
+            <div className={styles.recoBadgeText}>
+              <span className={styles.recoBadgeTitle}>{t('home.recoBadgeTmdbTitle')}</span>
+              <span className={styles.recoBadgeDesc}>{t('home.recoBadgeTmdbDesc')}</span>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`${styles.recoBadge} ${styles.recoBadgeFree}`}
+            onClick={() => navigate('/premium')}
+            title={t('home.recoBadgeUpsellCta')}
+          >
+            <span className={styles.recoBadgeIcon} aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+                <path d="M12 2v20M2 12h20"/>
+                <circle cx="12" cy="12" r="9"/>
+              </svg>
+            </span>
+            <div className={styles.recoBadgeText}>
+              <span className={styles.recoBadgeTitle}>{t('home.recoBadgePlaylistTitle')}</span>
+              <span className={styles.recoBadgeDesc}>{t('home.recoBadgePlaylistDesc')}</span>
+            </div>
+            <span className={styles.recoBadgeCta}>
+              {t('home.recoBadgeUpsellCta')}
+              <ChevronRight />
+            </span>
+          </button>
+        )}
 
         {/* Top Films */}
         <div className={styles.row}>
