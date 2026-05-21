@@ -271,12 +271,18 @@ img { display: block; max-width: 100%; }
     --pad-edge: 16px;
     --row-gap: 32px;
     --topnav-h: 72px;
+    /* Hauteur réservée pour la bottom nav fixe (mobile uniquement) */
+    --bottomnav-h: calc(64px + var(--safe-bottom));
   }
   html, body, #root { font-size: 15px; }
 
   /* Les boutons globaux .btn ramènent leurs proportions */
   .btn { height: 44px; padding: 0 18px; font-size: 14px; }
   .btn-ghost { height: 38px; padding: 0 14px; font-size: 13px; }
+
+  /* Le scrollable principal doit pouvoir scroller jusqu'à révéler le bas
+     des pages sans que la bottom-nav le masque. */
+  .main-content { padding-bottom: var(--bottomnav-h); }
 }
 
 @media (max-width: 380px) {

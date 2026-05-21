@@ -116,7 +116,20 @@ export function TopNav() {
         <span className="brand-name">IPTVAX</span>
       </div>
 
-      {/* ── Capsule navbar — centrée, liens uniquement ──────────────── */}
+      {/* ── Search button — mobile only (en haut à droite, à côté du profil)
+            Sur desktop il vit dans la capsule .topnav ; sur mobile la capsule
+            est masquée par CSS donc on rend un bouton autonome ici. ──── */}
+      <button
+        type="button"
+        className="search-fixed-mobile"
+        title={t('nav.search')}
+        aria-label={t('nav.search')}
+        onClick={() => navigate('/search')}
+      >
+        <Ic.search />
+      </button>
+
+      {/* ── Capsule navbar — centrée, liens uniquement (desktop / tablette) */}
       <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>
         <nav className="links" aria-label="Primary">
           {LINKS.map(({ to, labelKey, icon: Icon, end }, i) => {
@@ -189,6 +202,28 @@ export function TopNav() {
           {panelOpen && <ProfilePanel onClose={() => setPanelOpen(false)} />}
         </div>
       </div>
+
+      {/* ── Bottom nav — mobile only (≤ 640px)
+            Onglets primaires fixés au bas de l'écran (style app native iOS/Android).
+            Reprend les mêmes LINKS que la capsule desktop — pas de duplication
+            de structure de routes : un seul array source de vérité. ──────── */}
+      <nav className="bottomnav" aria-label="Primary mobile">
+        {LINKS.map(({ to, labelKey, icon: Icon, end }) => {
+          const label = t(labelKey);
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              title={label}
+              className={({ isActive }) => `bn-tab ${isActive ? 'active' : ''}`}
+            >
+              <span className="bn-ic"><Icon /></span>
+              <span className="bn-lbl">{label}</span>
+            </NavLink>
+          );
+        })}
+      </nav>
     </>
   );
 }
