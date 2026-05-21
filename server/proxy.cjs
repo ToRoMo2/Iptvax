@@ -82,6 +82,24 @@ app.get('/api/xtream', async (req, res) => {
 });
 
 // ─── Proxy HLS & vidéo (CORS pour les streams) ────────────────────────────
+
+// Résout une URI HLS (absolue HTTP / absolue serveur `/foo` / relative) contre
+// `baseUrl` (URL du manifest, AVEC son dernier slash). Garde-fou critique :
+// la concaténation naïve `baseUrl + uri` produit `…/play/TOKEN//hls/…` quand
+// l'upstream renvoie un chemin absolu serveur — beaucoup de panels Xtream
+// (Cloudflare devant) répondent **509 Bandwidth Limit Exceeded** sur les
+// URLs à `//`. `new URL(uri, baseUrl)` gère les trois cas correctement.
+function resolveUrl(uri, baseUrl) {
+  if (uri.startsWith('http://') || uri.startsWith('https://')) return uri;
+  if (uri.startsWith('/')) {
+    // Chemin absolu serveur : résout contre l'origine du manifest (pas la
+    // baseUrl complète) — élimine le double-slash sur la jointure.
+    return new URL(baseUrl).origin + uri;
+  }
+  // Chemin relatif : résout contre le répertoire du manifest.
+  return baseUrl + uri;
+}
+
 function rewriteM3u8(content, originalUrl) {
   const baseUrl = originalUrl.substring(0, originalUrl.lastIndexOf('/') + 1);
 
@@ -91,12 +109,12 @@ function rewriteM3u8(content, originalUrl) {
 
     if (trimmed.startsWith('#')) {
       return line.replace(/URI="([^"]+)"/g, (_, uri) => {
-        const abs = uri.startsWith('http') ? uri : baseUrl + uri;
+        const abs = resolveUrl(uri, baseUrl);
         return `URI="/api/hlsproxy?url=${encodeURIComponent(abs)}"`;
       });
     }
 
-    const abs = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
+    const abs = resolveUrl(trimmed, baseUrl);
     return `/api/hlsproxy?url=${encodeURIComponent(abs)}`;
   }).join('\n');
 }
@@ -110,9 +128,23 @@ const UA_LIVE = 'VLC/3.0.20 LibVLC/3.0.20';
 const UA_DEFAULT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const isLivePath = (u) => /\/live\//.test(u);
 
+// Normalise les `//` dans le chemin d'une URL HTTP (pas le `://` du schéma).
+// Pare-feu contre les vieilles URLs cachées côté client générées par l'ancienne
+// version buggée de rewriteM3u8 (concatenation naïve `baseUrl + "/path"`).
+function normalizeUrl(raw) {
+  try {
+    const u = new URL(raw);
+    u.pathname = u.pathname.replace(/\/{2,}/g, '/');
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 app.get('/api/hlsproxy', async (req, res) => {
-  const { url } = req.query;
-  if (!url || typeof url !== 'string') return res.status(400).end();
+  const { url: rawUrl } = req.query;
+  if (!rawUrl || typeof rawUrl !== 'string') return res.status(400).end();
+  const url = normalizeUrl(rawUrl);
 
   // Timeout uniquement sur l'établissement de la connexion (réception des
   // headers) — sinon les streams longs (.mp4 entier, ~1h) sont coupés à 30s.
