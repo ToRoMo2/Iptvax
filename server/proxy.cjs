@@ -6,23 +6,27 @@ const { spawn } = require('child_process');
 const nodeHttps = require('https');
 const nodeHttp = require('http');
 
-// Sélection du binaire ffmpeg/ffprobe par ordre de préférence :
-// 1. /usr/local/bin/ffmpeg → build statique BtbN 7.x installé dans le Docker
-//    (cf. Dockerfile). Bookworm ne shippe que 5.1.x qui régresse l'extraction
-//    WebVTT (sous-titres invisibles), et `ffmpeg-static` segfault sur HTTP
-//    en glibc Bookworm. BtbN = compromis fiable, ffmpeg 7.x sans segfault.
-// 2. /usr/bin/ffmpeg → apt système (Bookworm 5.1.x), filet de secours
-//    si l'image n'a pas été reconstruite après le passage à BtbN.
-// 3. ffmpeg-static (npm) → dev local Windows/macOS.
+// Sélection des binaires ffmpeg/ffprobe — voir CLAUDE.md §IV-25 (dual-binary).
+// `ffmpegPath` (streaming + probe) : apt système 5.1.x prioritaire — stable
+//   pour `-c:v copy + -ss + -output_ts_offset` (fMP4 servi à Chrome). Le build
+//   BtbN master a régressé ce chemin (player figé après seek/audio switch).
+// `ffmpegPathSub` (sous-titres uniquement) : BtbN 7.x prioritaire — corrige
+//   le bug d'extraction WebVTT depuis MKV en ffmpeg 5.1.x (VTT vide).
+// Hors Docker (dev local) : tous deux retombent sur ffmpeg-static.
 function pickBinary(...candidates) {
   for (const p of candidates) {
     if (typeof p === 'string' && fs.existsSync(p)) return p;
   }
   return candidates[candidates.length - 1];
 }
-const ffmpegPath  = pickBinary('/usr/local/bin/ffmpeg',  '/usr/bin/ffmpeg',  require('ffmpeg-static'));
-const ffprobePath = pickBinary('/usr/local/bin/ffprobe', '/usr/bin/ffprobe', require('ffprobe-static').path);
-process.stdout.write(`[server] ffmpeg=${ffmpegPath}\n[server] ffprobe=${ffprobePath}\n`);
+const ffmpegPath     = pickBinary('/usr/bin/ffmpeg',       '/usr/local/bin/ffmpeg',  require('ffmpeg-static'));
+const ffprobePath    = pickBinary('/usr/bin/ffprobe',      '/usr/local/bin/ffprobe', require('ffprobe-static').path);
+const ffmpegPathSub  = pickBinary('/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg',        require('ffmpeg-static'));
+process.stdout.write(
+  `[server] ffmpeg=${ffmpegPath}\n` +
+  `[server] ffprobe=${ffprobePath}\n` +
+  `[server] ffmpeg(sub)=${ffmpegPathSub}\n`,
+);
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -537,7 +541,9 @@ app.get('/api/subtitle', async (req, res) => {
   ffArgs.push('pipe:1');
 
   const extractPromise = new Promise((resolve, reject) => {
-    const ff = spawn(ffmpegPath, ffArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+    // Sous-titres : utilise EXPLICITEMENT ffmpegPathSub (BtbN 7.x en Docker)
+    // — ffmpeg 5.1.x produit un VTT vide depuis MKV. Voir CLAUDE.md §IV-25.
+    const ff = spawn(ffmpegPathSub, ffArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let errBuf = '';
     ff.stdout.on('data', d => { out += d.toString(); });

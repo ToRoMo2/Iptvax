@@ -37,15 +37,18 @@ ENV NODE_ENV=production \
     PORT=4000 \
     ALLOWED_ORIGINS=*
 
-# ffmpeg 7.x (build statique BtbN) : Bookworm ne shippe que ffmpeg 5.1.x qui
-# a un bug d'extraction WebVTT depuis MKV (exit code 0 mais VTT vide pour
-# certaines combinaisons de codecs) → sous-titres invisibles côté UI. Le
-# binaire de `ffmpeg-static` (johnvansickle) segfault sur tout input HTTP en
-# glibc Bookworm, donc on prend les builds BtbN (statiques, GPL, ffmpeg 7.x).
-# Chemin : /usr/local/bin/ffmpeg (proxy.cjs le détecte avant /usr/bin).
+# Stratégie ffmpeg DUAL (cf. CLAUDE.md §IV-25) :
+# - /usr/bin/ffmpeg (apt Bookworm 5.1.x) : utilisé pour /api/stream et /api/probe.
+#   Stable pour `-c:v copy + -ss + -output_ts_offset` (fMP4 fragmenté servi
+#   à Chrome). Le build BtbN master a régressé ce chemin (lecteur figé après
+#   seek/changement audio).
+# - /usr/local/bin/ffmpeg (BtbN ffmpeg 7.x statique) : utilisé UNIQUEMENT pour
+#   /api/subtitle. ffmpeg 5.1.x sort un WebVTT vide depuis MKV pour certaines
+#   combinaisons de codecs (sous-titres invisibles côté UI). ffmpeg 7.x corrige.
+# `ffmpeg-static` (johnvansickle) SEGFAULT sur HTTP en glibc Bookworm → écarté.
 # tini : reaper PID 1 pour ne pas laisser de zombies ffmpeg en cas de kill.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tini ca-certificates curl xz-utils \
+ && apt-get install -y --no-install-recommends tini ca-certificates curl xz-utils ffmpeg \
  && curl -fsSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz \
         -o /tmp/ffmpeg.tar.xz \
  && tar -xJf /tmp/ffmpeg.tar.xz -C /tmp \
