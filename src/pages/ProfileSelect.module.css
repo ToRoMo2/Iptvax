@@ -342,3 +342,32 @@
 .deleteBtn { color: var(--live); opacity: 0.85; }
 .deleteBtn:hover { opacity: 1; }
 .deleteBtn:disabled, .cancelBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 640px) {
+  .screen { padding: 88px 16px 48px; }
+  .brand { top: 18px; left: 18px; font-size: 12px; gap: 8px; }
+  .brandMark { width: 12px; height: 12px; }
+  .title { font-size: 26px; }
+  .sub { font-size: 13px; margin: 8px 0 28px; }
+
+  .grid { gap: 16px; max-width: 100%; }
+  .avatar, .addAvatar { width: 88px; height: 88px; border-radius: 18px; }
+  .avatarEmoji { font-size: 40px; }
+  .cardName { font-size: 13px; max-width: 100px; }
+  .card { gap: 10px; padding: 4px; }
+
+  .manageBtn { margin-top: 32px; padding: 8px 18px; font-size: 12px; }
+
+  .editor { max-width: 100%; }
+  .editor .title { font-size: 22px; margin-bottom: 20px; }
+  .avatarLg { width: 80px; height: 80px; border-radius: 18px; }
+  .avatarEmojiLg { font-size: 36px; }
+  .emojiGrid { grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .emojiBtn { font-size: 18px; border-radius: 8px; }
+  .colorRow { gap: 10px; flex-wrap: wrap; }
+  .field input { font-size: 16px; }
+  .actions { gap: 10px; margin-top: 22px; }
+}

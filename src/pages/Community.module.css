@@ -151,3 +151,14 @@
   background: transparent;
   border: 1px solid var(--line-strong);
 }
+
+@media (max-width: 640px) {
+  .backCine { height: 34px; padding: 0 14px; font-size: 12px; }
+  .sortPill { padding: 6px 12px; font-size: 12px; }
+  .member { padding: 12px 14px; gap: 12px; }
+  .avatar { width: 40px; height: 40px; font-size: 18px; }
+  .handle { font-size: 14px; gap: 6px; flex-wrap: wrap; }
+  .disc { font-size: 13px; }
+  .stats { font-size: 12px; }
+  .followBtn { height: 32px; padding: 0 12px; font-size: 12px; }
+}

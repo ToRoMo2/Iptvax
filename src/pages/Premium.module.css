@@ -270,3 +270,24 @@
   padding: 5px 12px;
   border-radius: var(--r-pill);
 }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 640px) {
+  .screen { padding: 20px 16px 56px; gap: 22px; }
+  .brand { font-size: 16px; }
+  .hero { max-width: 100%; }
+  .title { line-height: 1.1; }
+
+  .planOpt { padding: 14px 16px; }
+  .planPrice { font-size: 24px; }
+  .planHint { top: 10px; right: 12px; font-size: 11px; padding: 2px 8px; }
+
+  .cta { height: 48px; font-size: 15px; }
+
+  .tvBox { flex-direction: column; align-items: flex-start; padding: 14px; gap: 12px; }
+  .qr { align-self: center; }
+
+  .activeCard { padding: 24px; gap: 12px; max-width: 100%; }
+}

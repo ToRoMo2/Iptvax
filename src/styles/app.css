@@ -49,6 +49,10 @@
   /* Floating capsule nav reserves vertical space, not a side column */
   --topnav-h:     92px;
 
+  /* Safe area iOS (notch + barre home) */
+  --safe-top:     env(safe-area-inset-top, 0px);
+  --safe-bottom:  env(safe-area-inset-bottom, 0px);
+
   /* ── Aurora compatibility aliases → mapped to Vanta values ───────── */
   --bg-0:         var(--bg);
   --bg-1:         var(--bg);
@@ -246,4 +250,37 @@ img { display: block; max-width: 100%; }
   border-radius: var(--r-ui);
   position: relative;
   z-index: 6;
+}
+
+/* ====================================================================
+   RESPONSIVE — Tablette portrait (≤ 900px) et mobile portrait (≤ 640px)
+   On rétrécit les gouttières globales pour que tout le reste suive
+   automatiquement (les pages utilisent --pad-edge / --topnav-h / --row-gap).
+   ==================================================================== */
+@media (max-width: 900px) {
+  :root {
+    --pad-edge: 28px;
+    --row-gap: 44px;
+    --topnav-h: 76px;
+  }
+  html, body, #root { font-size: 15px; }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --pad-edge: 16px;
+    --row-gap: 32px;
+    --topnav-h: 72px;
+  }
+  html, body, #root { font-size: 15px; }
+
+  /* Les boutons globaux .btn ramènent leurs proportions */
+  .btn { height: 44px; padding: 0 18px; font-size: 14px; }
+  .btn-ghost { height: 38px; padding: 0 14px; font-size: 13px; }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --pad-edge: 12px;
+  }
 }

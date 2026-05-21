@@ -97,3 +97,9 @@
   opacity: 0;
   pointer-events: none;
 }
+
+@media (max-width: 640px) {
+  .outer { padding: 0 0 16px; }
+  .pill { height: 30px; padding: 0 12px; font-size: 12px; }
+  .arrow { display: none; }
+}

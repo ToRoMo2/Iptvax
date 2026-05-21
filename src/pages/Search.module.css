@@ -36,3 +36,10 @@
   font-size: 12px;
   font-weight: 600;
 }
+
+@media (max-width: 640px) {
+  .section { margin-bottom: 32px; }
+  .sectionHead { margin-bottom: 14px; }
+  .sectionTitle { font-size: 18px; }
+  .sectionCount { font-size: 11px; padding: 2px 8px; }
+}

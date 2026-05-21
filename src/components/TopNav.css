@@ -301,3 +301,54 @@
   opacity: 1;
   transition-delay: 100ms;
 }
+
+/* ====================================================================
+   Responsive (tablette / mobile portrait)
+   ==================================================================== */
+@media (max-width: 900px) {
+  .brand-fixed { top: 14px; left: 16px; height: 44px; gap: 8px; }
+  .brand-fixed .brand-name { font-size: 11px; letter-spacing: 0.18em; }
+
+  .profile-fixed { top: 14px; right: 16px; height: 44px; }
+  .profile-fixed .profile { padding: 3px 4px; }
+  .profile-fixed .profile .avatar-btn { width: 28px; height: 28px; }
+
+  .topnav { top: 14px; height: 44px; padding: 3px 5px; }
+  .topnav .link { height: 36px; padding: 0 9px; }
+  .topnav .link .ic,
+  .topnav .link .ic svg { width: 17px; height: 17px; }
+  .topnav .icon-btn { width: 36px; height: 36px; }
+
+  /* Sur mobile, ne pas déployer les labels au survol/focus : l'écran est trop étroit */
+  .topnav:hover .link .lbl,
+  .topnav:focus-within .link .lbl,
+  .topnav.rc-open .link .lbl {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  /* On masque le texte du brand (logo seul) et le bloc "who" du profil pour
+     laisser respirer la capsule de navigation centrée. */
+  .brand-fixed { left: 10px; gap: 6px; }
+  .brand-fixed .brand-name { display: none; }
+
+  .profile-fixed { right: 10px; }
+  .profile-fixed .profile { padding: 3px 4px; }
+  .profile-fixed .profile:hover .who,
+  .profile-fixed.rc-open .profile .who { max-width: 0; opacity: 0; }
+
+  .topnav { gap: 2px; padding: 3px 4px; height: 42px; }
+  .topnav .link { padding: 0 7px; height: 34px; }
+  .topnav .link .ic,
+  .topnav .link .ic svg { width: 16px; height: 16px; }
+  .topnav .icon-btn { width: 34px; height: 34px; }
+  .topnav .nav-sep-right { display: none; }
+}
+
+@media (max-width: 420px) {
+  .topnav { gap: 0; padding: 2px 3px; }
+  .topnav .link { padding: 0 5px; }
+}

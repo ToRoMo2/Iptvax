@@ -479,3 +479,70 @@
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 900px) {
+  .hero {
+    height: 56vh;
+    min-height: 400px;
+    max-height: 620px;
+    border-radius: 12px;
+    width: calc(100% - var(--pad-edge) * 2);
+  }
+  .back { top: 64px; }
+  .body { margin-top: -120px; padding: 0 var(--pad-edge) 64px; }
+  .grid { grid-template-columns: 1fr; gap: 32px; }
+  .side { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 24px; }
+  .title { font-size: 44px; }
+  .castGrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px 18px; }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 3 / 4;
+    max-height: 540px;
+    margin: var(--topnav-h) auto 0;
+    border-radius: 8px;
+  }
+  .overlayBottom { height: 70%; }
+  .back {
+    top: calc(var(--topnav-h) + 8px);
+    left: var(--pad-edge);
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+  .body { margin-top: -88px; padding: 0 var(--pad-edge) 56px; }
+  .title { font-size: 30px; margin-bottom: 12px; }
+  .cat { font-size: 11px; margin-bottom: 14px; }
+  .meta { gap: 10px; font-size: 13px; }
+  .synopsis { font-size: 14px; margin-bottom: 24px; }
+  .actions { gap: 10px; margin: 18px 0 24px; }
+  .iconBtn { width: 42px; height: 42px; }
+
+  .castAvatar, .castAvatarPh { width: 48px; height: 48px; }
+  .castName { font-size: 13px; }
+  .castRole { font-size: 11px; }
+  .castGrid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+
+  .factRow { grid-template-columns: 84px 1fr; gap: 12px; font-size: 12px; padding: 8px 0; }
+
+  /* Episodes : poster + texte empilés sur très petits écrans laissés tels quels,
+     mais on rétrécit la vignette */
+  .episode { gap: 12px; padding: 12px 0; }
+  .epThumb, .epThumbPlaceholder { width: 96px; height: 54px; }
+  .epTitle { font-size: 14px; }
+  .epPlot { font-size: 12px; -webkit-line-clamp: 2; }
+  .epPlay { width: 34px; height: 34px; opacity: 1; }
+}
+
+@media (max-width: 420px) {
+  .title { font-size: 24px; }
+  .epThumb, .epThumbPlaceholder { width: 80px; height: 46px; }
+  .versionBtns, .seasons { gap: 6px; }
+  .versionBtn, .seasonBtn { padding: 6px 12px; font-size: 11px; }
+}

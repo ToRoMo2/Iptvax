@@ -270,3 +270,16 @@
 .channel {}
 .movie {}
 .series {}
+
+/* ====================================================================
+   Responsive — pas de hover sur mobile, libellés plus compacts, bouton ♥ visible
+   ==================================================================== */
+@media (max-width: 640px) {
+  .card:hover { transform: none; box-shadow: none; }
+  .info { padding: 8px 2px 0; }
+  .title { font-size: 12px; }
+  .meta { font-size: 11px; gap: 6px; }
+  .phName { font-size: 14px; left: 10px; right: 10px; bottom: 10px; }
+  .favBtn { opacity: 1; width: 28px; height: 28px; font-size: 12px; }
+  .livePill { padding: 3px 7px; font-size: 9px; top: 8px; left: 8px; }
+}

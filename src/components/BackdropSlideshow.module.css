@@ -52,3 +52,9 @@
 .next {
   right: 22px;
 }
+
+@media (max-width: 640px) {
+  .nav { width: 32px; height: 32px; }
+  .prev { left: 10px; }
+  .next { right: 10px; }
+}

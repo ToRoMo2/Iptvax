@@ -641,3 +641,51 @@
   color: var(--accent) !important;
   font-weight: 600;
 }
+
+/* ====================================================================
+   Responsive — player mobile
+   Le player passe en plein écran portrait : on rétrécit les marges, les
+   tailles de sous-titres, et on rend les contrôles assez gros pour le doigt.
+   ==================================================================== */
+@media (max-width: 900px) {
+  .topBar { padding: 18px 24px 18px 80px; gap: 12px; }
+  .bottomSection { padding: 60px 24px 18px; }
+  .controlBtn { min-width: 40px; height: 40px; padding: 0 8px; font-size: 14px; }
+  .volumeSlider { width: 60px; }
+  .subtitleOverlay { bottom: 76px; }
+  .subtitleLoading { bottom: 76px; }
+  .bigPlayBtn { width: 64px; height: 64px; font-size: 24px; }
+}
+
+@media (max-width: 640px) {
+  .topBar { padding: 12px 14px 12px 60px; gap: 8px; font-size: 12px; }
+  .crumb { font-size: 12px; }
+  .bottomSection { padding: 48px 14px 14px; gap: 10px; }
+  .progressArea { gap: 8px; }
+  .timeLabel { font-size: 11px; min-width: 36px; }
+  .bottomBar { gap: 4px; flex-wrap: wrap; }
+  .controlBtn { min-width: 38px; height: 38px; padding: 0 6px; font-size: 13px; }
+  /* On masque le volume sur mobile : géré par le système, gain de place */
+  .volumeGroup { display: none; }
+  .bigPlayBtn { width: 56px; height: 56px; font-size: 20px; }
+  .subtitleOverlay { bottom: 64px; max-width: 92%; }
+  .subtitleLoading { bottom: 64px; font-size: 11px; padding: 5px 10px; }
+  /* Tailles sous-titres mobile : tout est globalement plus petit */
+  .subSm .subtitleLine { font-size: 14px; }
+  .subMd .subtitleLine { font-size: 18px; }
+  .subLg .subtitleLine { font-size: 24px; }
+  .subXl .subtitleLine { font-size: 32px; }
+
+  .popupMenu, .qualityMenu {
+    min-width: 160px;
+    max-height: 60vh;
+    right: -4px;
+  }
+  .menuOption { padding: 10px 10px; font-size: 13px; }
+}
+
+@media (max-width: 420px) {
+  .topBar { padding: 10px 10px 10px 52px; }
+  .bottomSection { padding: 40px 10px 12px; }
+  .controlBtn { min-width: 34px; height: 34px; padding: 0 4px; font-size: 12px; }
+}

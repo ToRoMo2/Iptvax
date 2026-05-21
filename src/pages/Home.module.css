@@ -725,3 +725,104 @@
   width: 200px;
   aspect-ratio: 2/3;
 }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 900px) {
+  .hero {
+    height: 56vh;
+    min-height: 360px;
+    max-height: 540px;
+    margin: var(--topnav-h) auto 28px;
+    width: calc(100% - var(--pad-edge) * 2);
+    border-radius: 12px;
+  }
+  .heroContent { left: 28px; right: 28px; bottom: 28px; }
+  .heroTitle { font-size: 38px; }
+  .heroDesc { font-size: 14px; -webkit-line-clamp: 3; }
+  .heroDots { right: 28px; bottom: 28px; }
+  .heroNavPrev { left: 12px; }
+  .heroNavNext { right: 12px; }
+  .heroSkeleton {
+    height: 56vh; min-height: 360px; max-height: 540px;
+    margin: var(--topnav-h) auto 28px;
+    width: calc(100% - var(--pad-edge) * 2);
+    border-radius: 12px;
+  }
+
+  .cardWide { width: 240px; }
+  .cardPoster, .posterCell { width: 150px; }
+  .skCw, .skChannel { width: 240px; }
+  .skPoster { width: 150px; }
+  .rowRail { gap: 14px; }
+  .rowTitle { font-size: 16px; }
+  .cardName { font-size: 13px; }
+  .cardMeta { font-size: 11px; }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 3 / 4;
+    max-height: 640px;
+    margin: calc(var(--topnav-h) + 8px) auto 24px;
+    width: calc(100% - var(--pad-edge) * 2);
+    border-radius: 10px;
+  }
+  .heroSkeleton {
+    height: auto; min-height: 0;
+    aspect-ratio: 3 / 4; max-height: 640px;
+    margin: calc(var(--topnav-h) + 8px) auto 24px;
+    width: calc(100% - var(--pad-edge) * 2);
+    border-radius: 10px;
+  }
+  .heroOverlayLeft {
+    width: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 60%);
+  }
+  .heroContent { left: 18px; right: 18px; bottom: 22px; max-width: 100%; }
+  .heroEyebrow { font-size: 10px; margin-bottom: 12px; letter-spacing: 0.16em; }
+  .heroTitle { font-size: 28px; margin-bottom: 12px; }
+  .heroMeta { gap: 8px; font-size: 12px; margin-bottom: 10px; }
+  .heroDesc { font-size: 13px; margin-bottom: 16px; -webkit-line-clamp: 3; }
+  .heroActions { gap: 8px; flex-wrap: wrap; }
+  .heroPlayBtn, .heroInfoBtn {
+    height: 42px;
+    padding: 0 16px;
+    font-size: 13px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .heroDots { right: 18px; bottom: 12px; gap: 3px; }
+  .heroDot { width: 14px; }
+  .heroNav { width: 32px; height: 32px; }
+  .heroNavPrev { left: 8px; }
+  .heroNavNext { right: 8px; }
+
+  .rows { padding: 0 0 64px; }
+  .rowHeader { margin-bottom: 14px; }
+  .rowTitle { font-size: 14px; letter-spacing: 0.06em; }
+  .rowSeeAll { font-size: 11px; }
+  .rowRail { gap: 10px; padding: 20px var(--pad-edge); margin: -20px 0; }
+
+  .cardWide { width: 200px; }
+  .cardPoster, .posterCell { width: 130px; }
+  .skCw, .skChannel { width: 200px; }
+  .skPoster { width: 130px; }
+
+  .cardLabel { padding: 8px 2px 0; }
+  .cardName { font-size: 12px; }
+  .cardMeta { font-size: 11px; }
+
+  /* La carte ne grossit pas par hover sur mobile (pas de hover) — focus seulement */
+  .card:hover { transform: none; box-shadow: none; }
+}
+
+@media (max-width: 420px) {
+  .cardWide { width: 180px; }
+  .cardPoster, .posterCell { width: 118px; }
+  .skCw, .skChannel { width: 180px; }
+  .skPoster { width: 118px; }
+}

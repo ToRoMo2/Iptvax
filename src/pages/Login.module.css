@@ -208,3 +208,19 @@
   text-underline-offset: 3px;
 }
 .toggle button:hover { opacity: 0.8; }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 640px) {
+  .login { padding: 24px 16px; align-items: start; }
+  .login { padding-top: 88px; }
+  .brand { top: 18px; left: 18px; font-size: 12px; gap: 8px; }
+  .brandMark { width: 12px; height: 12px; }
+  .card { padding: 28px 22px; border-radius: 14px; }
+  .title { font-size: 24px; }
+  .sub { font-size: 13px; margin-bottom: 22px; }
+  .socialBtn { padding: 10px 14px; font-size: 13px; }
+  .field { margin-bottom: 18px; }
+  .field input { font-size: 16px; /* >=16px évite le zoom iOS sur focus */ }
+}

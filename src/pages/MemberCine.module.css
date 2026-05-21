@@ -370,3 +370,36 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 640px) {
+  .memberHead { margin-bottom: 24px; }
+  .identRow { gap: 14px; }
+  .avatar { width: 52px; height: 52px; font-size: 24px; }
+  .handle { font-size: 22px; gap: 8px; }
+  .disc { font-size: 16px; }
+  .statLine { font-size: 13px; }
+  .actions {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .rateMember { align-items: flex-start; }
+  .followBtn { height: 36px; padding: 0 16px; font-size: 13px; }
+
+  .layout { gap: 18px; }
+  .sidebar { gap: 18px; }
+  .tab { padding: 6px 12px; font-size: 12px; }
+  .chip { padding: 5px 10px; font-size: 11px; }
+  .chipLabel { max-width: 110px; }
+  .sortPill { padding: 6px 12px; font-size: 12px; }
+
+  .overlay { padding: 14px; }
+  .panel { flex-direction: column; gap: 14px; padding: 16px; max-height: 90vh; overflow-y: auto; }
+  .panelPoster { width: 110px; align-self: center; }
+  .panelTitle { font-size: 18px; }
+}

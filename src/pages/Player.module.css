@@ -60,3 +60,13 @@
 .noMedia .backBtn {
   align-self: center;
 }
+
+@media (max-width: 640px) {
+  .backBtn {
+    top: 14px;
+    left: 12px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}

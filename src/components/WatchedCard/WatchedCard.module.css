@@ -147,3 +147,11 @@
   font-size: 12px;
   color: var(--t-3);
 }
+
+@media (max-width: 640px) {
+  .title { font-size: 12px; }
+  .sub { font-size: 11px; gap: 6px; }
+  .type { padding: 1px 6px; }
+  .removeBtn { opacity: 1; min-width: 24px; height: 24px; font-size: 11px; }
+  .todo { font-size: 10px; padding: 2px 7px; }
+}

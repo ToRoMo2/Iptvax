@@ -143,3 +143,12 @@
   outline: none;
   border-color: var(--accent);
 }
+
+@media (max-width: 640px) {
+  .block { padding: 14px; gap: 12px; margin: 18px 0; }
+  .value { font-size: 16px; }
+  .starsRow { gap: 12px; }
+  .metaRow { gap: 10px; }
+  .review { font-size: 14px; padding: 10px 12px; }
+  .lockedText { font-size: 13px; }
+}

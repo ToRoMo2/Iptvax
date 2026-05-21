@@ -67,3 +67,9 @@
 .arrowVisible:active {
   transform: translateY(-50%) scale(0.96);
 }
+
+/* Masquer les flèches sur mobile (utilisation tactile : swipe) */
+@media (max-width: 640px) {
+  .arrow { display: none; }
+  .wrapper::before, .wrapper::after { width: 32px; }
+}

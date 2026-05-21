@@ -277,3 +277,38 @@
   border-radius: 50%;
   background: var(--t-4);
 }
+
+/* ====================================================================
+   Responsive
+   ==================================================================== */
+@media (max-width: 900px) {
+  .title { font-size: 34px; }
+}
+
+@media (max-width: 640px) {
+  .title { font-size: 24px; }
+  .sub { font-size: 13px; }
+  .header { margin-bottom: 22px; }
+  .tabs { gap: 6px; margin-bottom: 22px; }
+  .tab { height: 32px; padding: 0 12px; font-size: 12px; }
+  .content { gap: 28px; }
+
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px 0;
+  }
+  .rowValue { text-align: left; max-width: 100%; font-size: 13px; }
+  .rowLabel { font-size: 13px; }
+  .rowDesc { font-size: 12px; }
+
+  /* Toggle reste à droite, row "compacte" */
+  .row:has(.toggle) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logoutBtn { width: 100%; justify-content: center; }
+}

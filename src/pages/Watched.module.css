@@ -216,3 +216,18 @@
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* ====================================================================
+   Responsive — mobile portrait
+   ==================================================================== */
+@media (max-width: 640px) {
+  .layout { gap: 18px; }
+  .sidebar { gap: 18px; }
+  .tab { padding: 6px 12px; font-size: 12px; }
+  .chip { padding: 5px 10px; font-size: 11px; }
+  .chipLabel { max-width: 120px; }
+  .sortPill { padding: 6px 12px; font-size: 12px; }
+  .resultsBar { margin-bottom: 16px; gap: 10px; }
+  .resultsCount { font-size: 13px; }
+  .unratedCta, .communityBtn { height: 36px; padding: 0 14px; font-size: 12px; }
+}
