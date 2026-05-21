@@ -284,13 +284,9 @@
 }
 
 @media (max-width: 640px) {
-  .layout { gap: 18px; }
-  .panel { padding: 14px; gap: 12px; border-radius: 10px; }
-  .panelLogo { width: 44px; height: 44px; }
-  .panelChannel { font-size: 15px; }
-  .nowTitle { font-size: 14px; }
-  .nowDesc { font-size: 12px; }
-  .epgTime { width: 38px; font-size: 12px; }
-  .epgTitle { font-size: 12px; }
-  .epgDesc { font-size: 11px; }
+  /* Sur mobile, le panneau latéral disparaît : l'aperçu de la chaîne
+     sélectionnée se monte directement DANS la carte (cf. Live.tsx — prop
+     inlinePreview). Garde-fou anti double-lecteur. */
+  .panel { display: none; }
+  .layout { gap: 0; }
 }

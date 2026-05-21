@@ -289,9 +289,15 @@
 }
 
 @media (max-width: 640px) {
-  .info { padding: 8px 2px 0; }
-  .cardTitle { font-size: 12px; }
-  .cardMeta { font-size: 11px; }
-  .phName { font-size: 13px; }
-  .fav { opacity: 1; width: 28px; height: 28px; font-size: 12px; top: 6px; right: 6px; }
+  .info { padding: 6px 2px 0; }
+  .cardTitle { font-size: 11px; line-height: 1.25; }
+  .cardMeta { font-size: 10px; margin-top: 2px; }
+  .phName { font-size: 11px; }
+  .fav { opacity: 1; width: 24px; height: 24px; font-size: 11px; top: 6px; right: 6px; }
+  .cellFocused .card, .card:focus-visible { transform: none; }
+}
+
+@media (max-width: 380px) {
+  .cardTitle { font-size: 10px; }
+  .cardMeta { font-size: 9px; }
 }

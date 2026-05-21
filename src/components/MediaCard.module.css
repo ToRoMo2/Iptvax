@@ -42,6 +42,12 @@
 .artChannel { aspect-ratio: 16 / 9; }
 .artPoster  { aspect-ratio: 2 / 3; }
 
+/* Quand un inlinePreview est monté (mobile Live), on laisse l'enfant gérer son
+   ratio (ChannelPreview est en 16/9) et on conserve juste la box arrondie. */
+.artInline { aspect-ratio: auto; }
+.inlineSlot { position: relative; width: 100%; }
+.inlineSlot > * { width: 100%; border-radius: 0; border: 0; }
+
 .img {
   position: absolute;
   inset: 0;
@@ -276,10 +282,19 @@
    ==================================================================== */
 @media (max-width: 640px) {
   .card:hover { transform: none; box-shadow: none; }
-  .info { padding: 8px 2px 0; }
-  .title { font-size: 12px; }
-  .meta { font-size: 11px; gap: 6px; }
-  .phName { font-size: 14px; left: 10px; right: 10px; bottom: 10px; }
-  .favBtn { opacity: 1; width: 28px; height: 28px; font-size: 12px; }
-  .livePill { padding: 3px 7px; font-size: 9px; top: 8px; left: 8px; }
+  .info { padding: 6px 2px 0; }
+  .title { font-size: 11px; line-height: 1.25; }
+  .meta { font-size: 10px; gap: 5px; margin-top: 2px; }
+  .phName { font-size: 11px; left: 8px; right: 8px; bottom: 8px; -webkit-line-clamp: 2; }
+  .favBtn { opacity: 1; width: 24px; height: 24px; font-size: 11px; top: 6px; right: 6px; }
+  .livePill { padding: 2px 6px; font-size: 8px; top: 6px; left: 6px; gap: 4px; letter-spacing: 0.1em; }
+  .liveDot { width: 5px; height: 5px; }
+  .chLogo { font-size: 16px; }
+  .chStripe { height: 14px; }
+  .phMark svg { width: 22px; height: 22px; }
+}
+
+@media (max-width: 380px) {
+  .title { font-size: 10px; }
+  .meta { font-size: 9px; }
 }

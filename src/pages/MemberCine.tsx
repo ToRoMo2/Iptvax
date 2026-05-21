@@ -65,6 +65,11 @@ export function MemberCine() {
   });
   const [sort, setSort] = useState<WatchedSort>('recent');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Sections de filtre pliables sur mobile (cf. MemberCine.module.css). Voir
+  // §IV-22 CLAUDE.md — pattern partagé avec Watched (Mon Ciné perso).
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (k: string) =>
+    setOpenSections((s) => ({ ...s, [k]: !s[k] }));
   const [viewing, setViewing] = useState<WatchedTitle | null>(null);
 
   useEffect(() => {
@@ -212,20 +217,29 @@ export function MemberCine() {
         <div className={styles.layout}>
           <aside className={styles.sidebar}>
             <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>{t('watched.type')}</span>
-              <div className={styles.tabs}>
-                {TYPE_TABS.map((tab) => (
-                  <Focusable
-                    key={tab.v}
-                    className={`${styles.tab} ${
-                      filter.type === tab.v ? styles.tabActive : ''
-                    }`}
-                    onEnter={() => setFilter((f) => ({ ...f, type: tab.v }))}
-                    onClick={() => setFilter((f) => ({ ...f, type: tab.v }))}
-                  >
-                    {t(tab.labelKey)}
-                  </Focusable>
-                ))}
+              <button
+                type="button"
+                className={`${styles.filterHead} ${openSections.type ? styles.filterHeadOpen : ''}`}
+                onClick={() => toggleSection('type')}
+              >
+                <span className={styles.filterLabel}>{t('watched.type')}</span>
+                <svg className={styles.filterChev} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div className={`${styles.filterBody} ${openSections.type ? styles.filterBodyOpen : ''}`}>
+                <div className={styles.tabs}>
+                  {TYPE_TABS.map((tab) => (
+                    <Focusable
+                      key={tab.v}
+                      className={`${styles.tab} ${
+                        filter.type === tab.v ? styles.tabActive : ''
+                      }`}
+                      onEnter={() => setFilter((f) => ({ ...f, type: tab.v }))}
+                      onClick={() => setFilter((f) => ({ ...f, type: tab.v }))}
+                    >
+                      {t(tab.labelKey)}
+                    </Focusable>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -234,34 +248,44 @@ export function MemberCine() {
               if (fl.length === 0) return null;
               const open = expanded[kind];
               const shown = open ? fl : fl.slice(0, FACET_CAP);
+              const sectionOpen = openSections[kind];
               return (
                 <div key={kind} className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>{t(labelKey)}</span>
-                  <div className={styles.chips}>
-                    {shown.map((fc) => (
-                      <Focusable
-                        key={fc.key}
-                        className={`${styles.chip} ${
-                          activeFacet(field) === fc.label ? styles.chipActive : ''
-                        }`}
-                        onEnter={() => toggleFacet(field, fc.label)}
-                        onClick={() => toggleFacet(field, fc.label)}
-                        title={`${fc.label} · ${fc.count}`}
-                      >
-                        <span className={styles.chipLabel}>{fc.label}</span>
-                        <span className={styles.chipCount}>{fc.count}</span>
-                      </Focusable>
-                    ))}
-                    {fl.length > FACET_CAP && (
-                      <button
-                        className={styles.moreBtn}
-                        onClick={() =>
-                          setExpanded((e) => ({ ...e, [kind]: !e[kind] }))
-                        }
-                      >
-                        {open ? t('watched.collapse') : `+${fl.length - FACET_CAP}`}
-                      </button>
-                    )}
+                  <button
+                    type="button"
+                    className={`${styles.filterHead} ${sectionOpen ? styles.filterHeadOpen : ''}`}
+                    onClick={() => toggleSection(kind)}
+                  >
+                    <span className={styles.filterLabel}>{t(labelKey)}</span>
+                    <svg className={styles.filterChev} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <div className={`${styles.filterBody} ${sectionOpen ? styles.filterBodyOpen : ''}`}>
+                    <div className={styles.chips}>
+                      {shown.map((fc) => (
+                        <Focusable
+                          key={fc.key}
+                          className={`${styles.chip} ${
+                            activeFacet(field) === fc.label ? styles.chipActive : ''
+                          }`}
+                          onEnter={() => toggleFacet(field, fc.label)}
+                          onClick={() => toggleFacet(field, fc.label)}
+                          title={`${fc.label} · ${fc.count}`}
+                        >
+                          <span className={styles.chipLabel}>{fc.label}</span>
+                          <span className={styles.chipCount}>{fc.count}</span>
+                        </Focusable>
+                      ))}
+                      {fl.length > FACET_CAP && (
+                        <button
+                          className={styles.moreBtn}
+                          onClick={() =>
+                            setExpanded((e) => ({ ...e, [kind]: !e[kind] }))
+                          }
+                        >
+                          {open ? t('watched.collapse') : `+${fl.length - FACET_CAP}`}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

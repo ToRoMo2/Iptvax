@@ -117,3 +117,25 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ====================================================================
+   Inline preview dans une MediaCard (Live mobile) — aperçu plus dense,
+   indice « tap to fullscreen » toujours visible, pas de hover sur tactile.
+   ==================================================================== */
+@media (max-width: 640px) {
+  .preview {
+    border-radius: 0;
+    border: 0;
+    box-shadow: 0 0 0 2px var(--accent), 0 0 18px var(--accent-glow);
+  }
+  .livePill { padding: 3px 7px; font-size: 9px; top: 6px; left: 6px; }
+  .expandHint {
+    opacity: 1;
+    transform: none;
+    padding: 4px 9px;
+    font-size: 10px;
+    background: rgba(0, 0, 0, 0.75);
+    bottom: 6px;
+    right: 6px;
+  }
+}

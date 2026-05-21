@@ -201,14 +201,17 @@
   .search { font-size: 14px; }
   .searchBadge { font-size: 11px; padding: 3px 9px; }
 
-  .gridChannel { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-  .gridPoster { grid-template-columns: repeat(2, 1fr); }
-  .gridLoading { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 18px 12px; }
+  /* Films / Séries : 3 par ligne — pattern Netflix mobile, posters lisibles */
+  .gridPoster { grid-template-columns: repeat(3, 1fr); }
+  .gridLoading { grid-template-columns: repeat(3, 1fr); }
+  /* Chaînes : 2 par ligne strict, adapte la taille à l'écran */
+  .gridChannel { grid-template-columns: repeat(2, 1fr); }
+  .grid { gap: 14px 10px; }
 }
 
 @media (max-width: 380px) {
-  .gridChannel { grid-template-columns: 1fr; }
-  .gridPoster { grid-template-columns: repeat(2, 1fr); }
-  .gridLoading { grid-template-columns: repeat(2, 1fr); }
+  .gridPoster { grid-template-columns: repeat(3, 1fr); }
+  .gridLoading { grid-template-columns: repeat(3, 1fr); }
+  .gridChannel { grid-template-columns: repeat(2, 1fr); }
+  .grid { gap: 12px 8px; }
 }

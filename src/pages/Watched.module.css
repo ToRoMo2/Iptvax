@@ -76,6 +76,31 @@
   color: var(--t-3);
 }
 
+/* ── Section pliable (mobile uniquement, voir media query plus bas) ────────
+   Sur desktop : .filterHead = simple wrapper du label, le chevron est caché
+   et .filterBody est toujours visible (display: flex). */
+.filterHead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.filterChev { display: none; }
+
+.filterBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -221,8 +246,33 @@
    Responsive — mobile portrait
    ==================================================================== */
 @media (max-width: 640px) {
-  .layout { gap: 18px; }
-  .sidebar { gap: 18px; }
+  .layout { gap: 12px; }
+  /* Filtres en accordéon : par défaut TOUT fermé, l'utilisateur ouvre la
+     section qu'il veut filtrer en tapant son header. Économise des écrans
+     entiers de scrolling vide. */
+  .sidebar { gap: 4px; }
+  .filterGroup {
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .filterHead {
+    cursor: pointer;
+    padding: 12px 4px;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .filterHead:active { background: rgba(255,255,255,0.03); }
+  .filterChev {
+    display: inline-block;
+    color: var(--t-3);
+    transform: rotate(-90deg);
+    transition: transform 0.18s var(--ease);
+    flex-shrink: 0;
+  }
+  .filterHeadOpen .filterChev { transform: rotate(0deg); color: var(--accent); }
+  .filterHeadOpen .filterLabel { color: var(--accent); }
+  .filterBody { display: none; padding: 0 2px 14px; }
+  .filterBodyOpen { display: flex; }
+
   .tab { padding: 6px 12px; font-size: 12px; }
   .chip { padding: 5px 10px; font-size: 11px; }
   .chipLabel { max-width: 120px; }

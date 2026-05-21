@@ -9,6 +9,7 @@ import { RemoteSearch } from '../components/RemoteSearch';
 import { CategoryBar } from '../components/CategoryBar';
 import { ChannelPreview } from '../components/ChannelPreview';
 import { useProgressiveList } from '../hooks/useProgressiveList';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { safeImgUrl } from '../utils/image';
 import { channelCode } from '../utils/channel';
 import type { LiveCategory, LiveStream, EpgListing } from '../types/xtream.types';
@@ -42,6 +43,9 @@ export function Live() {
   const { isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
+  // Mobile : le panneau latéral est masqué, l'aperçu monte INLINE dans la carte
+  // sélectionnée (gain de place + UX native). Synchronisé avec le breakpoint CSS.
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   const [categories, setCategories] = useState<LiveCategory[]>([]);
   const [streams, setStreams] = useState<LiveStream[]>([]);
@@ -288,26 +292,42 @@ export function Live() {
             </div>
           ) : (
             <div className={`${styles.grid} ${styles.gridChannel}`}>
-              {visibleStreams.map((stream) => (
-                <MediaCard
-                  key={stream.stream_id}
-                  title={stream.name}
-                  image={stream.stream_icon}
-                  variant="channel"
-                  isLive
-                  selected={selectedId === stream.stream_id}
-                  isFavorite={isFavorite('live', String(stream.stream_id))}
-                  onClick={() => handleCardClick(stream)}
-                  onFavorite={() =>
-                    toggleFavorite({
-                      type: 'live',
-                      id: String(stream.stream_id),
-                      name: stream.name,
-                      image: stream.stream_icon ?? '',
-                    })
-                  }
-                />
-              ))}
+              {visibleStreams.map((stream) => {
+                const isSelected = selectedId === stream.stream_id;
+                // Mobile : la carte sélectionnée monte le lecteur inline (et le
+                // panneau latéral disparaît) → pas de double-affichage.
+                const inlinePreview = isMobile && isSelected && credentials ? (
+                  <ChannelPreview
+                    key={stream.stream_id}
+                    url={xtreamService.getLiveStreamUrl(credentials, stream.stream_id)}
+                    fallbackUrl={xtreamService.getLiveStreamTsUrl(credentials, stream.stream_id)}
+                    poster={stream.stream_icon}
+                    title={stream.name}
+                    onExpand={() => goFullscreen(stream)}
+                  />
+                ) : null;
+                return (
+                  <MediaCard
+                    key={stream.stream_id}
+                    title={stream.name}
+                    image={stream.stream_icon}
+                    variant="channel"
+                    isLive
+                    selected={isSelected}
+                    isFavorite={isFavorite('live', String(stream.stream_id))}
+                    onClick={() => handleCardClick(stream)}
+                    onFavorite={() =>
+                      toggleFavorite({
+                        type: 'live',
+                        id: String(stream.stream_id),
+                        name: stream.name,
+                        image: stream.stream_icon ?? '',
+                      })
+                    }
+                    inlinePreview={inlinePreview}
+                  />
+                );
+              })}
             </div>
           )}
 

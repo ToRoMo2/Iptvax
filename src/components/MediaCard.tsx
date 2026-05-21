@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import styles from './MediaCard.module.css';
 import { safeImgUrl } from '../utils/image';
@@ -18,6 +18,10 @@ interface Props {
   selected?: boolean;
   onClick: () => void;
   onFavorite?: () => void;
+  // Slot optionnel — quand fourni, remplace l'image/placeholder dans la zone
+  // « art » de la carte. Utilisé par Live mobile pour monter <ChannelPreview>
+  // directement dans la carte sélectionnée (pas de panneau latéral).
+  inlinePreview?: ReactNode;
 }
 
 function MediaCardInner({
@@ -31,6 +35,7 @@ function MediaCardInner({
   selected,
   onClick,
   onFavorite,
+  inlinePreview,
 }: Props) {
   const { t } = useI18n();
   const { ref, focused } = useFocusable({ onEnterPress: () => onClick() });
@@ -59,8 +64,10 @@ function MediaCardInner({
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
     >
       {/* ── Thumbnail ── */}
-      <div className={isChannel ? styles.artChannel : styles.artPoster}>
-        {showImage ? (
+      <div className={`${isChannel ? styles.artChannel : styles.artPoster} ${inlinePreview ? styles.artInline : ''}`}>
+        {inlinePreview ? (
+          <div className={styles.inlineSlot}>{inlinePreview}</div>
+        ) : showImage ? (
           <img
             src={resolved}
             alt={title}
@@ -130,6 +137,9 @@ function MediaCardInner({
 // le changement d'une prop de donnée doit re-rendre une carte (ex. `selected`
 // ne bascule que sur 2 cartes au changement de sélection). Props fonctions
 // exclues : dispatchers liés à l'item, carte montée avec `key={id}`.
+// `inlinePreview` comparé par présence (Boolean) : son JSX change à chaque
+// render parent mais sa montée/démontage est tracée par selected → un seul
+// re-render à la bascule selected.
 export const MediaCard = memo(MediaCardInner, (a, b) =>
   a.title === b.title &&
   a.image === b.image &&
@@ -138,5 +148,6 @@ export const MediaCard = memo(MediaCardInner, (a, b) =>
   a.variant === b.variant &&
   a.isLive === b.isLive &&
   a.isFavorite === b.isFavorite &&
-  a.selected === b.selected,
+  a.selected === b.selected &&
+  Boolean(a.inlinePreview) === Boolean(b.inlinePreview),
 );

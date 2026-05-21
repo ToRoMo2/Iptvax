@@ -49,7 +49,7 @@ export function ChannelPreview({ url, fallbackUrl, poster, title, onExpand }: Pr
   return (
     <div
       className={styles.preview}
-      onClick={onExpand}
+      onClick={(e) => { e.stopPropagation(); onExpand(); }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onExpand()}

@@ -100,6 +100,19 @@
 
 @media (max-width: 640px) {
   .outer { padding: 0 0 16px; }
-  .pill { height: 30px; padding: 0 12px; font-size: 12px; }
+  .rail { gap: 6px; }
+  /* Pills compactes avec ellipsis sur les très longs libellés
+     (« FR| A l'affiche HD », etc.) — sinon ils prennent tout l'écran */
+  .pill {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 28px;
+  }
   .arrow { display: none; }
 }
