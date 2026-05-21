@@ -1,0 +1,31 @@
+node_modules
+dist
+dist-ssr
+.git
+.gitignore
+.github
+.vscode
+.idea
+.claude
+.cursor
+
+# Env files — NE JAMAIS embarquer dans l'image (secrets).
+.env
+.env.*
+!.env.example
+
+# Logs / temp
+*.log
+npm-debug.log*
+.DS_Store
+
+# Documentation et configs locales pas nécessaires au runtime
+README.md
+docs
+supabase/.temp
+.claude/worktrees
+
+# Docker meta
+Dockerfile
+docker-compose*.yml
+.dockerignore

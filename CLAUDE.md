@@ -85,6 +85,19 @@ npm run lint         # ESLint strict
 npm run preview      # Aperçu du build prod
 ```
 
+**Docker** (déploiement VPS / reproductibilité — voir `Dockerfile`, `docker-compose.yml`) :
+```bash
+docker compose up --build     # build image + run (lit .env.local pour secrets runtime)
+docker compose up -d          # détaché
+docker compose logs -f iptv   # suivre les logs
+docker compose down           # arrêt
+```
+- Base : `node:20-bookworm-slim` (**pas Alpine** : `ffmpeg-static`/`ffprobe-static` shippent du glibc, incompatibles musl).
+- Multi-stage : `builder` compile (TS + Vite), `runner` ne contient que `dist/`, `server/`, deps prod, et `tini` (PID 1 → reaper des process `ffmpeg`).
+- Container tourne en user `node` (non-root).
+- Variables `VITE_*` injectées via `args:` au **build** (Vite les inline dans le bundle, pas modifiables à chaud). Variables runtime (`PORT`, `ALLOWED_ORIGINS`) via `environment:`/`env_file:`.
+- Port exposé : `4000` → accès local sur `http://localhost:4000`.
+
 ## VII. Standards de Qualité
 - **Composants** : exports nommés, PascalCase, CSS Module co-localisé (`*.module.css`).
 - **Hooks** : `use*`, camelCase, dans `src/hooks/`. Dépendances `useCallback`/`useEffect` exhaustives.
@@ -114,6 +127,8 @@ npm run preview      # Aperçu du build prod
 **Invariants préservés** : Supabase (SDK direct), TMDB (HTTP direct), tous les garde-fous §IV. `npm run dev` inchangé.
 
 **Pour un portage TV/mobile** : remplacer `PLACEHOLDER_URL` dans `build:tv` par l'URL du VPS, puis `npm run build:tv`. Servir le `dist/` sur la plateforme cible ; le backend tourne sur le VPS (`npm run server`).
+
+**Déploiement VPS — Docker** (canonique) : voir §VI ci-dessus. L'image embarque dist/ + serveur Express + binaires ffmpeg Linux. Sur le VPS : `docker compose up -d` après avoir renseigné `.env.local` (Supabase, TMDB, `ALLOWED_ORIGINS`). Reverse proxy TLS recommandé devant (Caddy/Traefik/Nginx) — le conteneur expose HTTP brut sur 4000.
 
 ## X. Abonnement Premium (Stripe + Supabase)
 

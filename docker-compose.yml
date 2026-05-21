@@ -1,0 +1,32 @@
+# Lancement local : `docker compose up --build`
+# Les variables sensibles (Supabase, TMDB) sont lues depuis .env.local — non commit.
+services:
+  iptv:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Vite inline ces valeurs DANS le bundle au build. Pour les changer,
+        # rebuilder l'image (docker compose build --no-cache).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_TMDB_API_KEY: ${VITE_TMDB_API_KEY:-}
+        VITE_PREMIUM_URL: ${VITE_PREMIUM_URL:-}
+    image: iptv-app:latest
+    container_name: iptv-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+    env_file:
+      - .env.local
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
