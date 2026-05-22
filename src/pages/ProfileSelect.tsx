@@ -1,9 +1,12 @@
 import { useState, useEffect, type FormEvent, type CSSProperties } from 'react';
+import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
 import { Premium } from './Premium';
 import { AppLogo } from '../components/AppLogo';
+import { Focusable } from '../components/Focusable';
+import { isNative } from '../lib/platform';
 import { xtreamService } from '../services/xtream.service';
 import {
   PROFILE_AVATARS,
@@ -34,6 +37,30 @@ export function ProfileSelect() {
   useEffect(() => {
     if (!loading && profiles.length === 0) setEditor({ mode: 'create' });
   }, [loading, profiles.length]);
+
+  // Navigation D-pad (Android TV) : la grille de profils est rendue en
+  // éléments `Focusable` (norigin). On empêche le scroll natif des flèches
+  // et on ancre le focus télécommande sur le premier profil. Restreint au
+  // mode natif — sinon le web desktop afficherait un halo/lift au chargement
+  // sans interaction. Inactif aussi quand l'éditeur est ouvert (ses champs
+  // texte ont besoin des flèches pour le curseur). Voir docs/native-port.md §4.
+  useEffect(() => {
+    if (!isNative || loading || editor || upsell) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
+        e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+      ) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const id = setTimeout(() => setFocus('pf-card-0'), 120);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      clearTimeout(id);
+    };
+  }, [loading, editor, upsell]);
 
   // Tier gratuit : 1 seul profil. Au-delà → page Premium.
   const canAddProfile = isPremium || profiles.length === 0;
@@ -80,48 +107,61 @@ export function ProfileSelect() {
       <p className={styles.sub}>{t('profileSelect.choose')}</p>
 
       <div className={styles.grid}>
-        {profiles.map((p) => (
-          <div key={p.id} className={styles.cardWrap}>
-            <button
-              className={`${styles.card} ${manage ? styles.cardManage : ''}`}
-              onClick={() => (manage ? setEditor({ mode: 'edit', profile: p }) : selectProfile(p))}
-              title={p.name}
-            >
-              <span className={styles.avatar} style={avatarStyle(p.color)}>
-                <span className={styles.avatarEmoji}>{p.avatar}</span>
-                {manage && (
-                  <span className={styles.editOverlay}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
-                  </span>
-                )}
-              </span>
-              <span className={styles.cardName}>{p.name}</span>
-            </button>
-          </div>
-        ))}
+        {profiles.map((p, i) => {
+          const act = () =>
+            manage ? setEditor({ mode: 'edit', profile: p }) : selectProfile(p);
+          return (
+            <div key={p.id} className={styles.cardWrap}>
+              <Focusable
+                focusKey={i === 0 ? 'pf-card-0' : undefined}
+                className={`${styles.card} ${manage ? styles.cardManage : ''}`}
+                focusedClassName={`rc-focused ${styles.cardFocused}`}
+                title={p.name}
+                onClick={act}
+                onEnter={act}
+              >
+                <span className={styles.avatar} style={avatarStyle(p.color)}>
+                  <span className={styles.avatarEmoji}>{p.avatar}</span>
+                  {manage && (
+                    <span className={styles.editOverlay}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </span>
+                  )}
+                </span>
+                <span className={styles.cardName}>{p.name}</span>
+              </Focusable>
+            </div>
+          );
+        })}
 
         <div className={styles.cardWrap}>
-          <button className={styles.card} onClick={requestAdd}>
+          <Focusable
+            className={styles.card}
+            focusedClassName={`rc-focused ${styles.cardFocused}`}
+            onClick={requestAdd}
+            onEnter={requestAdd}
+          >
             <span className={styles.addAvatar}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="34" height="34" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
             </span>
             <span className={styles.cardName}>{t('profileSelect.add')}</span>
-          </button>
+          </Focusable>
         </div>
       </div>
 
       {profiles.length > 0 && (
-        <button
+        <Focusable
           className={`${styles.manageBtn} ${manage ? styles.manageBtnActive : ''}`}
           onClick={() => setManage((m) => !m)}
+          onEnter={() => setManage((m) => !m)}
         >
           {manage ? t('profileSelect.done') : t('profileSelect.manage')}
-        </button>
+        </Focusable>
       )}
     </div>
   );

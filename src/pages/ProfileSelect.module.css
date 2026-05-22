@@ -136,6 +136,22 @@
 }
 .card:hover .cardName { color: var(--t-1); }
 
+/* Focus télécommande (Android TV) : reprend l'effet de survol pour que la
+   carte ciblée ressorte. La carte porte aussi `rc-focused` (halo cyan global).
+   Voir docs/native-port.md §4 (Phase 2d). */
+.cardFocused .avatar {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--pf) 70%, transparent),
+    0 18px 48px color-mix(in srgb, var(--pf) 22%, transparent);
+}
+.cardFocused .addAvatar {
+  transform: translateY(-4px) scale(1.04);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: var(--t-1);
+}
+.cardFocused .cardName { color: var(--t-1); }
+
 /* Mode gestion */
 .cardManage .avatar { filter: brightness(0.55); }
 .editOverlay {

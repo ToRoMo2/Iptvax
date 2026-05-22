@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fond de la banniere du lanceur Android TV (Phase 2d). Noir, aligne
+         sur le token de fond de l'app. Voir docs/native-port.md section 4. -->
+    <color name="tv_banner_background">#000000</color>
+</resources>

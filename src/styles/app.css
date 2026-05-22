@@ -252,6 +252,18 @@ img { display: block; max-width: 100%; }
   z-index: 6;
 }
 
+/* Focus clavier / télécommande sur les éléments focusables natifs NON
+   couverts par norigin (contrôles du lecteur, formulaires). `:focus-visible`
+   ne se déclenche qu'à la navigation clavier/D-pad — jamais à la souris ni au
+   tactile → web et mobile inchangés. Les boutons `.btn` gardent leur halo
+   blanc (règle plus spécifique). Voir docs/native-port.md §4 (Phase 2d). */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-ui);
+}
+
 /* ====================================================================
    RESPONSIVE — Tablette portrait (≤ 900px) et mobile portrait (≤ 640px)
    On rétrécit les gouttières globales pour que tout le reste suive

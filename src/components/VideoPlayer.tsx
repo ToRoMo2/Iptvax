@@ -208,6 +208,13 @@ export function VideoPlayer({
           e.preventDefault();
           player.toggle();
           break;
+        case 'Enter':
+          // Touche « OK » de la télécommande Android TV → lecture/pause.
+          // Ignorée si un bouton a le focus : on laisse son clic natif jouer.
+          if ((e.target as HTMLElement).tagName === 'BUTTON') break;
+          e.preventDefault();
+          player.toggle();
+          break;
         case 'f':
         case 'F':
           e.preventDefault();

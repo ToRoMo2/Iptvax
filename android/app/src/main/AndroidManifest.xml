@@ -4,6 +4,7 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
@@ -21,6 +22,9 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <!-- Lanceur Android TV : l'app apparaît dans la rangée d'apps
+                     du home leanback. Voir docs/native-port.md §4 (Phase 2d). -->
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
 
             <!-- Deep link OAuth : retour de connexion Google/Apple vers l'app.
@@ -49,4 +53,15 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android TV : l'écran tactile et le leanback ne sont PAS requis →
+         l'app reste installable sur téléphone (tactile) ET sur box TV
+         (télécommande seule). Sans `required="false"`, le Play Store
+         masquerait l'app sur l'un ou l'autre. Voir docs/native-port.md §4. -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
 </manifest>

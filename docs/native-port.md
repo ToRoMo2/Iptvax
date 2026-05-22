@@ -47,6 +47,7 @@ serveur à payer.
 | Ordre des plateformes | Android → Android TV → Windows → Tizen/webOS | Audience + difficulté croissante |
 | Mode d'exécution | `VITE_RUNTIME` (`web` \| `native`), figé au build | Marche pour tous les shells (Capacitor / Electron / Tizen / webOS) |
 | Paiement | Toujours sur la **vitrine web** | Évite Google Play Billing (commission 15-30 % sur les achats in-app de biens numériques) |
+| Onboarding TV | Page d'accueil + **QR code** (auth + creds saisis sur le téléphone) | Saisie texte à la télécommande pénible ; le téléphone est déjà l'écran de création de compte / profil — voir Phase 2f |
 
 ## 4. Phases
 
@@ -113,8 +114,31 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     audio/sous-titres énumérées via libVLC. Niveaux de qualité HLS non exposés
     (`levels` vide → menu qualité masqué) ; bouton plein écran masqué (l'app
     native est déjà plein écran).
-- **2d — Android TV** ⬜
-  - Intent leanback + navigation D-pad (`norigin-spatial-navigation` déjà là).
+- **2d — Android TV** ✅ *(fait — 2026-05-22 ; à valider sur box/émulateur TV)*
+  - **Manifeste** : catégorie `LEANBACK_LAUNCHER` ajoutée à l'intent-filter
+    MAIN → l'app apparaît sur le home Android TV. `uses-feature`
+    `android.software.leanback` et `android.hardware.touchscreen` déclarées
+    `required="false"` → l'app reste installable sur téléphone (tactile) ET
+    box TV (télécommande seule). `android:banner` sur `<application>`.
+  - **Bannière** : `res/drawable/tv_banner.xml` — layer-list (logo du launcher
+    centré sur fond noir `@color/tv_banner_background`, dans `res/values/
+    colors.xml`). Réutilise le foreground adaptatif → aucun asset PNG ajouté.
+  - **Navigation D-pad** : la grille de `ProfileSelect` (cartes profil, carte
+    « ajouter », bouton « gérer ») était en `<button>` natifs **non
+    navigables** à la télécommande → convertie en `Focusable` (norigin), avec
+    focus initial ancré sur le 1er profil et flèches `preventDefault` pour
+    bloquer le scroll natif. Les pages catalogue (Shell) utilisaient déjà
+    `Focusable` + `RemoteControl`. Le lecteur (`VideoPlayer`) pilote déjà tout
+    au clavier/D-pad (flèches = seek/volume/chaîne) ; ajout de `Enter` (bouton
+    OK de la télécommande) → lecture/pause.
+  - **Focus visible** : règle `:focus-visible` globale (anneau cyan `--accent`)
+    sur les `button`/`[role=button]` natifs hors couverture norigin. Ne
+    s'affiche qu'en navigation clavier/D-pad — jamais à la souris/au tactile.
+  - ⚠️ `Focusable`, `:focus-visible` et `Enter`→play/pause sont **additifs et
+    inertes sans télécommande** → web et app mobile Android inchangés. Seul
+    l'amorçage D-pad de `ProfileSelect` (focus initial + `preventDefault` des
+    flèches) est gardé derrière `isNative` : sinon le focus posé par programme
+    afficherait un halo au chargement côté web desktop.
 - **2e — OAuth natif (deep link)** ✅ *(fait — 2026-05-22)*
   - Connexion Google/Apple : en natif, `signInWithOAuth` ouvre un onglet
     système (`@capacitor/browser`) ; le retour passe par le deep link
@@ -123,6 +147,19 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     Client Supabase en `flowType: 'pkce'` uniquement en natif (web inchangé).
   - ⚙️ **Config requise côté Supabase** : ajouter `com.iptvax.app://auth-callback`
     dans Authentication → URL Configuration → **Redirect URLs**.
+- **2f — Onboarding TV (QR code)** ⬜
+  - Sur Android TV, la saisie de texte à la télécommande (e-mail, mot de
+    passe, URL/identifiants Xtream) est pénible. Décision produit : la TV
+    affiche une **page d'accueil avec un QR code** ; l'utilisateur le scanne
+    avec son téléphone, se connecte / choisit son profil côté mobile, et la TV
+    se débloque (appairage). Aucune saisie de texte à la télécommande.
+  - L'app a déjà une brique QR : lib `qrcode`, flux Premium (CLAUDE.md §X,
+    `VITE_PREMIUM_URL`, déblocage TV par Realtime Supabase après paiement) →
+    réutiliser le même principe d'appairage TV↔téléphone via Realtime.
+  - Rend caduques les limitations D-pad de `Login` / `ProfileEditor` (§6) :
+    plus de formulaire à parcourir à la télécommande sur TV.
+  - En attendant : sur émulateur TV, se connecter au clavier, ou appairer un
+    compte déjà créé sur téléphone.
 - **Valider** qu'une source qui renvoyait 403 sur le VPS joue maintenant
   (le flux part de l'IP de l'utilisateur).
 
@@ -192,6 +229,21 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - **Version libVLC** : `org.videolan.android:libvlc-all:3.6.5` épinglée dans
     `android/app/build.gradle`. Si la résolution Maven échoue, ajuster vers une
     3.6.x disponible.
+- **Android TV — limitations connues (Phase 2d)** :
+  - **`Login` et `ProfileEditor`** (saisie de texte : e-mail, mot de passe,
+    URL/identifiants Xtream) : les champs natifs prennent le focus, mais les
+    boutons sociaux / sélecteurs emoji-couleur ne sont pas navigables au
+    D-pad. **Laissé tel quel volontairement** : l'onboarding TV cible passe
+    par un QR code (Phase 2f, voir §3) → aucun formulaire à parcourir à la
+    télécommande sur TV. En attendant, sur émulateur, se connecter au clavier.
+  - **Lecteur** : les flèches sont consommées pour seek/volume/chaîne → le
+    focus D-pad ne peut pas atteindre les boutons audio / sous-titres /
+    qualité de la barre de contrôle. Changer de piste audio ou de sous-titres
+    *depuis le lecteur* n'est donc pas accessible à la télécommande. À
+    concevoir (mode « focus » dédié, ou contrôles `Focusable`).
+  - **WebView OOM** : cf. point « Mémoire / WebView » ci-dessus — d'autant
+    plus critique sur box TV bas de gamme. `onRenderProcessGone` reste à
+    gérer côté natif.
 - **CLAUDE.md §IX** décrit l'ancien modèle « backend sur VPS » — ne vaut plus
   que pour le site vitrine. Le portage natif suit §XI + ce document.
 
@@ -207,13 +259,20 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Validation app native sur appareil réel (Galaxy S26 Ultra) | ✅ OK |
 | 2026-05-22 | Phase 2c — lecteur natif libVLC (plugin maison + `useNativePlayer`) | ✅ Fait |
 | 2026-05-22 | Validation lecture native sur appareil réel (Galaxy S26) | ✅ OK |
+| 2026-05-22 | Phase 2d — Android TV (manifeste leanback + bannière + D-pad ProfileSelect) | ✅ Fait |
+| 2026-05-22 | Validation 2d sur émulateur Android TV (lancement leanback) | ✅ OK |
+| — | Phase 2f — Onboarding TV par QR code | ⬜ À faire |
 
-**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 Android
+**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
 (deep link), sélection de profil, navigation dans le catalogue, chargement des
 images **et lecture vidéo native (libVLC)** fonctionnent, le tout en parlant
 **directement** aux serveurs Xtream depuis l'IP de l'appareil (plus de blocage
-403). Reste **2d (Android TV)** pour clore la Phase 2.
+403). **2d (Android TV)** : l'app se lance bien comme application leanback
+(manifeste + bannière) sur l'émulateur Android TV, et la sélection de profil
+est navigable à la télécommande. La saisie de texte (connexion, identifiants
+Xtream) à la télécommande reste pénible → décision produit : l'onboarding TV
+passera par un **QR code** (Phase 2f, voir §3).
 
 Correctifs natifs appliqués en cours de route : `usesCleartextTraffic` (serveurs
 Xtream en HTTP), `allowMixedContent` (covers HTTP chargées dans le WebView
@@ -224,17 +283,14 @@ remux ffmpeg du proxy web, beaucoup de serveurs Xtream ne le servent pas pour
 les films/épisodes → libVLC n'avait rien à lire (écran noir). Le lecteur natif
 force aussi l'orientation paysage pendant la lecture (`VlcPlayerPlugin`).
 
-**Prochaine étape : Phase 2d — Android TV.** À faire (voir §4) :
-1. Déclarer l'app comme application TV : `<category android:name="android.intent.category.LEANBACK_LAUNCHER">`
-   dans `AndroidManifest.xml` + `uses-feature` `android.software.leanback`
-   (`required="false"`) et `android.hardware.touchscreen` (`required="false"`).
-2. Bannière TV (`android:banner`) pour le lanceur Android TV.
-3. Navigation D-pad : `norigin-spatial-navigation` est déjà intégré côté UI —
-   vérifier que tous les écrans (catalogue, lecteur, sélection de profil) sont
-   parcourables à la télécommande, et soigner le focus visible.
-4. Tester le lecteur libVLC sur une vraie box / un émulateur Android TV
-   (attention RAM : cf. point WebView OOM en §6).
+**Prochaine étape : Phase 2f — Onboarding TV par QR code.** L'app se lance et
+navigue sur Android TV, mais s'y connecter au clavier de l'émulateur n'est pas
+l'expérience produit visée. 2f remplace la connexion / saisie d'identifiants
+sur TV par un appairage QR code ↔ téléphone (voir §4 Phase 2f et §3). Une fois
+2f faite, enchaîner sur la **Phase 3 (Windows / Electron)**.
 
-**Détails de finition différés** (cf. §6 — à reprendre après la Phase 2, sauf
-si bloquant) : pause auto en arrière-plan, encoches (cutout) en paysage,
-polish esthétique du lecteur mobile.
+**Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
+bloquant) : pause auto en arrière-plan, encoches (cutout) en paysage, polish
+esthétique du lecteur mobile, navigation D-pad des contrôles audio/CC du
+lecteur (limitations Android TV connues, §6). La navigation D-pad de `Login` /
+`ProfileEditor` devient sans objet une fois 2f livrée.
