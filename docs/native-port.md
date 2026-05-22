@@ -288,7 +288,7 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Phase 2d — Android TV (manifeste leanback + bannière + D-pad ProfileSelect) | ✅ Fait |
 | 2026-05-22 | Validation 2d sur émulateur Android TV (lancement leanback) | ✅ OK |
 | 2026-05-22 | Phase 2f — Onboarding TV par QR code (table `tv_pairings` + plugin `TvDetect` + TvPairing/TvLink) | ✅ Fait |
-| — | Validation 2f sur box/émulateur TV (appairage QR de bout en bout) | ⬜ À faire |
+| 2026-05-23 | Validation 2f sur émulateur Android TV (appairage QR scan → connexion Google sur téléphone → choix profil → déblocage TV) | ✅ OK |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -302,8 +302,9 @@ box TV, l'app affiche désormais un QR code au lieu du formulaire de connexion ;
 l'utilisateur le scanne avec son téléphone, se connecte et choisit son profil
 côté mobile, et la TV reçoit la session (appairage via la table scellée
 `tv_pairings` + Realtime Broadcast). Plus aucune saisie de texte à la
-télécommande. Build web/natif + lint + compilation Java OK ; reste à valider
-l'appairage de bout en bout sur box/émulateur TV.
+télécommande. Appairage **validé de bout en bout** sur émulateur Android TV
+(QR scanné depuis téléphone → connexion Google → choix du profil → la TV
+reçoit la session et entre dans l'app).
 
 Correctifs natifs appliqués en cours de route : `usesCleartextTraffic` (serveurs
 Xtream en HTTP), `allowMixedContent` (covers HTTP chargées dans le WebView
@@ -314,16 +315,24 @@ remux ffmpeg du proxy web, beaucoup de serveurs Xtream ne le servent pas pour
 les films/épisodes → libVLC n'avait rien à lire (écran noir). Le lecteur natif
 force aussi l'orientation paysage pendant la lecture (`VlcPlayerPlugin`).
 
-**Prochaine étape : valider 2f de bout en bout** sur box/émulateur TV (scanner
-le QR avec un téléphone, vérifier que la TV se débloque sur le bon profil),
-puis enchaîner sur la **Phase 3 (Windows / Electron)**. Pré-requis avant test :
-exécuter `supabase/migrations/0002_tv_pairings.sql`, renseigner `VITE_WEB_URL`,
-ajouter `VITE_WEB_URL/tv-link` aux Redirect URLs Supabase.
+**Prochaine étape : Phase 3 — App Windows (Electron).** Phase 2 entièrement
+livrée et validée. Option B (raccourci) à privilégier : embarquer
+`server/proxy.cjs` en local dans l'app Electron → IP résidentielle de
+l'utilisateur, réutilise tout l'existant côté lecture, zéro réécriture du
+lecteur. Option A (binding libVLC) reste possible si on veut le même pattern
+que sur Android (sans proxy local).
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
-bloquant) : pause auto en arrière-plan, encoches (cutout) en paysage, polish
-esthétique du lecteur mobile, navigation D-pad des contrôles audio/CC du
-lecteur (limitations Android TV connues, §6). La navigation D-pad de `Login` /
-`ProfileEditor` est sans objet sur TV depuis 2f. Raffinement possible :
-permettre la *création* d'un profil (identifiants Xtream) depuis `TvLink` —
-aujourd'hui `TvLink` ne fait que *sélectionner* un profil existant.
+bloquant) :
+- Polish UX / visuel des apps Android et Android TV (l'utilisateur s'en
+  occupe lui-même).
+- Polish UX de la page web `/tv-link` (ergonomie une fois sur le site
+  signalée comme améliorable).
+- Pause auto en arrière-plan, encoches (cutout) en paysage, polish
+  esthétique du lecteur mobile, navigation D-pad des contrôles audio/CC du
+  lecteur (limitations Android TV connues, §6).
+- La navigation D-pad de `Login` / `ProfileEditor` est sans objet sur TV
+  depuis 2f.
+- Raffinement possible : permettre la *création* d'un profil (identifiants
+  Xtream) depuis `TvLink` — aujourd'hui `TvLink` ne fait que *sélectionner*
+  un profil existant.
