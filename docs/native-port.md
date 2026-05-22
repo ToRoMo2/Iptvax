@@ -151,7 +151,9 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Phase 2b — HTTP natif (`CapacitorHttp` dans `http.ts`) | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 en cours** :
-Capacitor en place, projet `android/` généré, HTTP natif branché.
+Capacitor en place, projet `android/` généré, HTTP natif branché. Shell vérifié
+sur émulateur Android le 2026-05-22 — l'app démarre et affiche l'écran de
+connexion (le 1ᵉʳ démarrage à froid prend ~6 s, init du WebView).
 
 **Prochaine étape : Phase 2c — lecteur natif libVLC** *(le gros morceau)*.
 Demande Android Studio + SDK Android installés. À faire :
