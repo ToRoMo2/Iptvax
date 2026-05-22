@@ -8,12 +8,17 @@
     "dev:proxy": "node server/proxy.cjs",
     "build": "tsc -b && vite build",
     "build:tv": "cross-env VITE_API_BASE_URL=https://PLACEHOLDER_URL npm run build",
+    "build:native": "cross-env VITE_RUNTIME=native npm run build",
+    "cap:sync": "npm run build:native && cap sync",
+    "cap:android": "cap open android",
     "start": "NODE_ENV=production node server/proxy.cjs",
     "server": "node server/proxy.cjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.5",
+    "@capacitor/core": "^7.6.5",
     "@noriginmedia/norigin-spatial-navigation": "^3.1.0",
     "@supabase/supabase-js": "^2.105.4",
     "express": "^5.2.1",
@@ -27,6 +32,7 @@
     "react-router-dom": "^7.15.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.5",
     "@eslint/js": "^9.13.0",
     "@types/hls.js": "^1.0.0",
     "@types/node": "^25.6.2",

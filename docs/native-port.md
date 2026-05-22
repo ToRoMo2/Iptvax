@@ -70,16 +70,33 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - Aucun lecteur natif encore — juste l'abstraction qui permet d'en brancher un :
     une future implémentation native fournira un `PlayerController` (sans refs DOM).
 
-### Phase 2 — App Android & Android TV
-- Ajouter Capacitor, envelopper l'app.
-- Plugin lecteur libVLC (communautaire ou plugin maison) — vue native plein écran.
-- Implémentation **native** de `PlayerController` (pistes audio/sous-titres,
-  seek, reprise, events).
-- HTTP natif : remplacer l'implémentation de `src/lib/http.ts` par le plugin
-  Capacitor HTTP (UA + pas de CORS).
-- Android TV : intent leanback + navigation D-pad (`norigin-spatial-navigation`
-  est déjà une dépendance du projet).
-- **Valider** qu'une source qui renvoyait 403 sur le VPS joue maintenant.
+### Phase 2 — App Android & Android TV *(en cours)*
+
+- **2a — Scaffolding Capacitor** ✅ *(fait — 2026-05-22)*
+  - Capacitor **7.6.5** installé (`@capacitor/core` + `@capacitor/android` +
+    `@capacitor/cli`). Capacitor 8 exige Node ≥ 22 → resté en 7 (Node 20 sur la
+    machine de dev et le Docker). Pour passer à Cap 8 plus tard : Node 22+.
+  - `capacitor.config.ts` : appId `com.iptvax.app`, appName `Iptvax`, webDir `dist`.
+  - Projet natif généré dans `android/` (versionné ; le `.gitignore` Capacitor
+    exclut les artefacts de build, les assets web copiés, `local.properties`).
+  - Scripts npm : `build:native` (build avec `VITE_RUNTIME=native`), `cap:sync`
+    (build natif + `cap sync`), `cap:android` (ouvre Android Studio).
+- **2b — HTTP natif** ⬜ *(prochaine étape)*
+  - Remplacer l'implémentation de `src/lib/http.ts` par le client HTTP natif de
+    Capacitor (`CapacitorHttp`) : ignore le CORS et permet de poser le
+    `User-Agent`. Brancher via `isNative`.
+- **2c — Lecteur natif libVLC** ⬜ *(le gros morceau)*
+  - Plugin Capacitor enveloppant libVLC (communautaire ou plugin maison) —
+    vue native plein écran.
+  - Implémentation native de `PlayerController` (pistes audio/sous-titres,
+    seek, reprise, events) consommée par la couche UI.
+- **2d — Android TV** ⬜
+  - Intent leanback + navigation D-pad (`norigin-spatial-navigation` déjà là).
+- **Valider** qu'une source qui renvoyait 403 sur le VPS joue maintenant
+  (le flux part de l'IP de l'utilisateur).
+
+> **Pré-requis machine** : builder l'APK demande **Android Studio + SDK Android**.
+> Le scaffolding (2a) et le code (2b/2c) n'en ont pas besoin ; le build final si.
 
 ### Phase 3 — App Windows (Electron)
 - Shell Electron hébergeant le même build React.
@@ -130,10 +147,11 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 |---|---|---|
 | 2026-05-22 | Phase 1a — couche données (platform / http / xtream / image) | ✅ Fait |
 | 2026-05-22 | Phase 1b — couche lecture (interface `PlayerController`) | ✅ Fait |
+| 2026-05-22 | Phase 2a — scaffolding Capacitor 7 + projet `android/` | ✅ Fait |
 
-**Phase 1 terminée.** Le frontend est découplé du backend proxy : données
-(API/stream/images) et lecture passent par des abstractions à deux modes.
+**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 en cours** :
+Capacitor est en place, le projet `android/` est généré.
 
-**Prochaine étape : Phase 2** — App Android & Android TV : ajouter Capacitor,
-intégrer un lecteur libVLC, écrire l'implémentation native de `PlayerController`,
-brancher le HTTP natif. Détails au §4 ci-dessus.
+**Prochaine étape : Phase 2b** — HTTP natif : remplacer l'implémentation de
+`src/lib/http.ts` par `CapacitorHttp` (ignore le CORS, pose le `User-Agent`),
+branché via `isNative`. Détails au §4 ci-dessus.

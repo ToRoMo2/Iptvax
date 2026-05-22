@@ -34,6 +34,7 @@ Le "backend" média vit dans `vite.config.ts` en **dev** (plugin inline, DX inch
 | HLS | hls.js | 1.6.16 |
 | MPEG-TS | mpegts.js | 1.8.0 |
 | Navigation TV (télécommande) | @noriginmedia/norigin-spatial-navigation | 3.1.0 |
+| Enrobage natif (Android/TV — chantier §XI) | @capacitor/core + cli + android | 7.6.5 (Cap 8 exige Node ≥ 22) |
 | ffmpeg | ffmpeg-static | 5.3.0 |
 | ffprobe | ffprobe-static | 3.1.0 |
 | Prod server | Express | 5.2.1 |
@@ -180,4 +181,4 @@ docker compose down                               # arrêt
 
 **Garde-fou — abstraction de plateforme** : `src/lib/platform.ts` expose `isNative` / `isWeb`, figés au build via `VITE_RUNTIME` (`web` par défaut, `native` pour les shells empaquetés). Tout branchement proxy-vs-direct (URLs Xtream, images, HTTP, lecture) DOIT passer par `isNative` — jamais de détection ad-hoc. Le mode `web` reste **exactement** le comportement historique ; le mode `native` produit des URLs directes (sans `/api/*`) consommées par le lecteur natif. Le point de bascule HTTP natif est isolé dans `src/lib/http.ts`.
 
-**Avancement** : Phase 1 terminée — 1a (couche données : `platform.ts`, `http.ts`, `xtream.service` + `image.ts` natifs) et 1b (couche lecture : interface `PlayerController` dans `src/types/player.types.ts`, `usePlayer` annoté `WebPlayerController`). Reste Phases 2-5 (portage Capacitor + lecteur natif libVLC). Détail et statut à jour : `docs/native-port.md` §7.
+**Avancement** : Phase 1 terminée (couches données + lecture découplées). Phase 2a faite — scaffolding Capacitor 7.6.5 : `capacitor.config.ts` (appId `com.iptvax.app`), projet natif `android/`, scripts `build:native` / `cap:sync` / `cap:android`. Reste Phases 2b-d (HTTP natif, lecteur libVLC, Android TV) puis 3-5. Détail et statut à jour : `docs/native-port.md` §7.
