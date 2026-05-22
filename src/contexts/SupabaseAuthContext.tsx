@@ -17,8 +17,10 @@ import { isNative } from '../lib/platform';
 interface SupabaseAuthContextValue {
   user: User | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
+  /** `redirectTo` : retour OAuth web personnalisé (défaut = origin courant) —
+   *  utilisé par la page d'appairage TV `/tv-link`. Ignoré en natif. */
+  signInWithGoogle: (redirectTo?: string) => Promise<void>;
+  signInWithApple: (redirectTo?: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -92,7 +94,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return () => { handle?.remove(); };
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (redirectTo?: string) => {
     setAuthError(null);
     if (isNative) {
       const err = await startNativeOAuth('google');
@@ -101,12 +103,12 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: redirectTo ?? window.location.origin },
     });
     if (error) setAuthError(error.message);
   }, []);
 
-  const signInWithApple = useCallback(async () => {
+  const signInWithApple = useCallback(async (redirectTo?: string) => {
     setAuthError(null);
     if (isNative) {
       const err = await startNativeOAuth('apple');
@@ -115,7 +117,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: redirectTo ?? window.location.origin },
     });
     if (error) setAuthError(error.message);
   }, []);

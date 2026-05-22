@@ -491,6 +491,33 @@ const es: typeof frDict = {
     scrollLeft: 'Desplazar a la izquierda',
     scrollRight: 'Desplazar a la derecha',
   },
+  tvPairing: {
+    title: 'Conecta tu televisor',
+    step1: 'Escanea este código QR con tu teléfono.',
+    step2: 'Inicia sesión y elige el perfil que abrir aquí.',
+    waiting: 'Esperando a tu teléfono…',
+    linking: 'Conectando…',
+    error: 'No se pudo generar el código. Reintentando…',
+    qrAlt: 'Código QR de emparejamiento',
+    hint: 'El código se renueva automáticamente.',
+  },
+  tvLink: {
+    eyebrow: 'Emparejamiento TV',
+    title: 'Vincular tu televisor',
+    sub: 'Elige el perfil que abrir en tu televisor.',
+    linking: 'Vinculando…',
+    done: '¡Televisor conectado!',
+    doneSub:
+      'Tu televisor se desbloquea en un instante. Puedes cerrar esta página.',
+    error:
+      'La vinculación falló. Comprueba el código mostrado en el televisor e inténtalo de nuevo.',
+    invalid: 'Enlace de emparejamiento no válido',
+    invalidSub: 'Vuelve a escanear el código QR mostrado en tu televisor.',
+    noProfiles: 'Sin perfil IPTV',
+    noProfilesSub:
+      'Crea primero un perfil en la aplicación Iptvax y luego vuelve a escanear el código.',
+    loadingProfiles: 'Cargando tus perfiles…',
+  },
 };
 
 export default es;

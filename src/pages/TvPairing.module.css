@@ -1,0 +1,197 @@
+/* ── Écran d'appairage TV (Phase 2f) ─────────────────────────────────────── */
+/* Layout pensé pour un téléviseur 1080p (16:9). Tout le contenu doit tenir
+   dans la safe-area (~5 % sur chaque bord), sans scroll. Deux colonnes :
+   instructions à gauche, QR à droite. */
+.screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 6vh 6vw;
+  position: relative;
+  background: var(--bg);
+}
+.screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    50% 50% at 50% 38%,
+    var(--accent-faint),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.brand {
+  position: absolute;
+  top: 32px;
+  left: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--t-1);
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 900px;
+  padding: 32px 48px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 24px;
+  color: var(--t-1);
+  text-align: center;
+}
+
+/* ── Corps 2-col : instructions + QR ───────────────────────────────────── */
+.body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 44px;
+  align-items: center;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--t-2);
+}
+.stepNum {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-faint);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-faint);
+  border-radius: var(--r-ui);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── QR ─────────────────────────────────────────────────────────────── */
+/* La zone blanche du QR est intégrée à l'image PNG (quiet zone) — pas de
+   fond CSS blanc à poser. */
+.qrBox {
+  width: 280px;
+  height: 280px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.qr {
+  display: block;
+  width: 280px;
+  height: 280px;
+  border-radius: 8px;
+}
+.qrLoading,
+.qrError {
+  display: grid;
+  place-items: center;
+  width: 280px;
+  height: 280px;
+  text-align: center;
+}
+.qrError p {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--t-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.qrError .debug {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  font-family: monospace;
+  color: var(--t-3);
+  word-break: break-word;
+}
+
+.hint {
+  margin: 22px 0 0;
+  font-size: 12px;
+  color: var(--t-3);
+  text-align: center;
+}
+
+/* ── Responsive (ouverture web sur petit écran — défensif) ──────────── */
+@media (max-width: 720px) {
+  .screen {
+    padding: 24px 16px;
+    align-items: start;
+    padding-top: 80px;
+  }
+  .brand {
+    top: 18px;
+    left: 18px;
+    font-size: 12px;
+    gap: 8px;
+  }
+  .card {
+    padding: 24px 18px;
+  }
+  .title {
+    font-size: 22px;
+    margin-bottom: 18px;
+  }
+  .body {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .qrBox,
+  .qr,
+  .qrLoading,
+  .qrError {
+    width: 240px;
+    height: 240px;
+    margin: 0 auto;
+  }
+  .steps li {
+    font-size: 15px;
+  }
+}

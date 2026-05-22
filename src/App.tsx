@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
@@ -12,7 +13,10 @@ import { TopNav } from './components/TopNav';
 import { RemoteControl } from './components/RemoteControl';
 import { AppLogo } from './components/AppLogo';
 import { Login } from './pages/Login';
+import { TvPairing } from './pages/TvPairing';
+import { TvLink, TV_PAIRING_CODE_KEY } from './pages/TvLink';
 import { ProfileSelect } from './pages/ProfileSelect';
+import { isTvDevice } from './native/tvDetect';
 import { Home } from './pages/Home';
 import { Live } from './pages/Live';
 import { Movies } from './pages/Movies';
@@ -135,12 +139,36 @@ function ProfileGate() {
 function AppGate() {
   const { user, loading } = useSupabaseAuth();
   const { t } = useI18n();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  // Filet pour l'appairage TV (Phase 2f) : si l'utilisateur s'est connecté
+  // depuis le QR mais que l'OAuth a retombé sur la Site URL au lieu de
+  // `/tv-link` (mauvaise config des Redirect URLs côté Supabase), on
+  // remet l'utilisateur sur la page d'appairage tant que le code est
+  // encore en sessionStorage. Sans cela il atterrirait sur l'app normale
+  // et la TV resterait bloquée sur le QR sans qu'il sache pourquoi.
+  useEffect(() => {
+    if (
+      user &&
+      pathname !== '/tv-link' &&
+      sessionStorage.getItem(TV_PAIRING_CODE_KEY)
+    ) {
+      navigate('/tv-link', { replace: true });
+    }
+  }, [user, pathname, navigate]);
+
+  // Page web d'appairage TV (Phase 2f) — accessible sans compte ni profil,
+  // donc rendue en amont du gating compte/profil. Voir docs/native-port.md §4.
+  if (pathname === '/tv-link') return <TvLink />;
 
   if (loading) {
     return <LoadingScreen label={t('app.loading')} />;
   }
 
-  if (!user) return <Login />;
+  // Sur une box Android TV, la saisie à la télécommande est pénible : on
+  // affiche l'écran d'appairage QR au lieu du formulaire de connexion.
+  if (!user) return isTvDevice() ? <TvPairing /> : <Login />;
 
   return (
     <SubscriptionProvider>

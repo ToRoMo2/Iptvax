@@ -9,6 +9,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Plugin du lecteur natif libVLC (Phase 2c — voir docs/native-port.md).
         registerPlugin(VlcPlayerPlugin.class);
+        // Plugin de détection TV vs téléphone (Phase 2f — onboarding QR code).
+        registerPlugin(TvDetectPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

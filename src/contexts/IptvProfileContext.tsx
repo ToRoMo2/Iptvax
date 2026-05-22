@@ -13,7 +13,9 @@ import { useSupabaseAuth } from './SupabaseAuthContext';
 import { useSubscription } from './SubscriptionContext';
 import type { IptvProfile, IptvProfileInput } from '../types/profile.types';
 
-const ACTIVE_KEY = 'active_iptv_profile_id';
+/** Clé localStorage du profil IPTV actif sur cet appareil. Exportée car
+ *  l'appairage TV (Phase 2f) pré-amorce le profil choisi sur le téléphone. */
+export const ACTIVE_PROFILE_KEY = 'active_iptv_profile_id';
 
 interface IptvProfileContextValue {
   profiles: IptvProfile[];
@@ -54,7 +56,7 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
       setProfiles(list);
 
       // Restaure le profil actif persisté sur cet appareil
-      const savedId = localStorage.getItem(ACTIVE_KEY);
+      const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
       const restored = savedId ? list.find((p) => p.id === savedId) ?? null : null;
       if (restored) {
         setActiveProfile(restored);
@@ -68,12 +70,12 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const selectProfile = useCallback((profile: IptvProfile) => {
-    localStorage.setItem(ACTIVE_KEY, profile.id);
+    localStorage.setItem(ACTIVE_PROFILE_KEY, profile.id);
     setActiveProfile(profile);
   }, []);
 
   const clearActiveProfile = useCallback(() => {
-    localStorage.removeItem(ACTIVE_KEY);
+    localStorage.removeItem(ACTIVE_PROFILE_KEY);
     setActiveProfile(null);
   }, []);
 
@@ -135,8 +137,8 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message);
       setProfiles((prev) => prev.filter((p) => p.id !== id));
       setActiveProfile((prev) => (prev?.id === id ? null : prev));
-      if (localStorage.getItem(ACTIVE_KEY) === id) {
-        localStorage.removeItem(ACTIVE_KEY);
+      if (localStorage.getItem(ACTIVE_PROFILE_KEY) === id) {
+        localStorage.removeItem(ACTIVE_PROFILE_KEY);
       }
     },
     [],

@@ -147,19 +147,47 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     Client Supabase en `flowType: 'pkce'` uniquement en natif (web inchangé).
   - ⚙️ **Config requise côté Supabase** : ajouter `com.iptvax.app://auth-callback`
     dans Authentication → URL Configuration → **Redirect URLs**.
-- **2f — Onboarding TV (QR code)** ⬜
-  - Sur Android TV, la saisie de texte à la télécommande (e-mail, mot de
-    passe, URL/identifiants Xtream) est pénible. Décision produit : la TV
-    affiche une **page d'accueil avec un QR code** ; l'utilisateur le scanne
-    avec son téléphone, se connecte / choisit son profil côté mobile, et la TV
-    se débloque (appairage). Aucune saisie de texte à la télécommande.
-  - L'app a déjà une brique QR : lib `qrcode`, flux Premium (CLAUDE.md §X,
-    `VITE_PREMIUM_URL`, déblocage TV par Realtime Supabase après paiement) →
-    réutiliser le même principe d'appairage TV↔téléphone via Realtime.
-  - Rend caduques les limitations D-pad de `Login` / `ProfileEditor` (§6) :
-    plus de formulaire à parcourir à la télécommande sur TV.
-  - En attendant : sur émulateur TV, se connecter au clavier, ou appairer un
-    compte déjà créé sur téléphone.
+- **2f — Onboarding TV (QR code)** ✅ *(fait — 2026-05-22 ; à valider sur box/émulateur TV)*
+  - Sur Android TV, la saisie de texte à la télécommande est pénible →
+    décision produit : la TV n'affiche **aucun formulaire**. Elle montre une
+    page d'accueil avec un **QR code** ; l'utilisateur le scanne avec son
+    téléphone, se connecte et choisit son profil côté mobile, et la TV reçoit
+    la session (appairage TV ↔ téléphone).
+  - **Détection TV** : le même APK s'installe sur téléphone ET box → la
+    distinction se fait au runtime. Plugin natif maison `TvDetect`
+    (`android/.../TvDetectPlugin.java`, enregistré dans `MainActivity`) :
+    `UiModeManager.UI_MODE_TYPE_TELEVISION` (repli `FEATURE_LEANBACK`). Côté
+    JS `src/native/tvDetect.ts` : résolu une fois au boot (`main.tsx`), exposé
+    en getter sync `isTvDevice()` — **toujours `false` hors natif** → web et
+    app mobile strictement inchangés.
+  - **Schéma Supabase** : `supabase/migrations/0002_tv_pairings.sql` — table
+    `tv_pairings` **scellée** (RLS activée, AUCUNE policy) ; tout passe par 3
+    RPC `SECURITY DEFINER` : `create_tv_pairing` (TV, anon), `authorize_tv_pairing`
+    (téléphone, authentifié — vérifie que le profil appartient à `auth.uid()`),
+    `claim_tv_pairing` (TV, anon — atomique, usage unique, nullifie les tokens).
+    Même principe que `public_profiles` / `get_member_watched` (CLAUDE.md §IV-15).
+  - **Flux** : la TV appelle `create_tv_pairing` → affiche le QR pointant vers
+    `VITE_WEB_URL/tv-link?code=…`. Le téléphone ouvre cette page web, se
+    connecte, choisit un profil → `refreshSession()` (tokens frais) +
+    `authorize_tv_pairing` ; puis l'onglet web fait `signOut({scope:'local'})`
+    → la TV devient seule détentrice du refresh token (pas de conflit de
+    rotation). La TV est réveillée par **Realtime Broadcast** (canal
+    `tv-pairing:<code>`, indépendant du RLS) + **poll de repli 6 s**, récupère
+    la session via `claim_tv_pairing`, pré-amorce le profil dans `localStorage`
+    et appelle `setSession` → `onAuthStateChange` enchaîne sur le reste de l'app.
+  - **Fichiers** : `src/services/tvPairing.service.ts` (RPC + broadcast),
+    `src/pages/TvPairing.tsx` (écran TV natif), `src/pages/TvLink.tsx` (page
+    web `/tv-link`). `App.tsx` : route `/tv-link` traitée dans `AppGate` en
+    amont du gating ; `!user` → `<TvPairing/>` si `isTvDevice()`, sinon
+    `<Login/>`. `signInWithGoogle/Apple` acceptent un `redirectTo` optionnel.
+  - ⚙️ **Config requise** : exécuter `0002_tv_pairings.sql` dans le SQL Editor ;
+    renseigner `VITE_WEB_URL` pour les builds natifs ; ajouter
+    `VITE_WEB_URL/tv-link` aux Redirect URLs Supabase (retour OAuth web).
+  - Rend caduques les limitations D-pad de `Login` / `ProfileEditor` sur TV
+    (§6) : plus de formulaire à parcourir à la télécommande.
+  - **Limite connue** : `TvLink` permet de *sélectionner* un profil existant.
+    La *création* d'un profil (saisie des identifiants Xtream) reste à faire
+    dans l'app/le web classique — raffinement futur si besoin.
 - **Valider** qu'une source qui renvoyait 403 sur le VPS joue maintenant
   (le flux part de l'IP de l'utilisateur).
 
@@ -230,12 +258,10 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     `android/app/build.gradle`. Si la résolution Maven échoue, ajuster vers une
     3.6.x disponible.
 - **Android TV — limitations connues (Phase 2d)** :
-  - **`Login` et `ProfileEditor`** (saisie de texte : e-mail, mot de passe,
-    URL/identifiants Xtream) : les champs natifs prennent le focus, mais les
-    boutons sociaux / sélecteurs emoji-couleur ne sont pas navigables au
-    D-pad. **Laissé tel quel volontairement** : l'onboarding TV cible passe
-    par un QR code (Phase 2f, voir §3) → aucun formulaire à parcourir à la
-    télécommande sur TV. En attendant, sur émulateur, se connecter au clavier.
+  - **`Login` et `ProfileEditor`** (saisie de texte) : **résolu par la Phase
+    2f** — sur une box TV, l'app affiche un QR code d'appairage au lieu de ces
+    formulaires, donc plus aucun champ texte à parcourir à la télécommande. Ces
+    écrans restent inchangés pour le web et l'app mobile.
   - **Lecteur** : les flèches sont consommées pour seek/volume/chaîne → le
     focus D-pad ne peut pas atteindre les boutons audio / sous-titres /
     qualité de la barre de contrôle. Changer de piste audio ou de sous-titres
@@ -261,7 +287,8 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Validation lecture native sur appareil réel (Galaxy S26) | ✅ OK |
 | 2026-05-22 | Phase 2d — Android TV (manifeste leanback + bannière + D-pad ProfileSelect) | ✅ Fait |
 | 2026-05-22 | Validation 2d sur émulateur Android TV (lancement leanback) | ✅ OK |
-| — | Phase 2f — Onboarding TV par QR code | ⬜ À faire |
+| 2026-05-22 | Phase 2f — Onboarding TV par QR code (table `tv_pairings` + plugin `TvDetect` + TvPairing/TvLink) | ✅ Fait |
+| — | Validation 2f sur box/émulateur TV (appairage QR de bout en bout) | ⬜ À faire |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -270,9 +297,13 @@ images **et lecture vidéo native (libVLC)** fonctionnent, le tout en parlant
 **directement** aux serveurs Xtream depuis l'IP de l'appareil (plus de blocage
 403). **2d (Android TV)** : l'app se lance bien comme application leanback
 (manifeste + bannière) sur l'émulateur Android TV, et la sélection de profil
-est navigable à la télécommande. La saisie de texte (connexion, identifiants
-Xtream) à la télécommande reste pénible → décision produit : l'onboarding TV
-passera par un **QR code** (Phase 2f, voir §3).
+est navigable à la télécommande. **2f (Onboarding TV par QR code)** : sur une
+box TV, l'app affiche désormais un QR code au lieu du formulaire de connexion ;
+l'utilisateur le scanne avec son téléphone, se connecte et choisit son profil
+côté mobile, et la TV reçoit la session (appairage via la table scellée
+`tv_pairings` + Realtime Broadcast). Plus aucune saisie de texte à la
+télécommande. Build web/natif + lint + compilation Java OK ; reste à valider
+l'appairage de bout en bout sur box/émulateur TV.
 
 Correctifs natifs appliqués en cours de route : `usesCleartextTraffic` (serveurs
 Xtream en HTTP), `allowMixedContent` (covers HTTP chargées dans le WebView
@@ -283,14 +314,16 @@ remux ffmpeg du proxy web, beaucoup de serveurs Xtream ne le servent pas pour
 les films/épisodes → libVLC n'avait rien à lire (écran noir). Le lecteur natif
 force aussi l'orientation paysage pendant la lecture (`VlcPlayerPlugin`).
 
-**Prochaine étape : Phase 2f — Onboarding TV par QR code.** L'app se lance et
-navigue sur Android TV, mais s'y connecter au clavier de l'émulateur n'est pas
-l'expérience produit visée. 2f remplace la connexion / saisie d'identifiants
-sur TV par un appairage QR code ↔ téléphone (voir §4 Phase 2f et §3). Une fois
-2f faite, enchaîner sur la **Phase 3 (Windows / Electron)**.
+**Prochaine étape : valider 2f de bout en bout** sur box/émulateur TV (scanner
+le QR avec un téléphone, vérifier que la TV se débloque sur le bon profil),
+puis enchaîner sur la **Phase 3 (Windows / Electron)**. Pré-requis avant test :
+exécuter `supabase/migrations/0002_tv_pairings.sql`, renseigner `VITE_WEB_URL`,
+ajouter `VITE_WEB_URL/tv-link` aux Redirect URLs Supabase.
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) : pause auto en arrière-plan, encoches (cutout) en paysage, polish
 esthétique du lecteur mobile, navigation D-pad des contrôles audio/CC du
 lecteur (limitations Android TV connues, §6). La navigation D-pad de `Login` /
-`ProfileEditor` devient sans objet une fois 2f livrée.
+`ProfileEditor` est sans objet sur TV depuis 2f. Raffinement possible :
+permettre la *création* d'un profil (identifiants Xtream) depuis `TvLink` —
+aujourd'hui `TvLink` ne fait que *sélectionner* un profil existant.

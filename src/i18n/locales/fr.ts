@@ -495,6 +495,33 @@ const fr = {
     scrollLeft: 'Défiler à gauche',
     scrollRight: 'Défiler à droite',
   },
+  tvPairing: {
+    title: 'Connectez votre télé',
+    step1: 'Scannez ce QR code avec votre téléphone.',
+    step2: 'Connectez-vous et choisissez le profil à ouvrir ici.',
+    waiting: 'En attente de votre téléphone…',
+    linking: 'Connexion en cours…',
+    error: 'Impossible de générer le code. Nouvel essai en cours…',
+    qrAlt: "QR code d'appairage",
+    hint: 'Le code se renouvelle automatiquement.',
+  },
+  tvLink: {
+    eyebrow: 'Appairage TV',
+    title: 'Lier votre télé',
+    sub: 'Choisissez le profil à ouvrir sur votre téléviseur.',
+    linking: 'Liaison en cours…',
+    done: 'Télé connectée !',
+    doneSub:
+      'Votre téléviseur se débloque dans un instant. Vous pouvez fermer cette page.',
+    error:
+      'La liaison a échoué. Vérifiez le code affiché sur la télé et réessayez.',
+    invalid: "Lien d'appairage invalide",
+    invalidSub: 'Rescannez le QR code affiché sur votre téléviseur.',
+    noProfiles: 'Aucun profil IPTV',
+    noProfilesSub:
+      "Créez d'abord un profil dans l'application Iptvax, puis revenez scanner le code.",
+    loadingProfiles: 'Chargement de vos profils…',
+  },
 };
 
 export default fr;

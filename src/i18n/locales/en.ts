@@ -490,6 +490,31 @@ const en: typeof frDict = {
     scrollLeft: 'Scroll left',
     scrollRight: 'Scroll right',
   },
+  tvPairing: {
+    title: 'Connect your TV',
+    step1: 'Scan this QR code with your phone.',
+    step2: 'Sign in and choose the profile to open here.',
+    waiting: 'Waiting for your phone…',
+    linking: 'Connecting…',
+    error: 'Could not generate the code. Retrying…',
+    qrAlt: 'Pairing QR code',
+    hint: 'The code refreshes automatically.',
+  },
+  tvLink: {
+    eyebrow: 'TV pairing',
+    title: 'Link your TV',
+    sub: 'Choose the profile to open on your television.',
+    linking: 'Linking…',
+    done: 'TV connected!',
+    doneSub: 'Your television unlocks in a moment. You can close this page.',
+    error: 'Linking failed. Check the code shown on the TV and try again.',
+    invalid: 'Invalid pairing link',
+    invalidSub: 'Scan the QR code shown on your television again.',
+    noProfiles: 'No IPTV profile',
+    noProfilesSub:
+      'Create a profile in the Iptvax app first, then come back to scan the code.',
+    loadingProfiles: 'Loading your profiles…',
+  },
 };
 
 export default en;
