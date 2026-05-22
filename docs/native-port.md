@@ -85,6 +85,9 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - `src/lib/http.ts` : en mode natif, `httpGetJson` utilise `CapacitorHttp`
     (client HTTP natif — ignore le CORS, pose le `User-Agent`). Mode web
     inchangé (`fetch`). Branché via `isNative`.
+  - `AndroidManifest.xml` : `android:usesCleartextTraffic="true"` — Android
+    bloque le HTTP en clair par défaut (API 28+), or les serveurs Xtream sont
+    massivement en HTTP simple. Indispensable aussi pour le streaming (2c).
 - **2c — Lecteur natif libVLC** ⬜ *(le gros morceau)*
   - Plugin Capacitor enveloppant libVLC (communautaire ou plugin maison) —
     vue native plein écran.
