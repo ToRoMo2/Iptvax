@@ -127,6 +127,13 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 
 ## 6. Points de vigilance (à traiter le moment venu)
 
+- **Mémoire / WebView** : sur appareil à faible RAM (émulateur 2 Go, box Android
+  TV bas de gamme), le process de rendu du WebView peut être tué par l'OOM-killer
+  → l'app se ferme (`Renderer process crash — OOM`). Tester sur un appareil réel
+  ou un émulateur ≥ 4 Go. À durcir pour le produit : gérer `onRenderProcessGone`
+  côté natif (recharger le WebView au lieu de laisser Android tuer l'app) — sera
+  important pour les box Android TV. Piste perf : exclure hls.js/mpegts.js des
+  builds natifs (le lecteur natif les remplace).
 - **Images** : `/api/img` contourne les certificats HTTPS expirés des serveurs
   d'icônes IPTV. En natif, `safeImgUrl` renvoie l'URL directe → le WebView peut
   échouer sur un certificat expiré. À gérer dans les shells (Phase 2+).
