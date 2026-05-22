@@ -517,6 +517,9 @@ const fr = {
       'La liaison a échoué. Vérifiez le code affiché sur la télé et réessayez.',
     invalid: "Lien d'appairage invalide",
     invalidSub: 'Rescannez le QR code affiché sur votre téléviseur.',
+    expired: 'Code expiré',
+    expiredSub:
+      "Le code d'appairage a expiré. Rescannez le QR affiché sur votre téléviseur (un nouveau est généré automatiquement).",
     noProfiles: 'Aucun profil IPTV',
     noProfilesSub:
       "Créez d'abord un profil dans l'application Iptvax, puis revenez scanner le code.",

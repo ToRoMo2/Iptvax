@@ -47,6 +47,8 @@ export function TvLink() {
   const [profiles, setProfiles] = useState<IptvProfile[] | null>(null);
   const [phase, setPhase] = useState<Phase>('pick');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
 
   // Charge les profils IPTV du compte une fois connecté.
   useEffect(() => {
@@ -83,8 +85,16 @@ export function TvLink() {
         );
       } catch (err) {
         console.error('[tv-link] authorize failed', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        // La RPC `authorize_tv_pairing` lève « session d'appairage invalide
+        // ou expirée » quand le code n'est plus pending (typique : la TV
+        // a régénéré un code depuis le scan).
+        const looksExpired = /expir|invalide|invalid/i.test(msg);
+        setExpired(looksExpired);
+        setErrorMsg(msg);
         setPhase('error');
         setBusyId(null);
+        if (looksExpired) sessionStorage.removeItem(CODE_STORAGE_KEY);
         return;
       }
 
@@ -160,6 +170,19 @@ export function TvLink() {
     );
   }
 
+  /* ── Code expiré : la TV en a généré un nouveau ───────────────────── */
+  if (expired) {
+    return (
+      <div className={styles.screen}>
+        {header}
+        <div className={styles.card}>
+          <h1 className={styles.title}>{t('tvLink.expired')}</h1>
+          <p className={styles.sub}>{t('tvLink.expiredSub')}</p>
+        </div>
+      </div>
+    );
+  }
+
   /* ── Choix du profil ────────────────────────────────────────────────── */
   return (
     <div className={styles.screen}>
@@ -170,7 +193,10 @@ export function TvLink() {
         <p className={styles.sub}>{t('tvLink.sub')}</p>
 
         {phase === 'error' && (
-          <div className={styles.error}>{t('tvLink.error')}</div>
+          <div className={styles.error}>
+            <div>{t('tvLink.error')}</div>
+            {errorMsg && <div className={styles.errorDebug}>{errorMsg}</div>}
+          </div>
         )}
 
         {profiles === null ? (

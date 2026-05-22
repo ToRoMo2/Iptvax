@@ -510,6 +510,9 @@ const en: typeof frDict = {
     error: 'Linking failed. Check the code shown on the TV and try again.',
     invalid: 'Invalid pairing link',
     invalidSub: 'Scan the QR code shown on your television again.',
+    expired: 'Code expired',
+    expiredSub:
+      'The pairing code has expired. Scan the QR shown on your television again (a fresh one is generated automatically).',
     noProfiles: 'No IPTV profile',
     noProfilesSub:
       'Create a profile in the Iptvax app first, then come back to scan the code.',

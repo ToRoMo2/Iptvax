@@ -151,6 +151,13 @@
   color: var(--live);
   font-size: 13px;
 }
+.errorDebug {
+  margin-top: 6px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--t-3);
+  word-break: break-word;
+}
 
 .checkmark {
   width: 56px;

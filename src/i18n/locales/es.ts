@@ -513,6 +513,9 @@ const es: typeof frDict = {
       'La vinculación falló. Comprueba el código mostrado en el televisor e inténtalo de nuevo.',
     invalid: 'Enlace de emparejamiento no válido',
     invalidSub: 'Vuelve a escanear el código QR mostrado en tu televisor.',
+    expired: 'Código caducado',
+    expiredSub:
+      'El código de emparejamiento ha caducado. Vuelve a escanear el QR mostrado en tu televisor (se genera uno nuevo automáticamente).',
     noProfiles: 'Sin perfil IPTV',
     noProfilesSub:
       'Crea primero un perfil en la aplicación Iptvax y luego vuelve a escanear el código.',
