@@ -81,10 +81,10 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     exclut les artefacts de build, les assets web copiés, `local.properties`).
   - Scripts npm : `build:native` (build avec `VITE_RUNTIME=native`), `cap:sync`
     (build natif + `cap sync`), `cap:android` (ouvre Android Studio).
-- **2b — HTTP natif** ⬜ *(prochaine étape)*
-  - Remplacer l'implémentation de `src/lib/http.ts` par le client HTTP natif de
-    Capacitor (`CapacitorHttp`) : ignore le CORS et permet de poser le
-    `User-Agent`. Brancher via `isNative`.
+- **2b — HTTP natif** ✅ *(fait — 2026-05-22)*
+  - `src/lib/http.ts` : en mode natif, `httpGetJson` utilise `CapacitorHttp`
+    (client HTTP natif — ignore le CORS, pose le `User-Agent`). Mode web
+    inchangé (`fetch`). Branché via `isNative`.
 - **2c — Lecteur natif libVLC** ⬜ *(le gros morceau)*
   - Plugin Capacitor enveloppant libVLC (communautaire ou plugin maison) —
     vue native plein écran.
@@ -148,10 +148,14 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Phase 1a — couche données (platform / http / xtream / image) | ✅ Fait |
 | 2026-05-22 | Phase 1b — couche lecture (interface `PlayerController`) | ✅ Fait |
 | 2026-05-22 | Phase 2a — scaffolding Capacitor 7 + projet `android/` | ✅ Fait |
+| 2026-05-22 | Phase 2b — HTTP natif (`CapacitorHttp` dans `http.ts`) | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 en cours** :
-Capacitor est en place, le projet `android/` est généré.
+Capacitor en place, projet `android/` généré, HTTP natif branché.
 
-**Prochaine étape : Phase 2b** — HTTP natif : remplacer l'implémentation de
-`src/lib/http.ts` par `CapacitorHttp` (ignore le CORS, pose le `User-Agent`),
-branché via `isNative`. Détails au §4 ci-dessus.
+**Prochaine étape : Phase 2c — lecteur natif libVLC** *(le gros morceau)*.
+Demande Android Studio + SDK Android installés. À faire :
+1. Choisir/intégrer un plugin Capacitor libVLC (communautaire ou plugin maison).
+2. Écrire l'implémentation native de `PlayerController` (cf. `src/types/player.types.ts`).
+3. La brancher dans la couche UI à la place de `usePlayer` quand `isNative`.
+Détails au §4 ci-dessus.
