@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { usePlayer } from '../hooks/usePlayer';
+import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
 import { useI18n } from '../contexts/I18nContext';
@@ -83,7 +83,7 @@ export function VideoPlayer({
   onPersist,
 }: Props) {
   const { t } = useI18n();
-  const player = usePlayer(url, mediaUrl);
+  const player: WebPlayerController = usePlayer(url, mediaUrl);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
   const [showAudio, setShowAudio] = useState(false);

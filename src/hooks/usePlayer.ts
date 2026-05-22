@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, type RefObject } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
 import { apiUrl } from '../lib/api';
+import type {
+  PlayerStatus,
+  QualityLevel,
+  AudioTrack,
+  SubtitleTrack,
+  PlayerController,
+} from '../types/player.types';
 
 // ── ffprobe probe result ──────────────────────────────────────────────────────
 interface ProbeTrack {
@@ -42,25 +49,15 @@ function buildStreamUrl(sourceUrl: string, audioTrack: number, seekSec?: number,
   return apiUrl(`/api/stream?${params}`);
 }
 
-export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error' | 'buffering';
-
-export interface QualityLevel {
-  index: number;
-  label: string;
-  bitrate: number;
-}
-
-export interface AudioTrack {
-  index: number;
-  name: string;
-  language: string;
-}
-
-export interface SubtitleTrack {
-  index: number;        // index 0-based dans notre liste UI (après filtrage)
-  streamIndex: number;  // index absolu du stream dans le fichier (envoyé à ffmpeg)
-  name: string;
-  language: string;
+/**
+ * Retour de `usePlayer` : le contrat agnostique `PlayerController` plus les
+ * refs DOM propres au lecteur web (élément <video> + conteneur plein écran).
+ * Une implémentation native ne possède pas de HTMLVideoElement et se limitera
+ * donc à `PlayerController`. Voir docs/native-port.md.
+ */
+export interface WebPlayerController extends PlayerController {
+  videoRef: RefObject<HTMLVideoElement>;
+  wrapperRef: RefObject<HTMLDivElement>;
 }
 
 function isHlsUrl(url: string) {
@@ -205,7 +202,7 @@ function readNativeSubtitleTracks(video: HTMLVideoElement): SubtitleTrack[] {
   return tracks;
 }
 
-export function usePlayer(url: string | null, mediaUrl?: string | null) {
+export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlayerController {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);

@@ -59,11 +59,16 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - `src/services/xtream.service.ts` : URLs d'API et de stream **directes** en
     mode natif (sans proxy), comportement web inchangé.
   - `src/utils/image.ts` : `safeImgUrl` renvoie l'URL directe en mode natif.
-- **1b — Couche lecture** ⬜ *(prochaine étape)*
-  - Définir une interface `PlayerController` (forme publique de `usePlayer`).
-  - `usePlayer.ts` devient l'implémentation **web** de cette interface.
-  - `VideoPlayer.tsx` typé contre l'interface, pas contre `usePlayer`.
-  - Aucun lecteur natif encore — juste l'abstraction qui permet d'en brancher un.
+- **1b — Couche lecture** ✅ *(fait — 2026-05-22)*
+  - `src/types/player.types.ts` : interface `PlayerController` (contrat de
+    lecture agnostique) + types `PlayerStatus` / `QualityLevel` / `AudioTrack` /
+    `SubtitleTrack`.
+  - `usePlayer.ts` : importe ces types ; expose `WebPlayerController`
+    (`PlayerController` + refs DOM `<video>`/conteneur) ; son retour est annoté
+    contre ce contrat → toute dérive de l'API est rattrapée par le compilateur.
+  - `VideoPlayer.tsx` typé contre `WebPlayerController`.
+  - Aucun lecteur natif encore — juste l'abstraction qui permet d'en brancher un :
+    une future implémentation native fournira un `PlayerController` (sans refs DOM).
 
 ### Phase 2 — App Android & Android TV
 - Ajouter Capacitor, envelopper l'app.
@@ -124,6 +129,11 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | Date | Étape | Statut |
 |---|---|---|
 | 2026-05-22 | Phase 1a — couche données (platform / http / xtream / image) | ✅ Fait |
+| 2026-05-22 | Phase 1b — couche lecture (interface `PlayerController`) | ✅ Fait |
 
-**Prochaine étape : Phase 1b** — interface `PlayerController` + `usePlayer`
-comme implémentation web. Détails au §4 ci-dessus.
+**Phase 1 terminée.** Le frontend est découplé du backend proxy : données
+(API/stream/images) et lecture passent par des abstractions à deux modes.
+
+**Prochaine étape : Phase 2** — App Android & Android TV : ajouter Capacitor,
+intégrer un lecteur libVLC, écrire l'implémentation native de `PlayerController`,
+brancher le HTTP natif. Détails au §4 ci-dessus.
