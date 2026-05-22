@@ -35,6 +35,7 @@ Le "backend" média vit dans `vite.config.ts` en **dev** (plugin inline, DX inch
 | MPEG-TS | mpegts.js | 1.8.0 |
 | Navigation TV (télécommande) | @noriginmedia/norigin-spatial-navigation | 3.1.0 |
 | Enrobage natif (Android/TV — chantier §XI) | @capacitor/core + cli + android | 7.6.5 (Cap 8 exige Node ≥ 22) |
+| Lecteur natif (Android — chantier §XI) | org.videolan.android:libvlc-all (Gradle) | 3.6.5 |
 | ffmpeg | ffmpeg-static | 5.3.0 |
 | ffprobe | ffprobe-static | 3.1.0 |
 | Prod server | Express | 5.2.1 |
@@ -181,4 +182,6 @@ docker compose down                               # arrêt
 
 **Garde-fou — abstraction de plateforme** : `src/lib/platform.ts` expose `isNative` / `isWeb`, figés au build via `VITE_RUNTIME` (`web` par défaut, `native` pour les shells empaquetés). Tout branchement proxy-vs-direct (URLs Xtream, images, HTTP, lecture) DOIT passer par `isNative` — jamais de détection ad-hoc. Le mode `web` reste **exactement** le comportement historique ; le mode `native` produit des URLs directes (sans `/api/*`) consommées par le lecteur natif. Le point de bascule HTTP natif est isolé dans `src/lib/http.ts`.
 
-**Avancement** : Phase 1 terminée (couches données + lecture découplées). Phase 2a (scaffolding Capacitor 7.6.5), 2b (HTTP natif `CapacitorHttp` + `usesCleartextTraffic`) et 2e (OAuth natif Android — deep link `com.iptvax.app://auth-callback`, flux PKCE) faites — **app native validée sur appareil réel** (connexion Google, profil, catalogue, images OK ; lecture vidéo non encore portée). Reste 2c (lecteur libVLC), 2d (Android TV) puis 3-5. Détail et statut à jour : `docs/native-port.md` §7.
+**Avancement** : Phase 1 terminée (couches données + lecture découplées). Phase 2a (scaffolding Capacitor 7.6.5), 2b (HTTP natif `CapacitorHttp` + `usesCleartextTraffic`), 2e (OAuth natif Android — deep link `com.iptvax.app://auth-callback`, flux PKCE) et 2c (lecteur natif libVLC) faites — **app native Android validée sur appareil réel** : connexion Google, profil, catalogue, images **et lecture vidéo native** fonctionnent. Reste 2d (Android TV) puis 3-5. Détail et statut à jour : `docs/native-port.md` §7.
+
+**Lecteur natif (Phase 2c)** : plugin Capacitor maison `VlcPlayer` (`android/app/src/main/java/com/iptvax/app/VlcPlayerPlugin.java`, enregistré dans `MainActivity`) enveloppant libVLC. libVLC rend la vidéo dans une `VLCVideoLayout` (SurfaceView) **derrière** la WebView ; pendant la lecture la WebView est rendue transparente (classe `iptvax-native-playback` sur `<html>` + `native-video-surface` sur les conteneurs du lecteur), les contrôles React s'affichant par-dessus la vidéo native. Côté JS : `src/native/vlcPlayer.ts` (interface du plugin) + `src/hooks/useNativePlayer.ts` (implémentation native du contrat `PlayerController`, pendant de `usePlayer`). `VideoPlayer.tsx` choisit l'un ou l'autre via `isNative` — **toujours passer par cette bascule**, ne jamais appeler directement un hook de lecteur. Sous-titres rendus par libVLC sur la surface (pas d'overlay React en natif ; le décalage g/h pilote `setSpuDelay`).

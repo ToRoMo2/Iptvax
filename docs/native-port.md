@@ -88,11 +88,31 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - `AndroidManifest.xml` : `android:usesCleartextTraffic="true"` — Android
     bloque le HTTP en clair par défaut (API 28+), or les serveurs Xtream sont
     massivement en HTTP simple. Indispensable aussi pour le streaming (2c).
-- **2c — Lecteur natif libVLC** ⬜ *(le gros morceau)*
-  - Plugin Capacitor enveloppant libVLC (communautaire ou plugin maison) —
-    vue native plein écran.
-  - Implémentation native de `PlayerController` (pistes audio/sous-titres,
-    seek, reprise, events) consommée par la couche UI.
+- **2c — Lecteur natif libVLC** ✅ *(fait — 2026-05-22 ; à valider sur appareil)*
+  - **Plugin maison** `VlcPlayer` — aucun plugin Capacitor libVLC communautaire
+    maintenu n'existe → plugin local dans le projet Android :
+    `android/app/src/main/java/com/iptvax/app/VlcPlayerPlugin.java`, enregistré
+    dans `MainActivity`. Dépendance Gradle `org.videolan.android:libvlc-all:3.6.5`
+    (+ `abiFilters` arm64/armv7/x86_64 pour ne pas embarquer x86).
+  - **Rendu** : libVLC affiche la vidéo dans une `VLCVideoLayout` (SurfaceView)
+    insérée DERRIÈRE la WebView. Pendant la lecture, la WebView est rendue
+    transparente (`setBackgroundColor(TRANSPARENT)`) → les contrôles React
+    s'affichent par-dessus la vidéo native. La transparence de la chaîne web
+    (`html`/`body`/`#root` + conteneurs du lecteur) est portée par la classe
+    `iptvax-native-playback` posée sur `<html>` par `useNativePlayer`, et la
+    classe `native-video-surface` sur les conteneurs (`Player`, `VideoPlayer`).
+    `stop()` rétablit la WebView opaque → aucun impact hors lecture.
+  - **JS** : `src/native/vlcPlayer.ts` (interface du plugin : `load`/`play`/
+    `pause`/`stop`/`seek`/`setAudioTrack`/`setSubtitleTrack`/`setVolume`/
+    `setSubtitleDelay` + events `state`/`time`/`tracks`).
+  - `src/hooks/useNativePlayer.ts` : implémentation native du contrat
+    `PlayerController` — pendant de `usePlayer` (web). `VideoPlayer.tsx` choisit
+    l'un ou l'autre via `isNative` (branche figée au build → sûre).
+  - **Sous-titres** : rendus PAR libVLC sur la surface native (pas d'overlay
+    React, pas de `/api/subtitle`). Le décalage g/h pilote `setSpuDelay`. Pistes
+    audio/sous-titres énumérées via libVLC. Niveaux de qualité HLS non exposés
+    (`levels` vide → menu qualité masqué) ; bouton plein écran masqué (l'app
+    native est déjà plein écran).
 - **2d — Android TV** ⬜
   - Intent leanback + navigation D-pad (`norigin-spatial-navigation` déjà là).
 - **2e — OAuth natif (deep link)** ✅ *(fait — 2026-05-22)*
@@ -158,7 +178,20 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   donc OK ; à confirmer pour le proxy d'images).
 - **`usePlayer.ts`** est purement web (ffmpeg, `/api/stream`, parsing VTT…).
   Il n'est PAS porté : il reste l'implémentation `web` de `PlayerController`.
-  Le natif aura sa propre implémentation pilotant libVLC.
+  L'implémentation native est `useNativePlayer.ts` (pilote libVLC) — Phase 2c.
+- **Lecteur natif — points à durcir** (Phase 2c faite, à affiner) :
+  - **Barre de statut / immersif** : ✅ fait — `VlcPlayerPlugin` masque les
+    barres système (statut + navigation) via `WindowInsetsControllerCompat`
+    pendant la lecture et les restaure sur `stop()`. Reste éventuellement à
+    gérer les encoches (display cutout) en paysage si un cas se présente.
+  - **Mise en arrière-plan** : libVLC continue de tourner si l'app passe en
+    arrière-plan ; pas de pause auto. À décider (pause auto vs lecture audio
+    continue).
+  - **Niveaux de qualité HLS** : non exposés par le plugin (`levels` vide).
+    Acceptable v1 ; libVLC fait l'ABR tout seul.
+  - **Version libVLC** : `org.videolan.android:libvlc-all:3.6.5` épinglée dans
+    `android/app/build.gradle`. Si la résolution Maven échoue, ajuster vers une
+    3.6.x disponible.
 - **CLAUDE.md §IX** décrit l'ancien modèle « backend sur VPS » — ne vaut plus
   que pour le site vitrine. Le portage natif suit §XI + ce document.
 
@@ -172,21 +205,36 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Phase 2b — HTTP natif (`CapacitorHttp` + cleartext HTTP) | ✅ Fait |
 | 2026-05-22 | Phase 2e — OAuth natif Android (deep link Google/Apple) | ✅ Fait |
 | 2026-05-22 | Validation app native sur appareil réel (Galaxy S26 Ultra) | ✅ OK |
+| 2026-05-22 | Phase 2c — lecteur natif libVLC (plugin maison + `useNativePlayer`) | ✅ Fait |
+| 2026-05-22 | Validation lecture native sur appareil réel (Galaxy S26) | ✅ OK |
 
-**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 bien
-avancée** : l'app native Android tourne sur appareil réel — connexion Google
-(deep link), sélection de profil, navigation dans le catalogue et chargement
-des images fonctionnent, le tout en parlant **directement** aux serveurs Xtream
-depuis l'IP de l'appareil (plus de blocage 403). Il manque **uniquement la
-lecture vidéo**.
+**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 Android
+terminée** : l'app native Android tourne sur appareil réel — connexion Google
+(deep link), sélection de profil, navigation dans le catalogue, chargement des
+images **et lecture vidéo native (libVLC)** fonctionnent, le tout en parlant
+**directement** aux serveurs Xtream depuis l'IP de l'appareil (plus de blocage
+403). Reste **2d (Android TV)** pour clore la Phase 2.
 
 Correctifs natifs appliqués en cours de route : `usesCleartextTraffic` (serveurs
-Xtream en HTTP) et `allowMixedContent` (covers HTTP chargées dans le WebView
-servi en HTTPS).
+Xtream en HTTP), `allowMixedContent` (covers HTTP chargées dans le WebView
+servi en HTTPS), et — pour la lecture native — `getVodStreamUrl` /
+`getSeriesStreamUrl` renvoient désormais le **fichier direct** (conteneur
+MKV/MP4) en mode natif au lieu du `.m3u8` : ce dernier n'est qu'un artefact du
+remux ffmpeg du proxy web, beaucoup de serveurs Xtream ne le servent pas pour
+les films/épisodes → libVLC n'avait rien à lire (écran noir). Le lecteur natif
+force aussi l'orientation paysage pendant la lecture (`VlcPlayerPlugin`).
 
-**Prochaine étape : Phase 2c — lecteur natif libVLC** *(le gros morceau)*.
-C'est la dernière brique pour que l'app soit pleinement utilisable. À faire :
-1. Choisir/intégrer un plugin Capacitor libVLC (communautaire ou plugin maison).
-2. Écrire l'implémentation native de `PlayerController` (cf. `src/types/player.types.ts`).
-3. La brancher dans la couche UI à la place de `usePlayer` quand `isNative`.
-Détails au §4 ci-dessus. Pré-requis : Android Studio + SDK (déjà installés).
+**Prochaine étape : Phase 2d — Android TV.** À faire (voir §4) :
+1. Déclarer l'app comme application TV : `<category android:name="android.intent.category.LEANBACK_LAUNCHER">`
+   dans `AndroidManifest.xml` + `uses-feature` `android.software.leanback`
+   (`required="false"`) et `android.hardware.touchscreen` (`required="false"`).
+2. Bannière TV (`android:banner`) pour le lanceur Android TV.
+3. Navigation D-pad : `norigin-spatial-navigation` est déjà intégré côté UI —
+   vérifier que tous les écrans (catalogue, lecteur, sélection de profil) sont
+   parcourables à la télécommande, et soigner le focus visible.
+4. Tester le lecteur libVLC sur une vraie box / un émulateur Android TV
+   (attention RAM : cf. point WebView OOM en §6).
+
+**Détails de finition différés** (cf. §6 — à reprendre après la Phase 2, sauf
+si bloquant) : pause auto en arrière-plan, encoches (cutout) en paysage,
+polish esthétique du lecteur mobile.

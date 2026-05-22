@@ -8,7 +8,9 @@ export default tseslint.config(
   // `.claude` contient des worktrees git (copies du repo) — ne pas les linter.
   // `supabase` : Edge Functions runtime Deno (imports URL + global `Deno`),
   // hors périmètre du lint frontend (typé/exécuté par Deno, pas Vite/tsc).
-  { ignores: ['dist', '.claude', 'supabase'] },
+  // `android` : projet natif Capacitor (Java + assets web générés) — hors
+  // périmètre du lint frontend.
+  { ignores: ['dist', '.claude', 'supabase', 'android'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

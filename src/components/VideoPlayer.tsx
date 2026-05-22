@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
+import { useNativePlayer } from '../hooks/useNativePlayer';
+import { isNative } from '../lib/platform';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
 import { useI18n } from '../contexts/I18nContext';
@@ -83,7 +85,14 @@ export function VideoPlayer({
   onPersist,
 }: Props) {
   const { t } = useI18n();
-  const player: WebPlayerController = usePlayer(url, mediaUrl);
+  // `isNative` est figé au build (cf. src/lib/platform.ts) → la branche est
+  // stable pour toute la vie du composant : appeler conditionnellement l'un ou
+  // l'autre hook est sûr ici (le lint rules-of-hooks ne peut pas le savoir).
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const player: WebPlayerController = isNative
+    ? useNativePlayer(url, mediaUrl)
+    : usePlayer(url, mediaUrl);
+  /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
   const [showAudio, setShowAudio] = useState(false);
@@ -287,18 +296,25 @@ export function VideoPlayer({
   return (
     <div
       ref={player.wrapperRef}
-      className={`${styles.wrapper} ${showControls ? styles.showControls : ''}`}
+      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${isNative ? 'native-video-surface' : ''}`}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
-      <video
-        ref={player.videoRef}
-        className={styles.video}
-        playsInline
-        poster={safeImgUrl(poster)}
-        onClick={player.toggle}
-      />
+      {/* En natif, la vidéo est rendue par libVLC dans une surface native
+          DERRIÈRE la WebView : on n'affiche pas de <video>, juste une zone
+          transparente cliquable (play/pause). En web, le <video> habituel. */}
+      {isNative ? (
+        <div className={`${styles.video} native-video-surface`} onClick={player.toggle} />
+      ) : (
+        <video
+          ref={player.videoRef}
+          className={styles.video}
+          playsInline
+          poster={safeImgUrl(poster)}
+          onClick={player.toggle}
+        />
+      )}
 
       {/* Sous-titres personnalisés */}
       {subtitleText && (
@@ -609,14 +625,16 @@ export function VideoPlayer({
               </div>
             )}
 
-            {/* Plein écran */}
-            <button
-              className={`${styles.controlBtn} ${styles.secondaryGroup}`}
-              onClick={player.toggleFullscreen}
-              title={t('player.fullscreen')}
-            >
-              {player.isFullscreen ? '⊡' : '⊞'}
-            </button>
+            {/* Plein écran — masqué en natif (l'app est déjà plein écran) */}
+            {!isNative && (
+              <button
+                className={`${styles.controlBtn} ${styles.secondaryGroup}`}
+                onClick={player.toggleFullscreen}
+                title={t('player.fullscreen')}
+              >
+                {player.isFullscreen ? '⊡' : '⊞'}
+              </button>
+            )}
           </div>
         </div>
       </div>

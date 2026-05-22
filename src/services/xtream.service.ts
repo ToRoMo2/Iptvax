@@ -157,9 +157,16 @@ export const xtreamService = {
   },
 
   // Films : HLS (.m3u8) en premier côté web ; fichier direct en fallback.
-  getVodStreamUrl(creds: XtreamCredentials, streamId: number, _ext: string): string {
+  // Natif : fichier direct (conteneur MKV/MP4) — libVLC le lit nativement.
+  // Le `.m3u8` VOD n'est qu'un artefact du proxy web (remux ffmpeg → HLS) ;
+  // beaucoup de serveurs Xtream ne le servent pas pour les films → libVLC
+  // n'aurait rien à lire. Voir docs/native-port.md.
+  getVodStreamUrl(creds: XtreamCredentials, streamId: number, ext: string): string {
+    if (isNative) {
+      return `${creds.serverUrl}/movie/${creds.username}/${creds.password}/${streamId}.${ext}`;
+    }
     const m3u8 = `${creds.serverUrl}/movie/${creds.username}/${creds.password}/${streamId}.m3u8`;
-    return isNative ? m3u8 : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   getVodDirectUrl(creds: XtreamCredentials, streamId: number, ext: string): string {
@@ -167,10 +174,13 @@ export const xtreamService = {
     return isNative ? direct : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
   },
 
-  // Épisodes : même logique — HLS en premier côté web, fichier direct en fallback.
-  getSeriesStreamUrl(creds: XtreamCredentials, episodeId: string, _ext: string): string {
+  // Épisodes : même logique — HLS côté web, fichier direct côté natif (libVLC).
+  getSeriesStreamUrl(creds: XtreamCredentials, episodeId: string, ext: string): string {
+    if (isNative) {
+      return `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.${ext}`;
+    }
     const m3u8 = `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.m3u8`;
-    return isNative ? m3u8 : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
+    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   getSeriesDirectUrl(creds: XtreamCredentials, episodeId: string, ext: string): string {

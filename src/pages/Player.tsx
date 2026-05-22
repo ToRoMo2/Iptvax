@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { useXtream } from '../context/XtreamContext';
+import { isNative } from '../lib/platform';
 import { xtreamService } from '../services/xtream.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -111,7 +112,7 @@ export function Player() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${isNative ? 'native-video-surface' : ''}`}>
       <button className={styles.backBtn} onClick={() => navigate(-1)}>{t('common.back')}</button>
       <div className={styles.playerWrapper}>
         <VideoPlayer

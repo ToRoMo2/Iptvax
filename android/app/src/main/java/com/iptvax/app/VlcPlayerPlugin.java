@@ -1,0 +1,344 @@
+package com.iptvax.app;
+
+import android.content.pm.ActivityInfo;
+import android.graphics.Color;
+import android.net.Uri;
+import android.util.Log;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.util.VLCVideoLayout;
+
+import java.util.ArrayList;
+
+/**
+ * Lecteur natif libVLC — implémentation Android du contrat PlayerController
+ * (Phase 2c, voir docs/native-port.md).
+ *
+ * Le moteur VLC lit le flux DIRECTEMENT depuis l'appareil (MKV/HEVC/MPEG-TS,
+ * sous-titres embarqués) et le rend dans une VLCVideoLayout (SurfaceView)
+ * insérée DERRIÈRE la WebView Capacitor. La WebView est rendue transparente
+ * pendant la lecture → les contrôles React s'affichent par-dessus la vidéo.
+ *
+ * Côté JS : src/native/vlcPlayer.ts (interface) + src/hooks/useNativePlayer.ts.
+ */
+@CapacitorPlugin(name = "VlcPlayer")
+public class VlcPlayerPlugin extends Plugin {
+
+    private static final String TAG = "VlcPlayer";
+
+    private LibVLC libVLC;
+    private MediaPlayer mediaPlayer;
+    private VLCVideoLayout videoLayout;
+    private boolean viewsAttached = false;
+    // `true` une fois qu'un évènement Playing a été reçu pour le média courant.
+    // Sert à distinguer une vraie fin de lecture (EndReached après lecture)
+    // d'un flux illisible/injoignable (EndReached sans avoir jamais joué).
+    private boolean hasPlayed = false;
+    // Orientation de l'activité avant le passage forcé en paysage.
+    private int previousOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+    private boolean orientationForced = false;
+
+    // ── Cycle de vie du moteur ────────────────────────────────────────────────
+
+    private void ensurePlayer() {
+        if (libVLC == null) {
+            ArrayList<String> options = new ArrayList<>();
+            options.add("--no-drop-late-frames");
+            options.add("--no-skip-frames");
+            options.add("--network-caching=1500");
+            libVLC = new LibVLC(getContext(), options);
+        }
+        if (mediaPlayer == null) {
+            mediaPlayer = new MediaPlayer(libVLC);
+            mediaPlayer.setEventListener(this::onVlcEvent);
+        }
+        if (videoLayout == null) {
+            videoLayout = new VLCVideoLayout(getContext());
+            ViewGroup parent = (ViewGroup) getBridge().getWebView().getParent();
+            // Index 0 → la surface vidéo est composée DERRIÈRE la WebView.
+            parent.addView(videoLayout, 0, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        if (!viewsAttached) {
+            mediaPlayer.attachViews(videoLayout, null, true, false);
+            viewsAttached = true;
+        }
+    }
+
+    // ── Méthodes exposées au JS ───────────────────────────────────────────────
+
+    @PluginMethod
+    public void load(final PluginCall call) {
+        final String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("url manquante");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            try {
+                Log.d(TAG, "load: " + url);
+                ensurePlayer();
+                hasPlayed = false;
+
+                // Force le paysage le temps de la lecture (restauré dans stop()).
+                if (!orientationForced) {
+                    previousOrientation = getActivity().getRequestedOrientation();
+                    orientationForced = true;
+                }
+                getActivity().setRequestedOrientation(
+                        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+
+                // Masque les barres système (statut + navigation) → lecture
+                // plein écran immersif, sans chevauchement avec les contrôles.
+                setImmersive(true);
+
+                // Rend la WebView transparente → la vidéo libVLC apparaît derrière
+                // les contrôles React.
+                getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
+                videoLayout.setVisibility(View.VISIBLE);
+
+                mediaPlayer.stop();
+                Media media = new Media(libVLC, Uri.parse(url));
+                media.setHWDecoderEnabled(true, false);
+                mediaPlayer.setMedia(media);
+                media.release();
+                mediaPlayer.play();
+                call.resolve();
+            } catch (Exception e) {
+                Log.e(TAG, "load failed", e);
+                emitState("error", "Échec du chargement : " + e.getMessage());
+                call.reject("Échec du chargement : " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void play(final PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.play();
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void pause(final PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.pause();
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void stop(final PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.stop();
+            if (videoLayout != null) videoLayout.setVisibility(View.GONE);
+            // Rend la WebView de nouveau opaque (noir → pas de flash blanc).
+            getBridge().getWebView().setBackgroundColor(Color.BLACK);
+            // Restaure les barres système et l'orientation d'avant la lecture.
+            setImmersive(false);
+            if (orientationForced) {
+                getActivity().setRequestedOrientation(previousOrientation);
+                orientationForced = false;
+            }
+            call.resolve();
+        });
+    }
+
+    /**
+     * Plein écran immersif : masque (ou restaure) les barres système Android.
+     * En mode immersif, un balayage depuis le bord les ré-affiche temporairement.
+     */
+    private void setImmersive(boolean immersive) {
+        Window window = getActivity().getWindow();
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(window, window.getDecorView());
+        WindowCompat.setDecorFitsSystemWindows(window, !immersive);
+        if (immersive) {
+            controller.hide(WindowInsetsCompat.Type.systemBars());
+            controller.setSystemBarsBehavior(
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars());
+        }
+    }
+
+    @PluginMethod
+    public void seek(final PluginCall call) {
+        final double position = call.getDouble("position", 0.0);
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.setTime((long) (position * 1000));
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void setAudioTrack(final PluginCall call) {
+        final int id = call.getInt("id", -1);
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.setAudioTrack(id);
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void setSubtitleTrack(final PluginCall call) {
+        final int id = call.getInt("id", -1);
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.setSpuTrack(id);
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void setVolume(final PluginCall call) {
+        final double volume = call.getDouble("volume", 1.0);
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) {
+                int v = (int) Math.round(Math.max(0, Math.min(1, volume)) * 100);
+                mediaPlayer.setVolume(v);
+            }
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void setSubtitleDelay(final PluginCall call) {
+        // delay en secondes ; positif = sous-titres en avance (convention web).
+        // libVLC attend des microsecondes avec la convention inverse.
+        final double delay = call.getDouble("delay", 0.0);
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer != null) mediaPlayer.setSpuDelay((long) (-delay * 1_000_000));
+            call.resolve();
+        });
+    }
+
+    // ── Évènements libVLC → JS ────────────────────────────────────────────────
+
+    private void onVlcEvent(MediaPlayer.Event event) {
+        switch (event.type) {
+            case MediaPlayer.Event.Opening:
+                emitState("loading", null);
+                break;
+            case MediaPlayer.Event.Buffering:
+                if (event.getBuffering() < 100f) {
+                    emitState("buffering", null);
+                } else if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    emitState("playing", null);
+                }
+                break;
+            case MediaPlayer.Event.Playing:
+                hasPlayed = true;
+                emitState("playing", null);
+                emitTracks();
+                break;
+            case MediaPlayer.Event.Paused:
+                emitState("paused", null);
+                break;
+            case MediaPlayer.Event.Stopped:
+                emitState("idle", null);
+                break;
+            case MediaPlayer.Event.EndReached:
+                // EndReached sans jamais avoir joué = flux illisible/injoignable
+                // (l'erreur n'est pas toujours remontée comme EncounteredError).
+                if (hasPlayed) {
+                    emitState("ended", null);
+                } else {
+                    Log.e(TAG, "EndReached sans lecture — flux illisible");
+                    emitState("error", "Flux illisible ou injoignable");
+                }
+                break;
+            case MediaPlayer.Event.EncounteredError:
+                Log.e(TAG, "EncounteredError");
+                emitState("error", "Erreur de lecture");
+                break;
+            case MediaPlayer.Event.TimeChanged:
+            case MediaPlayer.Event.LengthChanged:
+                emitTime();
+                break;
+            case MediaPlayer.Event.ESAdded:
+            case MediaPlayer.Event.ESDeleted:
+            case MediaPlayer.Event.ESSelected:
+                emitTracks();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void emitState(String state, String error) {
+        Log.d(TAG, "state: " + state + (error != null ? " (" + error + ")" : ""));
+        JSObject data = new JSObject();
+        data.put("state", state);
+        if (error != null) data.put("error", error);
+        notifyListeners("state", data);
+    }
+
+    private void emitTime() {
+        if (mediaPlayer == null) return;
+        long time = mediaPlayer.getTime();
+        long length = mediaPlayer.getLength();
+        JSObject data = new JSObject();
+        data.put("position", time / 1000.0);
+        data.put("duration", length > 0 ? length / 1000.0 : 0);
+        notifyListeners("time", data);
+    }
+
+    private void emitTracks() {
+        if (mediaPlayer == null) return;
+        JSObject data = new JSObject();
+        data.put("audio", trackArray(mediaPlayer.getAudioTracks()));
+        data.put("subtitle", trackArray(mediaPlayer.getSpuTracks()));
+        data.put("currentAudio", mediaPlayer.getAudioTrack());
+        data.put("currentSubtitle", mediaPlayer.getSpuTrack());
+        notifyListeners("tracks", data);
+    }
+
+    private JSArray trackArray(MediaPlayer.TrackDescription[] tracks) {
+        JSArray array = new JSArray();
+        if (tracks != null) {
+            for (MediaPlayer.TrackDescription td : tracks) {
+                // libVLC inclut une piste "Disable" (id -1) — l'UI gère le « off »
+                // via sa propre option, on ne la liste donc pas.
+                if (td.id < 0) continue;
+                JSObject t = new JSObject();
+                t.put("id", td.id);
+                t.put("name", td.name);
+                array.put(t);
+            }
+        }
+        return array;
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+            if (viewsAttached) mediaPlayer.detachViews();
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
+        if (libVLC != null) {
+            libVLC.release();
+            libVLC = null;
+        }
+        viewsAttached = false;
+    }
+}
