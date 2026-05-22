@@ -401,9 +401,33 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       }
       setStatus('error');
       const finalCode = video.error?.code;
-      setError(
-        `Erreur de lecture (source incompatible ou CORS${finalCode ? ` — code ${finalCode}` : ''})`,
-      );
+      setError(`Erreur de lecture${finalCode ? ` (code ${finalCode})` : ''}`);
+      // Diagnostic : la source est-elle joignable DEPUIS le serveur ? Un backend
+      // hébergé sur un VPS dont l'IP (datacenter) est blacklistée par le
+      // fournisseur IPTV ne peut pas récupérer le flux, alors qu'un appareil
+      // sur IP résidentielle le peut. On affine le message en conséquence.
+      const proxySrc = directSourceRef.current || sourceUrlRef.current;
+      if (proxySrc) {
+        let upstream = proxySrc;
+        try {
+          upstream = new URL(proxySrc, window.location.origin).searchParams.get('url') ?? proxySrc;
+        } catch { /* garder tel quel */ }
+        fetch(apiUrl(`/api/debug-reach?url=${encodeURIComponent(upstream)}`), {
+          signal: AbortSignal.timeout(15_000),
+        })
+          .then((r) => r.json())
+          .then((d: { ok?: boolean; status?: number }) => {
+            if (d?.ok === false) {
+              setError(
+                "Le serveur n'arrive pas à joindre cette source — l'IP du serveur " +
+                'est probablement bloquée par le fournisseur IPTV.',
+              );
+            } else if (d?.ok && typeof d.status === 'number' && d.status >= 400) {
+              setError(`La source refuse l'accès au serveur (HTTP ${d.status}).`);
+            }
+          })
+          .catch(() => {/* réseau/timeout — garder le message générique */});
+      }
     };
     const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
 
