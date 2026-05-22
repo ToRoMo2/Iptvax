@@ -748,6 +748,9 @@ function iptvProxyPlugin(): Plugin {
           const targetUrl  = reqUrl.searchParams.get('url');
           const audioTrack = parseInt(reqUrl.searchParams.get('audio') ?? '0', 10);
           const seekSec    = reqUrl.searchParams.get('seek');
+          // Repli demandé par le client quand `-c:v copy` a produit un flux que
+          // le navigateur n'a pas su décoder (codec HEVC/H.265, MPEG-2, VC-1…).
+          const doTranscode = reqUrl.searchParams.get('transcode') === '1';
 
           if (!targetUrl) { res.statusCode = 400; res.end(); return; }
 
@@ -795,8 +798,26 @@ function iptvProxyPlugin(): Plugin {
           ffArgs.push(
             '-i', targetUrl,
             '-map', '0:v:0',
-            '-map', `0:a:${audioTrack}`,
-            '-c:v', 'copy',
+            // `?` rend la piste audio optionnelle : une source sans audio (ou
+            // un index hors borne) ne fait plus échouer ffmpeg → vidéo muette
+            // plutôt qu'un MP4 tronqué rejeté par le navigateur.
+            '-map', `0:a:${audioTrack}?`,
+          );
+          if (doTranscode) {
+            // Repli transcodage : le navigateur n'a pas su décoder le flux
+            // `-c:v copy`. H.264 8-bit est le seul codec décodable partout.
+            // -pix_fmt yuv420p force le 8-bit (les sources HEVC sont souvent
+            // 10-bit High 10 → non décodables par les navigateurs).
+            ffArgs.push(
+              '-c:v', 'libx264',
+              '-preset', 'veryfast',
+              '-crf', '23',
+              '-pix_fmt', 'yuv420p',
+            );
+          } else {
+            ffArgs.push('-c:v', 'copy');
+          }
+          ffArgs.push(
             '-c:a', 'aac',
             '-aac_coder', 'fast',  // encodeur AAC le plus rapide (vs twoloop par défaut)
             '-b:a', '128k',         // qualité standard, encode plus vite que 192k

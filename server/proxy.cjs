@@ -662,8 +662,11 @@ app.get('/api/streambase', async (req, res) => {
 // quasi-instantané). Copie la vidéo, transcode l'audio en AAC universellement
 // supporté par les navigateurs.
 app.get('/api/stream', (req, res) => {
-  const { url: targetUrl, audio: audioParam, seek: seekSec } = req.query;
+  const { url: targetUrl, audio: audioParam, seek: seekSec, transcode } = req.query;
   const audioTrack = parseInt(audioParam ?? '0', 10);
+  // Repli demandé par le client quand `-c:v copy` a produit un flux que le
+  // navigateur n'a pas su décoder (codec HEVC/H.265, MPEG-2, VC-1…).
+  const doTranscode = transcode === '1';
 
   if (!targetUrl || typeof targetUrl !== 'string') return res.status(400).end();
 
@@ -699,8 +702,25 @@ app.get('/api/stream', (req, res) => {
   ffArgs.push(
     '-i', targetUrl,
     '-map', '0:v:0',
-    '-map', `0:a:${audioTrack}`,
-    '-c:v', 'copy',
+    // `?` rend la piste audio optionnelle : une source sans audio (ou un index
+    // hors borne) ne fait plus échouer ffmpeg → vidéo muette plutôt qu'un MP4
+    // tronqué rejeté par le navigateur.
+    '-map', `0:a:${audioTrack}?`,
+  );
+  if (doTranscode) {
+    // Repli transcodage : le navigateur n'a pas su décoder le flux `-c:v copy`.
+    // H.264 8-bit est le seul codec décodable partout. -pix_fmt yuv420p force
+    // le 8-bit (les sources HEVC sont souvent 10-bit High 10 → non décodables).
+    ffArgs.push(
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '23',
+      '-pix_fmt', 'yuv420p',
+    );
+  } else {
+    ffArgs.push('-c:v', 'copy');
+  }
+  ffArgs.push(
     '-c:a', 'aac',
     '-aac_coder', 'fast',
     '-b:a', '128k',

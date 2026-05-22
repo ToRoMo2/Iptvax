@@ -28,14 +28,17 @@ async function probeUrl(url: string): Promise<ProbeData> {
   }
 }
 
-// Build the /api/stream URL for a direct (non-HLS) source with a selected audio track
-function buildStreamUrl(sourceUrl: string, audioTrack: number, seekSec?: number): string {
+// Build the /api/stream URL for a direct (non-HLS) source with a selected audio track.
+// `transcode` force ffmpeg à ré-encoder la vidéo en H.264 (repli pour les codecs
+// que le navigateur ne sait pas décoder en `-c:v copy` — HEVC/H.265, MPEG-2…).
+function buildStreamUrl(sourceUrl: string, audioTrack: number, seekSec?: number, transcode?: boolean): string {
   // sourceUrl is already an /api/hlsproxy?url=... form
   // Extract the real upstream URL from it
   const inner = new URL(sourceUrl, window.location.origin);
   const upstream = inner.searchParams.get('url') ?? sourceUrl;
   const params = new URLSearchParams({ url: upstream, audio: String(audioTrack) });
   if (seekSec && seekSec > 0) params.set('seek', seekSec.toFixed(1));
+  if (transcode) params.set('transcode', '1');
   return apiUrl(`/api/stream?${params}`);
 }
 
@@ -211,6 +214,11 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
   const sourceUrlRef = useRef<string | null>(null);
   // Si non-null → on est en mode ffmpeg (/api/stream) ; null → lecture native via hlsproxy
   const directSourceRef = useRef<string | null>(null);
+  // Escalade transcodage : passe à true quand la lecture `-c:v copy` a échoué
+  // (codec vidéo non décodable par le navigateur) et qu'on a basculé sur un
+  // flux ffmpeg transcodé en H.264. Toutes les requêtes /api/stream suivantes
+  // (seek, switch audio) doivent alors aussi demander le transcodage.
+  const transcodeRef = useRef(false);
   // URL upstream du fichier média (MKV/MP4) — TOUJOURS utilisée pour le probe ffprobe
   // et l'extraction des sous-titres, peu importe que la lecture passe par HLS ou ffmpeg.
   // C'est la seule source de vérité pour les sous-titres → comportement déterministe.
@@ -332,6 +340,32 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     };
     const onError = () => {
       if (mpegtsRef.current) return;
+
+      // Escalade transcodage : la lecture ffmpeg directe a échoué. Cause la
+      // plus fréquente — un codec vidéo que le navigateur ne sait pas décoder
+      // (HEVC/H.265, MPEG-2, VC-1, MPEG-4 ASP…) que `-c:v copy` laisse passer
+      // tel quel dans le MP4. On retente UNE fois en demandant à ffmpeg de
+      // transcoder la vidéo en H.264 (universellement décodable). Ne s'applique
+      // pas aux erreurs réseau (code 2) — là le transcodage n'y changerait rien.
+      const errCode = video.error?.code;
+      const isDecodeError = errCode == null || errCode === 3 || errCode === 4;
+      if (directSourceRef.current && !transcodeRef.current && isDecodeError) {
+        transcodeRef.current = true;
+        const pos = currentTimeRef.current || 0;
+        const audio = Math.max(0, currentAudioRef.current);
+        const doSeek = pos > 2;
+        seekOffsetRef.current = doSeek ? pos : 0;
+        currentTimeRef.current = pos;
+        lastTimeRef.current = 0;
+        console.warn('[player] codec vidéo non décodable — bascule transcodage H.264');
+        setStatus('loading');
+        setSubtitleText('');
+        video.src = buildStreamUrl(directSourceRef.current, audio, doSeek ? pos : undefined, true);
+        video.load();
+        video.play().catch(() => setStatus('paused'));
+        return;
+      }
+
       // Fallback silencieux : si la lecture native échoue (codec/conteneur non supporté),
       // basculer vers ffmpeg en préservant la position courante.
       const src = sourceUrlRef.current;
@@ -565,6 +599,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
     if (mpegtsRef.current) { mpegtsRef.current.destroy(); mpegtsRef.current = null; }
     sourceUrlRef.current = null;
     directSourceRef.current = null;
+    transcodeRef.current = false;
     mediaUrlRef.current = null;
     probeDurationRef.current = 0;
     seekOffsetRef.current = 0;
@@ -1070,7 +1105,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       setSubtitleText('');
 
       const doSeek = clampedTime > 0.5;
-      const url = buildStreamUrl(src, audio, doSeek ? clampedTime : undefined);
+      const url = buildStreamUrl(src, audio, doSeek ? clampedTime : undefined, transcodeRef.current);
       if (doSeek) correctSeekBase(src, clampedTime, myGen);
       else seekOffsetRef.current = 0; // pas de -ss côté serveur → flux à 0
       video.src = url;
@@ -1135,7 +1170,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       // proche → la frame affichée va changer, ne pas laisser un cue obsolète.
       setSubtitleText('');
       const doSeek = currentPos > 2;
-      const streamUrl = buildStreamUrl(ffmpegSrc, index, doSeek ? currentPos : undefined);
+      const streamUrl = buildStreamUrl(ffmpegSrc, index, doSeek ? currentPos : undefined, transcodeRef.current);
       if (doSeek) correctSeekBase(ffmpegSrc, currentPos, myGen);
       else seekOffsetRef.current = 0;
       video.src = streamUrl;
@@ -1163,7 +1198,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
       // Effacer le sous-titre courant pendant la bascule natif → ffmpeg.
       setSubtitleText('');
       const doSeek = currentPos > 2;
-      const streamUrl = buildStreamUrl(nativeSrc, index, doSeek ? currentPos : undefined);
+      const streamUrl = buildStreamUrl(nativeSrc, index, doSeek ? currentPos : undefined, transcodeRef.current);
       if (doSeek) correctSeekBase(nativeSrc, currentPos, myGen);
       else seekOffsetRef.current = 0;
       video.src = streamUrl;
