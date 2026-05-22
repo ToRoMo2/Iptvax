@@ -50,7 +50,7 @@ serveur à payer.
 
 ## 4. Phases
 
-### Phase 1 — Découpler le frontend du backend proxy *(en cours)*
+### Phase 1 — Découpler le frontend du backend proxy *(terminée)*
 Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 
 - **1a — Couche données** ✅ *(fait — 2026-05-22)*
@@ -169,17 +169,24 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Phase 1a — couche données (platform / http / xtream / image) | ✅ Fait |
 | 2026-05-22 | Phase 1b — couche lecture (interface `PlayerController`) | ✅ Fait |
 | 2026-05-22 | Phase 2a — scaffolding Capacitor 7 + projet `android/` | ✅ Fait |
-| 2026-05-22 | Phase 2b — HTTP natif (`CapacitorHttp` dans `http.ts`) | ✅ Fait |
+| 2026-05-22 | Phase 2b — HTTP natif (`CapacitorHttp` + cleartext HTTP) | ✅ Fait |
 | 2026-05-22 | Phase 2e — OAuth natif Android (deep link Google/Apple) | ✅ Fait |
+| 2026-05-22 | Validation app native sur appareil réel (Galaxy S26 Ultra) | ✅ OK |
 
-**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 en cours** :
-Capacitor en place, projet `android/` généré, HTTP natif branché. Shell vérifié
-sur émulateur Android le 2026-05-22 — l'app démarre et affiche l'écran de
-connexion (le 1ᵉʳ démarrage à froid prend ~6 s, init du WebView).
+**Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 bien
+avancée** : l'app native Android tourne sur appareil réel — connexion Google
+(deep link), sélection de profil, navigation dans le catalogue et chargement
+des images fonctionnent, le tout en parlant **directement** aux serveurs Xtream
+depuis l'IP de l'appareil (plus de blocage 403). Il manque **uniquement la
+lecture vidéo**.
+
+Correctifs natifs appliqués en cours de route : `usesCleartextTraffic` (serveurs
+Xtream en HTTP) et `allowMixedContent` (covers HTTP chargées dans le WebView
+servi en HTTPS).
 
 **Prochaine étape : Phase 2c — lecteur natif libVLC** *(le gros morceau)*.
-Demande Android Studio + SDK Android installés. À faire :
+C'est la dernière brique pour que l'app soit pleinement utilisable. À faire :
 1. Choisir/intégrer un plugin Capacitor libVLC (communautaire ou plugin maison).
 2. Écrire l'implémentation native de `PlayerController` (cf. `src/types/player.types.ts`).
 3. La brancher dans la couche UI à la place de `usePlayer` quand `isNative`.
-Détails au §4 ci-dessus.
+Détails au §4 ci-dessus. Pré-requis : Android Studio + SDK (déjà installés).
