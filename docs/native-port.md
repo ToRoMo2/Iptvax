@@ -194,11 +194,54 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 > **Pré-requis machine** : builder l'APK demande **Android Studio + SDK Android**.
 > Le scaffolding (2a) et le code (2b/2c) n'en ont pas besoin ; le build final si.
 
-### Phase 3 — App Windows (Electron)
-- Shell Electron hébergeant le même build React.
-- Option A : binding libVLC. Option B (raccourci) : embarquer `server/proxy.cjs`
-  en local dans l'app → réutilise tout l'existant, tourne sur l'IP de
-  l'utilisateur, zéro réécriture du lecteur.
+### Phase 3 — App Windows (Electron) *(scaffolding fait — à valider sur machine de l'utilisateur)*
+
+Option B retenue : embarquer `server/proxy.cjs` en local. Le proxy tourne sur
+la **loopback** à un port libre choisi par l'OS, et la fenêtre Electron pointe
+sur `http://127.0.0.1:<port>/` — donc l'app tourne exactement en mode `web`
+(VITE_RUNTIME non défini, `isNative = false`), juste hébergée localement.
+Comportement web historique strictement préservé, mais les flux sortent par
+l'**IP résidentielle de l'utilisateur** → plus de blocage 403 d'IP datacenter
+(cf. §1) et zéro réécriture du lecteur (ffmpeg / sous-titres custom / parseur
+VTT inchangés).
+
+- **3a — Shell Electron + proxy embarqué** ✅ *(fait — 2026-05-23 ; à valider sur machine utilisateur)*
+  - `server/proxy.cjs` refactoré pour exporter `startServer({ port, host,
+    serveStatic, distDir })` (Promise → `{ port, server, close }`). Mode CLI
+    préservé via `require.main === module` → `npm run start` / `npm run server`
+    / Docker inchangés. Le réglage `host: '127.0.0.1'` (Electron) empêche
+    d'exposer le proxy sur le LAN, tandis qu'en CLI on reste sur `0.0.0.0`.
+  - `electron/main.cjs` : main process — appelle `startServer({ port: 0,
+    host: '127.0.0.1', serveStatic: true, distDir: '<root>/dist' })`,
+    puis ouvre `BrowserWindow` (contextIsolation activé, sandbox désactivé
+    pour pouvoir spawn ffmpeg) sur l'URL retournée. Lifecycle : `before-quit`
+    attend `serverHandle.close()` avant `app.exit(0)` → ffmpeg pipes fermés
+    proprement (sinon zombies sous Windows).
+  - **Binaires ffmpeg en bundle asar** : `ffmpeg-static` / `ffprobe-static`
+    embarquent un exécutable qui ne tourne PAS depuis une archive asar.
+    `electron-builder` les déballe en parallèle via `build.asarUnpack`
+    (`node_modules/ffmpeg-static/**` + `…/ffprobe-static/**` →
+    `app.asar.unpacked/…`). `electron/main.cjs` réécrit le chemin renvoyé
+    par chaque package (`app.asar` → `app.asar.unpacked`) et le pousse dans
+    `process.env.FFMPEG_PATH` / `FFPROBE_PATH` / `FFMPEG_PATH_SUB` AVANT
+    le `require('server/proxy.cjs')`. `pickBinary` (CLAUDE.md §IV-25) lit ces
+    env vars en priorité 1, ce qui laisse Docker (apt) et le dev local
+    (`ffmpeg-static` direct) strictement inchangés.
+  - `electron/preload.cjs` : intentionnellement vide (l'app reste 100 % web,
+    aucun pont natif). `contextIsolation` reste activé.
+  - `package.json` : `main: electron/main.cjs`, scripts `electron:dev`
+    (lance le shell sur le `dist/` actuel), `electron:start` (`build && electron .`),
+    `electron:build` (`build && electron-builder`). Bloc `build` electron-builder
+    minimal : `appId com.iptvax.app`, `productName Iptvax`, target Windows
+    NSIS, sortie dans `release/`. **Le mode `web` reste figé** : aucun
+    branchement `isNative` ajouté pour Electron — Option B → mode `web` =
+    comportement historique exact.
+- **À valider manuellement** sur la machine utilisateur :
+  - lancement (`npm run electron:start`) ouvre la fenêtre, l'app charge ;
+  - lecture d'un VOD/série qui retournait 403 sur le VPS → joue depuis
+    Electron (flux part de l'IP résidentielle) ;
+  - packaging (`npm run electron:build`) produit un installeur NSIS dans
+    `release/` et l'app installée lance ffmpeg sans erreur d'asar.
 
 ### Phase 4 — Tizen & webOS
 - Packaging propre à chaque plateforme (Tizen Studio / webOS CLI) — **pas** de
@@ -289,6 +332,7 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Validation 2d sur émulateur Android TV (lancement leanback) | ✅ OK |
 | 2026-05-22 | Phase 2f — Onboarding TV par QR code (table `tv_pairings` + plugin `TvDetect` + TvPairing/TvLink) | ✅ Fait |
 | 2026-05-23 | Validation 2f sur émulateur Android TV (appairage QR scan → connexion Google sur téléphone → choix profil → déblocage TV) | ✅ OK |
+| 2026-05-23 | Phase 3a — Scaffolding Electron (refactor `startServer`, `electron/main.cjs`, asarUnpack ffmpeg, electron-builder 25, electron 34) | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -315,12 +359,21 @@ remux ffmpeg du proxy web, beaucoup de serveurs Xtream ne le servent pas pour
 les films/épisodes → libVLC n'avait rien à lire (écran noir). Le lecteur natif
 force aussi l'orientation paysage pendant la lecture (`VlcPlayerPlugin`).
 
-**Prochaine étape : Phase 3 — App Windows (Electron).** Phase 2 entièrement
-livrée et validée. Option B (raccourci) à privilégier : embarquer
-`server/proxy.cjs` en local dans l'app Electron → IP résidentielle de
-l'utilisateur, réutilise tout l'existant côté lecture, zéro réécriture du
-lecteur. Option A (binding libVLC) reste possible si on veut le même pattern
-que sur Android (sans proxy local).
+**Phase 3a (Electron — Option B) livrée** : le shell Electron démarre
+`server/proxy.cjs` sur la loopback à un port libre, la fenêtre charge l'app
+React servie par ce proxy local. Mode `web` conservé → aucune régression sur
+le site et l'app reste 100 % UI existante. Validation locale : le proxy
+bootstrappe bien sous Electron (port libre + binaires ffmpeg-static via
+`app.asar.unpacked`) et sert `dist/` + `/api/*` correctement. **À valider sur
+la machine utilisateur** : lancement Electron en mode prod (`npm run
+electron:start`), lecture d'un flux qui retournait 403 sur le VPS (preuve que
+le flux sort par l'IP résidentielle), et packaging (`npm run electron:build`)
+produisant l'installeur NSIS.
+
+**Prochaine étape : Phase 4 — Tizen & webOS** (une fois Phase 3 validée à
+l'œil). Option A (binding libVLC dans Electron) reste possible en plan B si
+le proxy local pose un problème inattendu côté Windows — pour l'instant rien
+ne le justifie.
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) :

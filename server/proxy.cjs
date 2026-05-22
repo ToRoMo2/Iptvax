@@ -19,9 +19,12 @@ function pickBinary(...candidates) {
   }
   return candidates[candidates.length - 1];
 }
-const ffmpegPath     = pickBinary('/usr/bin/ffmpeg',       '/usr/local/bin/ffmpeg',  require('ffmpeg-static'));
-const ffprobePath    = pickBinary('/usr/bin/ffprobe',      '/usr/local/bin/ffprobe', require('ffprobe-static').path);
-const ffmpegPathSub  = pickBinary('/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg',        require('ffmpeg-static'));
+// Ordre de priorité : variables d'env (Electron pose `FFMPEG_PATH` / `FFPROBE_PATH`
+// vers les binaires unpacked, cf. electron/main.cjs et CLAUDE.md §XI Phase 3),
+// puis chemins Docker (apt 5.1.x / BtbN 7.x), puis fallback `ffmpeg-static`.
+const ffmpegPath     = pickBinary(process.env.FFMPEG_PATH,     '/usr/bin/ffmpeg',       '/usr/local/bin/ffmpeg',  require('ffmpeg-static'));
+const ffprobePath    = pickBinary(process.env.FFPROBE_PATH,    '/usr/bin/ffprobe',      '/usr/local/bin/ffprobe', require('ffprobe-static').path);
+const ffmpegPathSub  = pickBinary(process.env.FFMPEG_PATH_SUB, '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg',        require('ffmpeg-static'));
 process.stdout.write(
   `[server] ffmpeg=${ffmpegPath}\n` +
   `[server] ffprobe=${ffprobePath}\n` +
@@ -772,11 +775,43 @@ app.get('/api/stream', (req, res) => {
   });
 });
 
-// ─── Production : servir le build React ───────────────────────────────────
-if (process.env.NODE_ENV === 'production') {
-  const dist = path.join(__dirname, '..', 'dist');
-  app.use(express.static(dist));
-  app.get('/{*path}', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+// ─── Démarrage programmatique (Electron) + CLI (Docker / `npm run start`) ──
+// Le mode CLI préserve à 100 % le comportement historique (NODE_ENV=production
+// déclenche le service statique, écoute sur 0.0.0.0). Electron appelle
+// `startServer({ port: 0, host: '127.0.0.1', serveStatic: true, distDir: … })`
+// pour obtenir un port libre lié à la loopback (cf. electron/main.cjs).
+function startServer(opts = {}) {
+  const port = opts.port ?? Number(PORT);
+  const host = opts.host; // undefined → 0.0.0.0 (CLI/Docker), '127.0.0.1' (Electron)
+  const serveStatic = opts.serveStatic ?? (process.env.NODE_ENV === 'production');
+  const distDir = opts.distDir ?? path.join(__dirname, '..', 'dist');
+
+  if (serveStatic) {
+    app.use(express.static(distDir));
+    app.get('/{*path}', (_req, res) => res.sendFile(path.join(distDir, 'index.html')));
+  }
+
+  return new Promise((resolve, reject) => {
+    const onListen = () => {
+      const addr = server.address();
+      const actualPort = addr && typeof addr === 'object' ? addr.port : port;
+      console.log(`[server] port ${actualPort}${host ? ` (host ${host})` : ''}`);
+      resolve({
+        port: actualPort,
+        server,
+        close: () => new Promise((r) => server.close(() => r())),
+      });
+    };
+    const server = host ? app.listen(port, host, onListen) : app.listen(port, onListen);
+    server.on('error', reject);
+  });
 }
 
-app.listen(PORT, () => console.log(`[server] port ${PORT}`));
+module.exports = { startServer };
+
+if (require.main === module) {
+  startServer().catch((err) => {
+    console.error('[server] startup failed:', err && err.message ? err.message : err);
+    process.exit(1);
+  });
+}

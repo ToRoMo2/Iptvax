@@ -25,3 +25,6 @@ dist-ssr
 
 # Supabase CLI local state
 supabase/.temp
+
+# Electron — sortie d'electron-builder (installeurs Windows .exe, dossiers unpacked)
+release
