@@ -8,7 +8,11 @@ import {
   type ReactNode,
 } from 'react';
 import type { User } from '@supabase/supabase-js';
+import type { PluginListenerHandle } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../lib/supabase';
+import { isNative } from '../lib/platform';
 
 interface SupabaseAuthContextValue {
   user: User | null;
@@ -22,6 +26,25 @@ interface SupabaseAuthContextValue {
 }
 
 const SupabaseAuthContext = createContext<SupabaseAuthContextValue | null>(null);
+
+// Deep link de retour OAuth en mode natif : Supabase y renvoie après la
+// connexion Google/Apple ; l'app l'intercepte via @capacitor/app (intent
+// filter `com.iptvax.app` dans AndroidManifest.xml), puis échange le code
+// d'autorisation contre une session. Voir docs/native-port.md.
+const NATIVE_OAUTH_REDIRECT = 'com.iptvax.app://auth-callback';
+
+// Lance l'OAuth en mode natif : Supabase renvoie l'URL d'autorisation (flux
+// PKCE, sans redirection navigateur automatique) qu'on ouvre dans un onglet
+// système. Retourne un message d'erreur, ou null si tout va bien.
+async function startNativeOAuth(provider: 'google' | 'apple'): Promise<string | null> {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: NATIVE_OAUTH_REDIRECT, skipBrowserRedirect: true },
+  });
+  if (error) return error.message;
+  if (data?.url) await Browser.open({ url: data.url });
+  return null;
+}
 
 export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,8 +65,40 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Retour OAuth natif : l'app est rouverte via le deep link com.iptvax.app://
+  // après la connexion Google/Apple. On extrait le code d'autorisation et on
+  // l'échange contre une session (flux PKCE) → `onAuthStateChange` ci-dessus
+  // prend alors le relais. Voir docs/native-port.md.
+  useEffect(() => {
+    if (!isNative) return;
+    let handle: PluginListenerHandle | undefined;
+    App.addListener('appUrlOpen', async ({ url }) => {
+      if (!url.startsWith('com.iptvax.app://')) return;
+      try {
+        const params = new URL(url).searchParams;
+        const code = params.get('code');
+        const errDesc = params.get('error_description');
+        if (errDesc) {
+          setAuthError(errDesc);
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) setAuthError(error.message);
+        }
+      } catch {
+        setAuthError('Échec du retour de connexion.');
+      }
+      Browser.close().catch(() => {/* onglet déjà fermé */});
+    }).then((h) => { handle = h; });
+    return () => { handle?.remove(); };
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     setAuthError(null);
+    if (isNative) {
+      const err = await startNativeOAuth('google');
+      if (err) setAuthError(err);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
@@ -53,6 +108,11 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithApple = useCallback(async () => {
     setAuthError(null);
+    if (isNative) {
+      const err = await startNativeOAuth('apple');
+      if (err) setAuthError(err);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: window.location.origin },

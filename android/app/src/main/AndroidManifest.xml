@@ -22,6 +22,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Deep link OAuth : retour de connexion Google/Apple vers l'app.
+                 Supabase redirige vers com.iptvax.app://auth-callback ; Android
+                 route cette URL vers MainActivity. Voir docs/native-port.md. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.iptvax.app" />
+            </intent-filter>
+
         </activity>
 
         <provider

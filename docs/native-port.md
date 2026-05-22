@@ -92,6 +92,14 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     seek, reprise, events) consommée par la couche UI.
 - **2d — Android TV** ⬜
   - Intent leanback + navigation D-pad (`norigin-spatial-navigation` déjà là).
+- **2e — OAuth natif (deep link)** ✅ *(fait — 2026-05-22)*
+  - Connexion Google/Apple : en natif, `signInWithOAuth` ouvre un onglet
+    système (`@capacitor/browser`) ; le retour passe par le deep link
+    `com.iptvax.app://auth-callback` (intent filter dans `AndroidManifest.xml`),
+    capté via `@capacitor/app`, puis `exchangeCodeForSession` (flux PKCE).
+    Client Supabase en `flowType: 'pkce'` uniquement en natif (web inchangé).
+  - ⚙️ **Config requise côté Supabase** : ajouter `com.iptvax.app://auth-callback`
+    dans Authentication → URL Configuration → **Redirect URLs**.
 - **Valider** qu'une source qui renvoyait 403 sur le VPS joue maintenant
   (le flux part de l'IP de l'utilisateur).
 
@@ -137,8 +145,9 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 - **Images** : `/api/img` contourne les certificats HTTPS expirés des serveurs
   d'icônes IPTV. En natif, `safeImgUrl` renvoie l'URL directe → le WebView peut
   échouer sur un certificat expiré. À gérer dans les shells (Phase 2+).
-- **Auth OAuth** (Google/Apple) : le retour de redirection nécessite des deep
-  links natifs configurés par plateforme.
+- **Auth OAuth** (Google/Apple) : sur Android, fait via deep link (Phase 2e).
+  Pour Tizen / webOS / Electron, le retour de redirection devra être adapté à
+  chaque plateforme le moment venu.
 - **`tmdb.service.ts` / `utils/imageHash.ts`** utilisent `apiUrl` — vérifier
   s'ils ont besoin d'un branchement natif (TMDB lui-même est en HTTP direct,
   donc OK ; à confirmer pour le proxy d'images).
@@ -156,6 +165,7 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 | 2026-05-22 | Phase 1b — couche lecture (interface `PlayerController`) | ✅ Fait |
 | 2026-05-22 | Phase 2a — scaffolding Capacitor 7 + projet `android/` | ✅ Fait |
 | 2026-05-22 | Phase 2b — HTTP natif (`CapacitorHttp` dans `http.ts`) | ✅ Fait |
+| 2026-05-22 | Phase 2e — OAuth natif Android (deep link Google/Apple) | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2 en cours** :
 Capacitor en place, projet `android/` généré, HTTP natif branché. Shell vérifié
