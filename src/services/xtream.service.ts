@@ -11,10 +11,31 @@ import type {
   EpgListing,
 } from '../types/xtream.types';
 import { apiUrl } from '../lib/api';
+import { isNative } from '../lib/platform';
+import { httpGetJson } from '../lib/http';
 
-// ─── API Xtream (via proxy CORS) ──────────────────────────────────────────
+// ─── API Xtream ───────────────────────────────────────────────────────────
 
-function buildProxyUrl(creds: XtreamCredentials, params: Record<string, string>): string {
+// Retire un éventuel slash final (les chemins Xtream sont concaténés derrière).
+function normalizeServer(serverUrl: string): string {
+  return serverUrl.replace(/\/$/, '');
+}
+
+// URL d'appel de l'API Xtream (player_api.php).
+// - web    : via le proxy CORS /api/xtream — le backend ajoute le bon UA et
+//            contourne l'absence de CORS des serveurs Xtream.
+// - native : appel DIRECT depuis l'appareil → la requête part de l'IP de
+//            l'utilisateur (pas de blocage d'IP datacenter), aucune contrainte
+//            CORS dans un shell natif. Voir docs/native-port.md.
+function buildApiUrl(creds: XtreamCredentials, params: Record<string, string>): string {
+  if (isNative) {
+    const search = new URLSearchParams({
+      username: creds.username,
+      password: creds.password,
+      ...params,
+    });
+    return `${normalizeServer(creds.serverUrl)}/player_api.php?${search}`;
+  }
   const search = new URLSearchParams({
     _server: creds.serverUrl,
     username: creds.username,
@@ -25,12 +46,7 @@ function buildProxyUrl(creds: XtreamCredentials, params: Record<string, string>)
 }
 
 async function apiFetch<T>(creds: XtreamCredentials, params: Record<string, string>): Promise<T> {
-  const res = await fetch(buildProxyUrl(creds, params));
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  return httpGetJson<T>(buildApiUrl(creds, params));
 }
 
 // ─── Cache catalogue (durée de session) ───────────────────────────────────
@@ -118,45 +134,47 @@ export const xtreamService = {
     }, EPG_TTL),
 
   // ─── URLs de stream ────────────────────────────────────────────────────
-  // Tous les streams passent par /api/hlsproxy pour éviter les erreurs CORS.
-  // On force le format .m3u8 (HLS) pour maximiser la compatibilité navigateur.
-  // La plupart des serveurs Xtream Codes supportent HLS pour tous les contenus.
+  // - web    : tout transite par /api/hlsproxy (ou /api/liveproxy) — proxy
+  //   CORS + remux ffmpeg côté serveur. On force .m3u8 (HLS) pour la
+  //   compatibilité de l'élément <video> du navigateur.
+  // - native : URL DIRECTE (l'upstream sans l'enveloppe proxy) — le lecteur
+  //   natif (libVLC) lit nativement MKV/HEVC/MPEG-TS, et le flux part de l'IP
+  //   de l'utilisateur → aucun blocage d'IP datacenter. Voir docs/native-port.md.
 
-  // Live : HLS (.m3u8) en primaire — la plupart des serveurs Xtream Codes modernes
-  // ne supportent plus le `.ts` continu fiablement. HLS bénéficie aussi de la
-  // resync segment-par-segment et de la gestion CDN.
+  // Live : HLS (.m3u8) — la plupart des serveurs Xtream Codes modernes ne
+  // servent plus le `.ts` continu fiablement. HLS bénéficie aussi de la resync
+  // segment-par-segment et de la gestion CDN.
   getLiveStreamUrl(creds: XtreamCredentials, streamId: number): string {
     const m3u8 = `${creds.serverUrl}/live/${creds.username}/${creds.password}/${streamId}.m3u8`;
-    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
+    return isNative ? m3u8 : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
-  // Fallback : stream MPEG-TS continu via mpegts.js — utilisé si le serveur ne
-  // sert pas le live en HLS (bascule automatique sur erreur HLS fatale).
+  // Fallback live : MPEG-TS continu — utilisé si le serveur ne sert pas le
+  // live en HLS (bascule automatique sur erreur HLS fatale côté web).
   getLiveStreamTsUrl(creds: XtreamCredentials, streamId: number): string {
     const direct = `${creds.serverUrl}/live/${creds.username}/${creds.password}/${streamId}.ts`;
-    return apiUrl(`/api/liveproxy?url=${encodeURIComponent(direct)}`);
+    return isNative ? direct : apiUrl(`/api/liveproxy?url=${encodeURIComponent(direct)}`);
   },
 
-  // Films : HLS (.m3u8) en premier — HLS.js expose correctement les pistes audio/sous-titres.
-  // Fallback = fichier direct (mp4/mkv) si le serveur ne supporte pas le HLS pour ce contenu.
+  // Films : HLS (.m3u8) en premier côté web ; fichier direct en fallback.
   getVodStreamUrl(creds: XtreamCredentials, streamId: number, _ext: string): string {
     const m3u8 = `${creds.serverUrl}/movie/${creds.username}/${creds.password}/${streamId}.m3u8`;
-    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
+    return isNative ? m3u8 : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   getVodDirectUrl(creds: XtreamCredentials, streamId: number, ext: string): string {
     const direct = `${creds.serverUrl}/movie/${creds.username}/${creds.password}/${streamId}.${ext}`;
-    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
+    return isNative ? direct : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
   },
 
-  // Épisodes : même logique — HLS en premier, fichier direct en fallback
+  // Épisodes : même logique — HLS en premier côté web, fichier direct en fallback.
   getSeriesStreamUrl(creds: XtreamCredentials, episodeId: string, _ext: string): string {
     const m3u8 = `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.m3u8`;
-    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
+    return isNative ? m3u8 : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(m3u8)}`);
   },
 
   getSeriesDirectUrl(creds: XtreamCredentials, episodeId: string, ext: string): string {
     const direct = `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.${ext}`;
-    return apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
+    return isNative ? direct : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
   },
 };

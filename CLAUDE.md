@@ -137,6 +137,11 @@ docker compose down                               # arrêt
 
 ## IX. Externalisation du backend — IMPLÉMENTÉ (prérequis multi-plateforme)
 
+> ⚠️ **Pivot stratégique (2026-05) — voir §XI et [`docs/native-port.md`](./docs/native-port.md).**
+> Ce §IX (backend proxy hébergé) ne vaut désormais que pour le **site web vitrine**.
+> Les applications natives ne porteront PAS le backend proxy : elles streament en
+> direct depuis l'appareil. Garder §IX pour le contexte web ; le portage suit §XI.
+
 > **But** : rendre l'app déployable sur Samsung Tizen, LG webOS, Android (Capacitor) et iOS. Ces plateformes n'exécutent pas Node.js — le backend (ffmpeg, ffprobe, proxy Xtream) tourne sur un serveur externe (VPS, Raspberry Pi, NAS local).
 
 **Implémenté** (voir `docs/architecture.md` §5) :
@@ -166,3 +171,13 @@ docker compose down                               # arrêt
 **Env frontend** (`.env.local`, optionnels) : `VITE_PREMIUM_URL` (URL publique encodée dans le QR ; défaut = origin courant), `VITE_DEV_FORCE_PREMIUM=true` (dev only — force Premium pour tester le gating).
 
 **Gating** : routes `/journal`, `/communaute*` via `<PremiumOnly>`. Multi-profil bloqué dans `ProfileSelect` + garde-fou dans `IptvProfileContext.createProfile`. `RateBlock` + toggle « ciné public » Settings → état verrouillé. TMDB coupé à chaud via `tmdbService.setEnabled(isPremium)` (dégradation gracieuse §IV-TMDB). Tarifs : 2,49 €/mois · 17,99 €/an (`PLAN_OPTIONS` dans `src/types/subscription.types.ts`).
+
+## XI. Portage applications natives (chantier en cours)
+
+> **Cible produit** : applications natives **Android, Android TV, LG webOS, Samsung Tizen, Windows**. Elles réutilisent l'UI React, parlent **directement** aux serveurs Xtream depuis l'appareil de l'utilisateur (son IP) et lisent les flux via un **lecteur natif** (libVLC) — **aucun backend proxy**. Le site web devient une simple **vitrine** (marketing + achat Premium). Raison du pivot : un proxy central a une IP unique blacklistée par les fournisseurs IPTV (HTTP 403 sur une partie des sources) et ne scale pas (CPU ffmpeg + bande passante doublée par flux).
+>
+> **Feuille de route détaillée + état d'avancement : [`docs/native-port.md`](./docs/native-port.md).** Lire ce fichier au début de toute session liée au portage.
+
+**Garde-fou — abstraction de plateforme** : `src/lib/platform.ts` expose `isNative` / `isWeb`, figés au build via `VITE_RUNTIME` (`web` par défaut, `native` pour les shells empaquetés). Tout branchement proxy-vs-direct (URLs Xtream, images, HTTP, lecture) DOIT passer par `isNative` — jamais de détection ad-hoc. Le mode `web` reste **exactement** le comportement historique ; le mode `native` produit des URLs directes (sans `/api/*`) consommées par le lecteur natif. Le point de bascule HTTP natif est isolé dans `src/lib/http.ts`.
+
+**Avancement** : Phase 1a (couche données — `platform.ts`, `http.ts`, `xtream.service` + `image.ts` natifs) faite. Reste Phase 1b (interface `PlayerController`) puis Phases 2-5. Détail et statut à jour : `docs/native-port.md` §7.

@@ -157,6 +157,13 @@ Le pipeline média est hybride :
 
 ## 5. Architecture cible — Backend externalisé (multi-plateforme)
 
+> ⚠️ **Pivot (2026-05)** : la stratégie multi-plateforme a changé. Les apps
+> natives ne porteront PAS le backend proxy `/api/*` — elles streament en direct
+> depuis l'appareil via un lecteur natif. Le mécanisme `apiUrl` / `VITE_API_BASE_URL`
+> ci-dessous ne sert plus qu'au **site web (vitrine)**. Le découplage proxy-vs-direct
+> passe désormais par `src/lib/platform.ts` (`isNative`). Feuille de route du
+> portage natif : [`native-port.md`](./native-port.md).
+
 > Ce §5 décrit l'état **à implémenter** (voir `CLAUDE.md` §IX pour le contexte et les commandes).
 
 ### Problème

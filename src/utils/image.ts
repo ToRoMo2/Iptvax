@@ -1,4 +1,5 @@
 import { apiUrl } from '../lib/api';
+import { isNative } from '../lib/platform';
 
 /**
  * Valide qu'une URL d'image est absolue (commence par http:// ou https://) et
@@ -20,5 +21,9 @@ export function safeImgUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
   const trimmed = url.trim();
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return undefined;
+  // Natif : l'image est chargée directement par le WebView (pas de proxy). Le
+  // contournement de certificat HTTPS expiré qu'offre /api/img devra être géré
+  // au niveau du shell natif si nécessaire — voir docs/native-port.md.
+  if (isNative) return trimmed;
   return apiUrl(`/api/img?url=${encodeURIComponent(trimmed)}`);
 }
