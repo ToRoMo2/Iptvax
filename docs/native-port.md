@@ -145,9 +145,11 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   côté natif (recharger le WebView au lieu de laisser Android tuer l'app) — sera
   important pour les box Android TV. Piste perf : exclure hls.js/mpegts.js des
   builds natifs (le lecteur natif les remplace).
-- **Images** : `/api/img` contourne les certificats HTTPS expirés des serveurs
-  d'icônes IPTV. En natif, `safeImgUrl` renvoie l'URL directe → le WebView peut
-  échouer sur un certificat expiré. À gérer dans les shells (Phase 2+).
+- **Images** : en natif, `safeImgUrl` renvoie l'URL directe. Les covers Xtream
+  en HTTP sont autorisées via `allowMixedContent` (`capacitor.config.ts`) +
+  `usesCleartextTraffic`. ⚠️ Reste non géré : les images HTTPS à certificat
+  expiré (que `/api/img` contournait côté web) — nécessitera un override natif
+  `onReceivedSslError` si le cas se présente.
 - **Auth OAuth** (Google/Apple) : sur Android, fait via deep link (Phase 2e).
   Pour Tizen / webOS / Electron, le retour de redirection devra être adapté à
   chaque plateforme le moment venu.
