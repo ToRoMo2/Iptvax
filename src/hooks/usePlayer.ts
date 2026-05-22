@@ -357,12 +357,23 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         seekOffsetRef.current = doSeek ? pos : 0;
         currentTimeRef.current = pos;
         lastTimeRef.current = 0;
-        console.warn('[player] codec vidéo non décodable — bascule transcodage H.264');
+        console.warn(`[player] erreur lecture (code ${errCode ?? '?'}) — bascule transcodage H.264`);
         setStatus('loading');
         setSubtitleText('');
         video.src = buildStreamUrl(directSourceRef.current, audio, doSeek ? pos : undefined, true);
         video.load();
-        video.play().catch(() => setStatus('paused'));
+        // Le flux transcodé met plus de temps à produire sa première frame
+        // (ffmpeg ré-encode la vidéo) → un seul play() peut partir avant que
+        // le média soit prêt et laisser le lecteur coincé en pause. On retente
+        // donc sur canplay/loadeddata, comme le chemin de chargement direct.
+        const onTranscodeReady = () => {
+          video.removeEventListener('canplay', onTranscodeReady);
+          video.removeEventListener('loadeddata', onTranscodeReady);
+          video.play().catch(() => setStatus('paused'));
+        };
+        video.addEventListener('canplay', onTranscodeReady);
+        video.addEventListener('loadeddata', onTranscodeReady);
+        video.play().catch(() => {/* trop tôt — on retentera sur canplay */});
         return;
       }
 
@@ -389,7 +400,10 @@ export function usePlayer(url: string | null, mediaUrl?: string | null) {
         return;
       }
       setStatus('error');
-      setError('Erreur de lecture (source incompatible ou CORS)');
+      const finalCode = video.error?.code;
+      setError(
+        `Erreur de lecture (source incompatible ou CORS${finalCode ? ` — code ${finalCode}` : ''})`,
+      );
     };
     const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
 

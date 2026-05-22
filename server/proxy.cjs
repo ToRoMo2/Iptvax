@@ -711,11 +711,18 @@ app.get('/api/stream', (req, res) => {
     // Repli transcodage : le navigateur n'a pas su décoder le flux `-c:v copy`.
     // H.264 8-bit est le seul codec décodable partout. -pix_fmt yuv420p force
     // le 8-bit (les sources HEVC sont souvent 10-bit High 10 → non décodables).
+    // -tune zerolatency : pas de B-frames ni de lookahead → fMP4 simple et
+    // première frame émise sans délai d'encodage. -g 48 : keyframe ~toutes les
+    // 2 s → combiné à frag_keyframe, ffmpeg émet de petits fragments → le
+    // lecteur reçoit de quoi démarrer en ~1-2 s (sinon il attend tout un GOP
+    // de ~250 images ≈ 10 s avant la moindre frame lisible → coincé en pause).
     ffArgs.push(
       '-c:v', 'libx264',
       '-preset', 'veryfast',
+      '-tune', 'zerolatency',
       '-crf', '23',
       '-pix_fmt', 'yuv420p',
+      '-g', '48',
     );
   } else {
     ffArgs.push('-c:v', 'copy');
