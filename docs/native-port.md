@@ -352,14 +352,46 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
   - Note WebView Tizen 4.0 : Chromium ancien → vérifier le `build.target` de
     Vite si du JS moderne (top-level await, certains operators) explose.
 
-- **4d — Scaffolding webOS** — *(à venir)*
+- **4d — Scaffolding webOS** ✅ *(fait — 2026-05-23)*
   - `webos/appinfo.json` (manifeste LG), icônes 80×80 + 130×130,
     `scripts/build-webos.mjs` + script npm `build:webos`. Packaging manuel via
-    `ares-package webos/build/` (CLI `@webosose/ares-cli`).
+    `ares-package webos/Iptvax -o webos` (CLI `@webosose/ares-cli`).
+  - Trois correctifs appliqués pendant la validation sur simulateur webOS 26 :
+    1. **`setSession()` error check + `window.location.reload()`**
+       (`src/pages/TvPairing.tsx`) : Supabase retourne `{ data, error }` sans
+       lancer d'exception — l'erreur était ignorée ; sur webOS le navigateur
+       embarqué ne déclenche pas `onAuthStateChange` → reload forcé après
+       `setSession` réussi pour que `getSession()` récupère la session depuis
+       le storage.
+    2. **`http.ts` branché sur `isCapacitor` au lieu de `isNative`** : le
+       branchement `isNative → CapacitorHttp` incluait webOS (et Tizen) qui
+       n'ont pas de Capacitor runtime → toutes les requêtes catalogue
+       échouaient silencieusement. `isCapacitor` (Android uniquement) règle
+       le ciblage ; webOS/Tizen utilisent `fetch` standard.
+    3. **`HashRouter` pour webOS et Tizen** (`src/App.tsx`) : les apps
+       empaquetées `.ipk`/`.wgt` sont servies depuis `file://` ou une URL
+       interne dont le `pathname` n'est pas `/`. Avec `BrowserRouter`,
+       `<Route path="/">` ne correspondait jamais → `main-content` restait
+       vide (noir) malgré TopNav visible et auth Xtream réussie. `HashRouter`
+       utilise `window.location.hash` — invariant par rapport au pathname de
+       base. `BrowserRouter` reste inchangé pour web et Capacitor.
+  - **Résultat** : sur simulateur webOS 26, après appairage QR → reload →
+    l'app affiche TopNav + contenu (catalogue Xtream). ✅
+  - **Limitation connue post-4d** : les assets statiques référencés par chemin
+    absolu dans le JSX (`/logo.png`, `/tmdb.png`) ne se chargent pas dans le
+    shell webOS (chemin `/` ne résout pas vers le dossier de l'app). À corriger
+    en Phase 4e : utiliser des imports Vite ou des chemins relatifs (`./logo.png`
+    etc.) pour que le bundler les gère correctement.
 
-- **4e — Lecteur webOS** — *(à venir)*
-  - v1 : `<video>` HTML5 + `hls.js` déjà bundlé (webOS lit HLS/MP4/MKV nativement
-    depuis 4.0). Si insuffisant pour le multi-audio → v2 via Media Pipeline
+- **4e — Lecteur webOS + polish assets** — *(à venir)*
+  - **Correction assets statiques** : `AppLogo` et `TmdbPill` référencent
+    `/logo.png` et `/tmdb.png` (chemin absolu) → à remplacer par des imports
+    Vite (`import logoUrl from './logo.png?url'`) ou par `new URL('../public/logo.png', import.meta.url)` pour que Vite les réécrive avec le bon chemin relatif dans le bundle `.ipk`.
+  - **Lecteur vidéo** : v1 `<video>` HTML5 + `hls.js` déjà bundlé (webOS lit
+    HLS/MP4/MKV nativement depuis 4.0). `VideoPlayer.tsx` branche sur
+    `useWebOSPlayer` (nouveau hook) quand `isWebOS`. Ce hook utilise
+    `<video>` + `hls.js` avec l'URL directe Xtream (sans proxy ffmpeg). Si
+    insuffisant pour le multi-audio → v2 via Media Pipeline
     (`luna://com.webos.media`).
 
 - **Pré-requis machine pour 4c+** : pour Tizen, l'extension VS Code + un
@@ -470,6 +502,10 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
 | 2026-05-23 | Install `tz install` étape 1 : ❌ `download failed[116]` corrigé en créant un **Samsung Certificate** (profil `Iptvax-TV` avec Author + Distributor Samsung lié DUID `BDCJ72JNDIBYM`). | ✅ Signature OK |
 | 2026-05-23 | Install `tz install` étape 2 : ❌ `install failed[118012]` **systématiquement à 23 %**, indépendamment du wgt (Iptvax ET Probe template Samsung vierge échouent pareil, en CLI `tz` ET via le bouton Run Project de l'extension VS Code). Wgt structurellement OK ; cert Samsung avec DUID correcte ; Factory Reset TV fait ; mode dev réactivé. → **Mur côté Samsung confirmé : sideload Individual / Public n'est plus accepté sur les TV Tizen 4.0 (UE_NU76xx 2018) depuis ~2024-2025** (politique Samsung restreinte aux comptes Partner). Pas de voie restante côté repo. Phase 4 pivote sur LG webOS — ré-attaque Samsung Tizen plus tard via émulateur, Samsung Partner, ou TV plus récente. | 🛑 Bloqué (Samsung policy) |
 | 2026-05-23 | Phase 4d — Scaffolding LG webOS (`webos/appinfo.json`, icônes `icon.png` 80×80 + `largeIcon.png` 130×130 générées depuis `public/logo.png`, `scripts/build-webos.mjs`, script npm `build:webos`, `webos/.gitignore`) | ✅ Fait |
+| 2026-05-23 | Correctif 4d-1 : `TvPairing.tsx` — `setSession()` error check + `window.location.reload()` (webOS n'émet pas `onAuthStateChange` dans le navigateur embarqué) | ✅ Fait |
+| 2026-05-23 | Correctif 4d-2 : `http.ts` — branchement `isCapacitor` au lieu de `isNative` pour `CapacitorHttp` (Tizen/webOS n'ont pas de runtime Capacitor → fetch standard) | ✅ Fait |
+| 2026-05-23 | Correctif 4d-3 : `App.tsx` — `HashRouter` pour `isWebOS \|\| isTizen` (pathname `file://` ≠ `/` → `<Route path="/">` ne correspondait jamais → main-content vide/noir) | ✅ Fait |
+| 2026-05-23 | Validation 4d sur simulateur webOS 26 : appairage QR → reload → catalogue Xtream visible. Assets statiques (`/logo.png`, `/tmdb.png`) non résolus dans le shell webOS → à corriger Phase 4e | ✅ App fonctionne (logos à corriger) |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -608,27 +644,41 @@ La TV de validation est appairée (`sdb capability` répond `platform_version:
 (`<video>` + ffmpeg) n'a aucun fichier à attaquer en natif — c'est l'objet de
 Phase 4c.
 
-**Phase 4d côté repo livrée** (scaffolding webOS). `npm run build:webos`
-produit `webos/Iptvax/` complet : `index.html` + assets Vite (bundle figé
-sur `VITE_RUNTIME=webos` → `isNative` + `isWebOS`) + `appinfo.json`
-(manifeste LG : `id=com.iptvax.app`, `type=web`, `resolution=1920x1080`,
-`disableBackHistoryAPI=true` pour intercepter le bouton Back de la
-télécommande, `supportTouchMode=none`) + `icon.png` 80×80 + `largeIcon.png`
-130×130 (générés depuis `public/logo.png` 500×500 — source unique, à la
-manière de Tizen). Le `.gitignore` exclut `Iptvax/` et `*.ipk`. Pas de
-fichiers de structure type `.project` / `.tproject` à fabriquer : `ares-
-package` se contente du dossier + `appinfo.json` valide — strictement plus
-simple que la chaîne Tizen. Pré-requis machine : compte LG Developer +
-`@webosose/ares-cli` (npm global) + Developer Mode TV activé via l'app
-« Developer Mode » du LG Content Store + appairage `ares-setup-device`
-(host, port 9922, passphrase Developer Mode renouvelable toutes les ~50 h).
+**Phase 4d livrée et validée** (scaffolding webOS + correctifs de validation).
+`npm run build:webos` produit `webos/Iptvax/` complet : `index.html` + assets
+Vite (bundle figé sur `VITE_RUNTIME=webos` → `isNative` + `isWebOS`) +
+`appinfo.json` (manifeste LG : `id=com.iptvax.app`, `type=web`,
+`resolution=1920x1080`, `disableBackHistoryAPI=true`, `supportTouchMode=none`)
++ `icon.png` 80×80 + `largeIcon.png` 130×130 (générés depuis `public/logo.png`
+500×500). Pas de fichiers `.project`/`.tproject` : `ares-package` se contente
+du dossier + `appinfo.json` valide.
 
-**Prochaine étape : Phase 4e — Lecteur webOS.** webOS est historiquement
-plus permissif sur le sideload Individual via `ares-install`. v1 visée :
-`<video>` HTML5 + `hls.js` déjà bundlé — webOS lit HLS/MP4/MKV nativement
-depuis 4.0. Si insuffisant pour le multi-audio → v2 via Media Pipeline
-(`luna://com.webos.media`). Option A (binding libVLC dans Electron) reste
-possible en plan B côté Windows — pour l'instant rien ne le justifie.
+Trois correctifs appliqués lors de la validation sur simulateur webOS 26 :
+**(1)** `TvPairing.tsx` — vérification de `setSession()` + `window.location.reload()`
+(le navigateur embarqué webOS n'émet pas `onAuthStateChange`) ;
+**(2)** `http.ts` — branchement `isCapacitor` au lieu de `isNative` pour
+`CapacitorHttp` (webOS/Tizen n'ont pas de runtime Capacitor — toutes les
+requêtes catalogue échouaient silencieusement) ;
+**(3)** `App.tsx` — `HashRouter` pour `isWebOS || isTizen` (les apps `.ipk`/`.wgt`
+sont servies depuis `file://` ou une URL interne dont le pathname ≠ `/` → avec
+`BrowserRouter`, `<Route path="/">` ne correspondait jamais → `main-content`
+restait noir malgré TopNav visible et auth Xtream réussie).
+
+Résultat : sur simulateur webOS 26, appairage QR → reload → catalogue Xtream
+visible ✅. **Limitation restante** : les assets statiques référencés avec
+des chemins absolus (`/logo.png`, `/tmdb.png`) ne sont pas résolus dans le
+shell webOS → AppLogo et TmdbPill n'affichent rien. À corriger en Phase 4e.
+
+**Prochaine étape : Phase 4e — Lecteur webOS + correction assets.** Deux
+objectifs :
+1. **Assets statiques** : corriger `AppLogo` (SVG inline ou import Vite) et
+   `TmdbPill` (`import tmdbUrl from '/tmdb.png?url'` → chemin relatif) pour
+   que les logos apparaissent dans le shell webOS.
+2. **Lecteur vidéo** : implémenter `useWebOSPlayer` (`src/hooks/useWebOSPlayer.ts`)
+   — `PlayerController` pour webOS utilisant `<video>` HTML5 + `hls.js`
+   directement avec l'URL Xtream (pas de proxy ffmpeg). Brancher dans
+   `VideoPlayer.tsx` sur `isWebOS`. v2 si insuffisant : Media Pipeline webOS
+   (`luna://com.webos.media`).
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) :
