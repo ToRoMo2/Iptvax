@@ -12,6 +12,7 @@
     "build:capacitor": "cross-env VITE_RUNTIME=capacitor npm run build",
     "build:native": "npm run build:capacitor",
     "build:tizen": "node scripts/build-tizen.mjs",
+    "build:webos": "node scripts/build-webos.mjs",
     "cap:sync": "npm run build:capacitor && cap sync",
     "cap:android": "cap open android",
     "electron:dev": "electron .",

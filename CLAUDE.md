@@ -109,6 +109,7 @@ npm run electron:dev    # shell Electron sur le dist/ courant (proxy embarqué, 
 npm run electron:start  # build React + lance Electron (test prod-like)
 npm run electron:build  # build React + electron-builder → installeur Windows NSIS dans release/
 npm run build:tizen     # bundle Samsung TV → tizen/Iptvax/ (puis packaging manuel : tz pack -t wgt -s Iptvax tizen/Iptvax ; install : tz install -p tizen/Iptvax/Release/Iptvax.wgt -e <IP_TV>:26101)
+npm run build:webos     # bundle LG TV → webos/Iptvax/ (puis packaging manuel : ares-package webos/Iptvax -o webos ; install : ares-install -d <TV> webos/com.iptvax.app_1.0.0_all.ipk)
 npm run lint            # ESLint strict
 npm run preview         # Aperçu du build prod
 ```

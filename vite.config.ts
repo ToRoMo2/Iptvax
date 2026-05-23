@@ -882,7 +882,16 @@ function iptvProxyPlugin(): Plugin {
   };
 }
 
+// Les shells natifs Tizen (.wgt) et webOS (.ipk) chargent `index.html` depuis
+// un contexte où `/` n'est pas la racine de l'app (file:// ou équivalent) →
+// les chemins absolus que Vite émet par défaut (`/assets/…`) partent en 404 et
+// la page reste vide. On bascule sur des chemins relatifs (`./assets/…`) pour
+// ces deux runtimes uniquement. Web et Capacitor restent inchangés : le proxy
+// (web) et le scheme `http://localhost` (Capacitor) résolvent `/` correctement.
+const NATIVE_RELATIVE_BASE = process.env.VITE_RUNTIME === 'tizen' || process.env.VITE_RUNTIME === 'webos';
+
 export default defineConfig({
+  base: NATIVE_RELATIVE_BASE ? './' : '/',
   plugins: [react(), iptvProxyPlugin()],
   build: {
     chunkSizeWarningLimit: 600,

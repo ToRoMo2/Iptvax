@@ -469,6 +469,7 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
 | 2026-05-23 | Packaging `tz pack` → `Iptvax.wgt` 708 KB signé. Diagnostic clé : `<!-- commentaire -->` en tête de `config.xml` faisait échouer `tz pack` avec erreur trompeuse « invalid path ». Retiré → packaging passe. Détails et pièges associés : prose §7. | ✅ OK |
 | 2026-05-23 | Install `tz install` étape 1 : ❌ `download failed[116]` corrigé en créant un **Samsung Certificate** (profil `Iptvax-TV` avec Author + Distributor Samsung lié DUID `BDCJ72JNDIBYM`). | ✅ Signature OK |
 | 2026-05-23 | Install `tz install` étape 2 : ❌ `install failed[118012]` **systématiquement à 23 %**, indépendamment du wgt (Iptvax ET Probe template Samsung vierge échouent pareil, en CLI `tz` ET via le bouton Run Project de l'extension VS Code). Wgt structurellement OK ; cert Samsung avec DUID correcte ; Factory Reset TV fait ; mode dev réactivé. → **Mur côté Samsung confirmé : sideload Individual / Public n'est plus accepté sur les TV Tizen 4.0 (UE_NU76xx 2018) depuis ~2024-2025** (politique Samsung restreinte aux comptes Partner). Pas de voie restante côté repo. Phase 4 pivote sur LG webOS — ré-attaque Samsung Tizen plus tard via émulateur, Samsung Partner, ou TV plus récente. | 🛑 Bloqué (Samsung policy) |
+| 2026-05-23 | Phase 4d — Scaffolding LG webOS (`webos/appinfo.json`, icônes `icon.png` 80×80 + `largeIcon.png` 130×130 générées depuis `public/logo.png`, `scripts/build-webos.mjs`, script npm `build:webos`, `webos/.gitignore`) | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -607,13 +608,27 @@ La TV de validation est appairée (`sdb capability` répond `platform_version:
 (`<video>` + ffmpeg) n'a aucun fichier à attaquer en natif — c'est l'objet de
 Phase 4c.
 
-**Prochaine étape : Phase 4d/4e — pivot LG webOS.** Phase 4c Tizen (lecteur
-AVPlay) est différée tant qu'on n'a pas une voie d'install validée (TV plus
-récente, émulateur, ou compte Partner). webOS est historiquement plus
-permissif sur le sideload Individual via `ares-install` ; on attaque ce
-front avec la même TV LG personnelle de l'utilisateur. Option A (binding
-libVLC dans Electron) reste possible en plan B côté Windows — pour l'instant
-rien ne le justifie.
+**Phase 4d côté repo livrée** (scaffolding webOS). `npm run build:webos`
+produit `webos/Iptvax/` complet : `index.html` + assets Vite (bundle figé
+sur `VITE_RUNTIME=webos` → `isNative` + `isWebOS`) + `appinfo.json`
+(manifeste LG : `id=com.iptvax.app`, `type=web`, `resolution=1920x1080`,
+`disableBackHistoryAPI=true` pour intercepter le bouton Back de la
+télécommande, `supportTouchMode=none`) + `icon.png` 80×80 + `largeIcon.png`
+130×130 (générés depuis `public/logo.png` 500×500 — source unique, à la
+manière de Tizen). Le `.gitignore` exclut `Iptvax/` et `*.ipk`. Pas de
+fichiers de structure type `.project` / `.tproject` à fabriquer : `ares-
+package` se contente du dossier + `appinfo.json` valide — strictement plus
+simple que la chaîne Tizen. Pré-requis machine : compte LG Developer +
+`@webosose/ares-cli` (npm global) + Developer Mode TV activé via l'app
+« Developer Mode » du LG Content Store + appairage `ares-setup-device`
+(host, port 9922, passphrase Developer Mode renouvelable toutes les ~50 h).
+
+**Prochaine étape : Phase 4e — Lecteur webOS.** webOS est historiquement
+plus permissif sur le sideload Individual via `ares-install`. v1 visée :
+`<video>` HTML5 + `hls.js` déjà bundlé — webOS lit HLS/MP4/MKV nativement
+depuis 4.0. Si insuffisant pour le multi-audio → v2 via Media Pipeline
+(`luna://com.webos.media`). Option A (binding libVLC dans Electron) reste
+possible en plan B côté Windows — pour l'instant rien ne le justifie.
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) :

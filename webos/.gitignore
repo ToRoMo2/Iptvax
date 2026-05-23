@@ -1,0 +1,6 @@
+# Sortie du script scripts/build-webos.mjs — régénérée à chaque build.
+# Contient le bundle Vite + appinfo.json + icônes prêts pour ares-package.
+Iptvax/
+
+# Paquets produits par `ares-package` (.ipk signé webOS).
+*.ipk

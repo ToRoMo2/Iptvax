@@ -151,12 +151,11 @@ export function TvLink() {
     );
   }
 
-  /* ── Connexion requise ──────────────────────────────────────────────── */
-  if (!user) {
-    return <Login redirectTo={`${window.location.origin}/tv-link`} />;
-  }
-
   /* ── TV liée ────────────────────────────────────────────────────────── */
+  // ⚠ Doit être AVANT le check `!user`. À la fin de `link()` on appelle
+  // `signOut({scope:'local'})` → l'utilisateur courant devient null avant que
+  // `setPhase('done')` ne re-render. Sans ce reordering, le succès retombe
+  // sur l'écran de Login au lieu d'afficher la confirmation.
   if (phase === 'done') {
     return (
       <div className={styles.screen}>
@@ -168,6 +167,16 @@ export function TvLink() {
         </div>
       </div>
     );
+  }
+
+  /* ── Connexion requise ──────────────────────────────────────────────── */
+  // On inclut le code dans le `redirectTo` : certains navigateurs mobiles
+  // (iOS Safari notamment) vident `sessionStorage` pendant les redirections
+  // OAuth externes → le filet `CODE_STORAGE_KEY` saute et la page retombe sur
+  // "Lien QR incorrect" au retour. L'URL est la seule porteuse fiable.
+  if (!user) {
+    const back = `${window.location.origin}/tv-link?code=${encodeURIComponent(code)}`;
+    return <Login redirectTo={back} />;
   }
 
   /* ── Code expiré : la TV en a généré un nouveau ───────────────────── */
