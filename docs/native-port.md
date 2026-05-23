@@ -45,7 +45,7 @@ serveur à payer.
 | Lecteur natif | **libVLC** | Lit tout (MKV, HEVC, MPEG-TS, sous-titres) — la raison d'être de ffmpeg |
 | Windows | **Electron** | Option B possible : embarquer `server/proxy.cjs` en local (IP résidentielle) → réutilise tout l'existant |
 | Ordre des plateformes | Android → Android TV → Windows → Tizen/webOS | Audience + difficulté croissante |
-| Mode d'exécution | `VITE_RUNTIME` (`web` \| `native`), figé au build | Marche pour tous les shells (Capacitor / Electron / Tizen / webOS) |
+| Mode d'exécution | `VITE_RUNTIME` (`web` \| `capacitor` \| `tizen` \| `webos`), figé au build | Une valeur par shell ; `isNative` = union des 3 sous-modes natifs (bascule data layer commune) ; Electron reste sur `web` (Option B) |
 | Paiement | Toujours sur la **vitrine web** | Évite Google Play Billing (commission 15-30 % sur les achats in-app de biens numériques) |
 | Onboarding TV | Page d'accueil + **QR code** (auth + creds saisis sur le téléphone) | Saisie texte à la télécommande pénible ; le téléphone est déjà l'écran de création de compte / profil — voir Phase 2f |
 
@@ -55,7 +55,8 @@ serveur à payer.
 Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
 
 - **1a — Couche données** ✅ *(fait — 2026-05-22)*
-  - `src/lib/platform.ts` : `isNative` / `isWeb` (lit `VITE_RUNTIME`).
+  - `src/lib/platform.ts` : `isNative` / `isWeb` + sous-flags `isCapacitor` /
+    `isTizen` / `isWebOS` (lit `VITE_RUNTIME`).
   - `src/lib/http.ts` : `httpGetJson` — point de bascule unique vers le HTTP natif.
   - `src/services/xtream.service.ts` : URLs d'API et de stream **directes** en
     mode natif (sans proxy), comportement web inchangé.
@@ -80,8 +81,10 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - `capacitor.config.ts` : appId `com.iptvax.app`, appName `Iptvax`, webDir `dist`.
   - Projet natif généré dans `android/` (versionné ; le `.gitignore` Capacitor
     exclut les artefacts de build, les assets web copiés, `local.properties`).
-  - Scripts npm : `build:native` (build avec `VITE_RUNTIME=native`), `cap:sync`
-    (build natif + `cap sync`), `cap:android` (ouvre Android Studio).
+  - Scripts npm : `build:capacitor` (build avec `VITE_RUNTIME=capacitor`),
+    `cap:sync` (build Capacitor + `cap sync`), `cap:android` (ouvre Android
+    Studio). `build:native` est gardé comme alias rétrocompatible de
+    `build:capacitor`.
 - **2b — HTTP natif** ✅ *(fait — 2026-05-22)*
   - `src/lib/http.ts` : en mode natif, `httpGetJson` utilise `CapacitorHttp`
     (client HTTP natif — ignore le CORS, pose le `User-Agent`). Mode web
@@ -281,11 +284,88 @@ VTT inchangés).
     Supabase refuse la redirection vers le protocole custom.
 
 ### Phase 4 — Tizen & webOS
-- Packaging propre à chaque plateforme (Tizen Studio / webOS CLI) — **pas** de
-  Capacitor, ça reste une web-app.
-- Implémentation `PlayerController` via le lecteur natif de la plateforme
-  (Tizen **AVPlay**, APIs média webOS).
-- Déclarer les privilèges réseau pour les appels Xtream directs.
+
+Ordre arrêté : **Tizen d'abord**, puis webOS. Trois raisons : AVPlay est
+l'équivalent direct de libVLC (toutes pistes, tous codecs nativement),
+audience plus large (~32 % marché TV connecté), outillage Samsung plus mature
+(la nouvelle extension VS Code « Tizen » remplace Tizen Studio Eclipse et
+embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
+
+- **4a — Refactor préparatoire `platform.ts`** ✅ *(fait — 2026-05-23)*
+  - `RuntimeMode` étendue à `web | capacitor | tizen | webos` ; sous-flags
+    `isCapacitor` / `isTizen` / `isWebOS` ajoutés. `isNative` reste l'union
+    des 3 sous-modes natifs → la couche données (`xtream.service.ts`,
+    `image.ts`, `http.ts`) est strictement intouchée.
+  - `initTvDetection` étendue : court-circuit `true` pour Tizen/webOS (TV par
+    construction), garde l'appel plugin Capacitor pour Android.
+  - Script npm `build:native` renommé `build:capacitor` (alias rétrocompatible
+    conservé) ; `cap:sync` pointe sur `build:capacitor`.
+
+- **4b — Scaffolding Tizen** ✅ *(fait — 2026-05-23 ; sans Tizen Studio requis)*
+  - `tizen/config.xml` : manifeste W3C Widget Samsung TV, profile `tv-samsung`,
+    `required_version="4.0"` (cible TV 2018+), `<access origin="*">`, privilège
+    `internet`, orientation paysage forcée, `background-support="disable"`.
+  - `scripts/build-tizen.mjs` : orchestre `VITE_RUNTIME=tizen vite build` →
+    assemble `tizen/build/` (index.html + assets + config.xml + icon.png +
+    fichiers de structure exigés par la CLI Samsung : `.project`, `.tproject`,
+    `tizen_web_project.yaml`). L'icône est copiée depuis `public/logo.png`
+    → source unique de vérité. Le yaml descripteur est posé nous-mêmes
+    plutôt que laissé à `tz build` car ce dernier produit des valeurs par
+    défaut inadaptées (cf. prose §7 sur le rootstrap manquant).
+  - `tizen/.gitignore` : ignore `build/` et `*.wgt`.
+  - Script npm `build:tizen` câblé.
+  - **Workflow CLI moderne (post-Tizen Studio Eclipse)** — la nouvelle CLI
+    Samsung s'appelle `tz` (« Tizen Core »), pas l'ancien `tizen`. Les verbes
+    ont changé : c'est `tz pack` (et non `tz package`), et il y a une étape
+    facultative `tz build` avant. Les binaires `tz.exe` et `sdb.exe` sont dans
+    `%USERPROFILE%\.tizen-extension-platform\server\sdktools\data\tools\`
+    (à ajouter au PATH user pour les commandes manuelles depuis n'importe quel
+    terminal).
+  - Pré-requis machine documenté : extension VS Code « Tizen » + TIZEN-TV
+    installé via Package Manager + **rootstrap TV Samsung installé** (cf.
+    prose §7 — l'absence de rootstrap fait échouer `tz pack` avec une erreur
+    « invalid path » trompeuse) + certificat « Iptvax » créé via Certificate
+    Manager.
+  - **Validation sur TV réelle** : `sdb capability` répond `profile_name: tv`,
+    `vendor_name: Samsung`, `platform_version: 4.0` → la TV est appairée et
+    prête à recevoir un `.wgt` une fois le rootstrap installé et Phase 4c
+    livrée.
+
+- **4c — Lecteur Tizen (AVPlay)** — *(à venir)*
+  - `src/hooks/useTizenPlayer.ts` : implémentation `PlayerController` via
+    `webapis.avplay` (API JS injectée par le shell Tizen).
+  - Typings minimaux dans `src/native/tizenAvplay.ts`.
+  - `<object type="application/avplayer">` injecté conditionnellement par
+    `VideoPlayer.tsx` quand `isTizen`.
+  - Branchement final dans `VideoPlayer.tsx` :
+    ```ts
+    const player =
+      isTizen     ? useTizenPlayer(url, mediaUrl) :
+      isWebOS     ? useWebOSPlayer(url, mediaUrl) :
+      isCapacitor ? useNativePlayer(url, mediaUrl) :
+                    usePlayer(url, mediaUrl);
+    ```
+  - **Risque pivot** à valider avant tout code : tester un échantillon de flux
+    Xtream variés (HLS, MKV direct, HEVC) sur l'émulateur ou la TV avec un
+    AVPlay minimal — si AVPlay ne lit pas un container qu'on a, retomber sur
+    Media Pipeline (alternative bas niveau).
+  - Note WebView Tizen 4.0 : Chromium ancien → vérifier le `build.target` de
+    Vite si du JS moderne (top-level await, certains operators) explose.
+
+- **4d — Scaffolding webOS** — *(à venir)*
+  - `webos/appinfo.json` (manifeste LG), icônes 80×80 + 130×130,
+    `scripts/build-webos.mjs` + script npm `build:webos`. Packaging manuel via
+    `ares-package webos/build/` (CLI `@webosose/ares-cli`).
+
+- **4e — Lecteur webOS** — *(à venir)*
+  - v1 : `<video>` HTML5 + `hls.js` déjà bundlé (webOS lit HLS/MP4/MKV nativement
+    depuis 4.0). Si insuffisant pour le multi-audio → v2 via Media Pipeline
+    (`luna://com.webos.media`).
+
+- **Pré-requis machine pour 4c+** : pour Tizen, l'extension VS Code + un
+  certificat actif suffisent. Pour webOS, installer `@webosose/ares-cli`
+  (npm global) + compte LG Developer + TV en Developer Mode (app dédiée du
+  LG Content Store).
 
 ### Phase 5 — Site vitrine
 - Réduire le web à : marketing, connexion, achat Premium, gestion du compte,
@@ -295,10 +375,20 @@ VTT inchangés).
 
 ## 5. Conventions
 
-- **`VITE_RUNTIME`** : non défini ou `web` → mode web (proxy). `native` → mode
-  natif (direct). Chaque shell natif construit le bundle avec `VITE_RUNTIME=native`.
-- **Garde-fou** : tout branchement proxy-vs-direct passe par `isNative` de
-  `src/lib/platform.ts`. Jamais de détection ad-hoc ailleurs.
+- **`VITE_RUNTIME`** : non défini ou `web` → mode web (proxy). Sinon une des
+  trois valeurs natives : `capacitor` (Android), `tizen` (Samsung TV), `webos`
+  (LG TV). Chaque shell natif construit le bundle avec sa valeur ; Electron
+  reste sur `web` (Option B : proxy local embarqué).
+- **`isNative`** = union des 3 sous-modes natifs → c'est ce drapeau qui pilote
+  la bascule **data layer** (URLs Xtream directes, `safeImgUrl` direct, etc.).
+  Inchangé sémantiquement par l'ajout de Tizen/webOS.
+- **`isCapacitor` / `isTizen` / `isWebOS`** : à utiliser uniquement pour des
+  branchements **spécifiques à un shell** (ex. choix du lecteur natif : libVLC
+  pour Capacitor, AVPlay pour Tizen, `<video>` pour webOS ; HTTP via
+  `CapacitorHttp` pour Capacitor, `fetch` pour Tizen/webOS).
+- **Garde-fou** : tout branchement proxy-vs-direct passe par `isNative` ; tout
+  branchement spécifique à un shell passe par son sous-flag dédié. Jamais de
+  détection ad-hoc ailleurs.
 - Le mode `web` doit **toujours** rester le comportement historique exact.
 
 ## 6. Points de vigilance (à traiter le moment venu)
@@ -373,6 +463,12 @@ VTT inchangés).
 | 2026-05-23 | Validation 3a sur machine utilisateur (lecture VOD OK, installeur NSIS OK) | ✅ OK |
 | 2026-05-23 | Phase 3b — OAuth navigateur système Electron (protocole `iptvax://`, preload bridge, PKCE) | ✅ Fait |
 | 2026-05-23 | Validation 3b sur machine utilisateur (clic Google → navigateur système → sélecteur de compte → retour `iptvax://` → session) | ✅ OK |
+| 2026-05-23 | Phase 4a — Refactor `platform.ts` (`RuntimeMode` étendue → `web` \| `capacitor` \| `tizen` \| `webos`, sous-flags `isCapacitor`/`isTizen`/`isWebOS`, renommage `build:native`→`build:capacitor`, `initTvDetection` étendue) | ✅ Fait |
+| 2026-05-23 | Phase 4b — Scaffolding Tizen (`tizen/config.xml`, `scripts/build-tizen.mjs` génère .project + .tproject + tizen_web_project.yaml, script npm `build:tizen`, icône depuis `public/logo.png`) | ✅ Fait |
+| 2026-05-23 | Validation 4b : `sdb capability` sur TV réelle Samsung répond `platform_version: 4.0`, TV appairée | ✅ OK |
+| 2026-05-23 | Packaging `tz pack` → `Iptvax.wgt` 708 KB signé. Diagnostic clé : `<!-- commentaire -->` en tête de `config.xml` faisait échouer `tz pack` avec erreur trompeuse « invalid path ». Retiré → packaging passe. Détails et pièges associés : prose §7. | ✅ OK |
+| 2026-05-23 | Install `tz install` étape 1 : ❌ `download failed[116]` corrigé en créant un **Samsung Certificate** (profil `Iptvax-TV` avec Author + Distributor Samsung lié DUID `BDCJ72JNDIBYM`). | ✅ Signature OK |
+| 2026-05-23 | Install `tz install` étape 2 : ❌ `install failed[118012]` **systématiquement à 23 %**, indépendamment du wgt (Iptvax ET Probe template Samsung vierge échouent pareil, en CLI `tz` ET via le bouton Run Project de l'extension VS Code). Wgt structurellement OK ; cert Samsung avec DUID correcte ; Factory Reset TV fait ; mode dev réactivé. → **Mur côté Samsung confirmé : sideload Individual / Public n'est plus accepté sur les TV Tizen 4.0 (UE_NU76xx 2018) depuis ~2024-2025** (politique Samsung restreinte aux comptes Partner). Pas de voie restante côté repo. Phase 4 pivote sur LG webOS — ré-attaque Samsung Tizen plus tard via émulateur, Samsung Partner, ou TV plus récente. | 🛑 Bloqué (Samsung policy) |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -407,9 +503,117 @@ système (protocole `iptvax://`) validé de bout en bout : clic → Chrome/Edge
 s'ouvre avec sélecteur de compte natif → retour `iptvax://auth-callback` →
 session. UX desktop alignée sur IPTV Smarters & co.
 
-**Prochaine étape : Phase 4 — Tizen & webOS.** Option A (binding libVLC dans
-Electron) reste possible en plan B si on rencontre un cas où le proxy local
-poserait problème côté Windows — pour l'instant rien ne le justifie.
+**Phase 4a livrée** (refactor préparatoire `platform.ts`). `isNative` reste
+l'union des 3 sous-modes natifs → la couche données (`xtream.service.ts`,
+`image.ts`, `http.ts`) est intouchée et l'app Android continue de tourner à
+l'identique avec le nouveau `VITE_RUNTIME=capacitor`. Les sous-flags
+`isCapacitor` / `isTizen` / `isWebOS` ouvrent la voie au branchement du
+lecteur natif spécifique à chaque shell TV (AVPlay pour Tizen, `<video>` pour
+webOS).
+
+**Phase 4b côté repo livrée** (scaffolding Tizen + packaging). `npm run
+build:tizen` produit un dossier `tizen/Iptvax/` complet : index.html + assets
++ `config.xml` (manifeste W3C Widget) + `icon.png` + `.project` + `.tproject`
++ `tizen_web_project.yaml` (descripteur de la CLI Samsung moderne avec
+section `files:` énumérée dynamiquement, profile `tv-samsung`, api_version
+`"10.0"`, build_type `Release`). Le packaging `tz pack -t wgt -s <profile>
+tizen/Iptvax` produit un `.wgt` signé structurellement valide.
+
+**🛑 Sideload TV physique bloqué côté Samsung.** Après livraison complète du
+pipeline (cert Samsung avec DUID lié, wgt signé propre, Factory Reset TV,
+mode dev réactivé), `tz install` ET le bouton « Run Project » de l'extension
+VS Code échouent **systématiquement à 23 %** (`install failed[118012]`) sur
+notre app Iptvax **et sur le template Probe vierge officiel Samsung** —
+confirmation que la cause est côté TV/Samsung et non côté code. Politique
+Samsung restreinte (depuis ~2024-2025) au niveau de privilège **Partner**
+pour les TV Tizen 4.0 anciennes (UE_NU76xx 2018) ; un cert Individual /
+Public n'est plus accepté pour l'install. Reprises possibles plus tard :
+émulateur Tizen TV (Package Manager VS Code) pour validation isolée du
+lecteur AVPlay, inscription Samsung Partner (process long), ou TV Tizen
+plus récente. Le repo reste prêt — dès que la TV accepte un cert,
+`npm run build:tizen` + `tz pack` produit un wgt installable sans changement
+côté code.
+
+⚠ **Pièges Tizen rencontrés et résolus en session 2026-05-23** (à garder en
+tête pour Phase 4c et tout futur changement de `config.xml`) :
+
+- **Packages SDK obligatoires** : « 10.0 Tizen » + « 10.0 TV » dans le Package
+  Manager VS Code (sous TIZEN-TV). Sans ces deux paquets, `tz list rootstraps`
+  retourne vide et `tz pack` échoue avec une erreur trompeuse.
+- **CLI moderne** : `tz pack` (et non `tz package` — ancien Tizen Studio
+  Eclipse), et `tz new` au lieu de `tizen create`. `tz pack -t wgt -s <profile>
+  <dir>` est l'incantation pour produire un .wgt signé.
+- **Structure projet requise** par `tz pack` (générée par notre
+  `scripts/build-tizen.mjs`) : `.project` + `.tproject` (formats Eclipse legacy,
+  contenu calqué sur ce que `tz new` produit avec template `Basic_Empty` /
+  profil `tv-samsung-10.0`) + `tizen_web_project.yaml` (descripteur moderne
+  avec section `files:` listant explicitement TOUS les fichiers à packager).
+  Sans `files:` ou avec un format inadéquat, `tz pack` échoue.
+- **⚠️ PIÈGE MAJEUR — pas de commentaires XML dans `config.xml`** : un bloc
+  `<!-- … -->` en tête du fichier (avant `<widget>`) fait échouer `tz pack`
+  avec l'erreur générique « invalid path: … » sans aucune indication de la
+  cause. La CLI Samsung a un parseur strict qui ne tolère pas les commentaires
+  en préambule. Garder `config.xml` strictement constitué de la déclaration
+  XML + élément `<widget>`. Documenter les choix de design ailleurs (dans le
+  script `scripts/build-tizen.mjs` ou ce document).
+- **Format `<tizen:application id>`** : `[a-zA-Z0-9]{10}.AppName` (préfixe 10
+  caractères lié au certificat). On utilise `iptvaxtv00.Iptvax` ; le préfixe
+  est sealed par le certificat de signature « Iptvax » à `tz pack`.
+- **Nom du wgt produit = nom du dossier source**, pas l'`output_name` du yaml.
+  D'où le choix d'assembler dans `tizen/Iptvax/` et non `tizen/build/` →
+  packaging produit `tizen/Iptvax/Release/Iptvax.wgt`.
+- **⚠️ Install Tizen ≠ `sdb install` standard** : `sdb install Iptvax.wgt`
+  pousse le fichier mais ne déclenche PAS l'installation Tizen native (la
+  sortie se termine sur `closed` sans `Installed`). Utiliser à la place
+  `tz install -p tizen/Iptvax/Release/Iptvax.wgt -e <IP_TV>:26101` qui passe
+  par le bon flow `was_install_app` (déclenche pkginfo + signature check).
+- **⚠️ Deux niveaux de certificat — distinction critique** : l'extension VS
+  Code Tizen propose **Create Tizen Certificate** *et* **Create Samsung
+  Certificate**. Le premier (auteur générique + distributor Public Test) ne
+  fonctionne PAS pour sideloader sur une TV Samsung 2018 réelle (Tizen 4.0).
+  Il faut **en plus** lancer **Create Samsung Certificate** qui :
+    - demande la connexion à un **compte Samsung Developer** (gratuit, lié au
+      compte créé pour Certificate Manager) ;
+    - demande la **DUID** de la TV cible (récupérée via
+      `sdb -s <IP_TV>:26101 shell 0 getduid` — la nôtre : `BDCJ72JNDIBYM` sur
+      le modèle UE55NU7645) ;
+    - génère un Distribution Key 2 supplémentaire qui s'ajoute au profil de
+      signing existant (le profil « Iptvax » porte alors **deux** distribution
+      keys : Tizen Public + Samsung DUID-bound).
+  Sans le Samsung cert, `tz install` échoue avec `download failed[116]` — la
+  TV refuse le wgt parce que la signature distributeur ne valide pas pour ce
+  device. Pour Tizen 5.0+ le Public Test peut parfois suffire ; pour Tizen
+  4.0 le Samsung cert est obligatoire.
+- **⚠️ Espace disque TV — cause #1 de `install failed[118012]`** sur Samsung
+  TV 2018 (Tizen 4.0, ~800 MB de stockage utilisateur partagé). Diagnostic
+  observé : 7 MB libres → Tizen exige typiquement 50-100 MB de marge pour
+  décompresser un wgt → install abandonnée à 23 %. Symptôme reproductible
+  avec le template Probe vierge (donc indépendant du code). **Cause** :
+  caches résiduels des apps désinstallées (Netflix, YouTube, Prime…) que
+  Tizen ne libère pas tout seul. **Solution** : Smart Hub Reset (Paramètres
+  TV → Support → Self Diagnosis → Smart Hub Reset, PIN 0000). Libère
+  300-500 MB typiquement, mais déconnecte tous les services de streaming
+  (à reconnecter manuellement après). ⚠️ Le reset désactive aussi le
+  Developer Mode → à réactiver après (Apps → tape `12345`).
+- **DUID dans Samsung Apps Seller Office** — non requis tant que le Samsung
+  Certificate généré par le Certificate Manager local porte la DUID (le
+  cert encode déjà l'autorisation). L'enregistrement web sur
+  https://seller.samsungapps.com (section TV Seller Office) ne devient
+  obligatoire que pour la soumission au Samsung Apps Store, pas pour le
+  sideload mode dev.
+
+La TV de validation est appairée (`sdb capability` répond `platform_version:
+4.0`). L'app ne tournera pas encore correctement à l'install : le lecteur web
+(`<video>` + ffmpeg) n'a aucun fichier à attaquer en natif — c'est l'objet de
+Phase 4c.
+
+**Prochaine étape : Phase 4d/4e — pivot LG webOS.** Phase 4c Tizen (lecteur
+AVPlay) est différée tant qu'on n'a pas une voie d'install validée (TV plus
+récente, émulateur, ou compte Partner). webOS est historiquement plus
+permissif sur le sideload Individual via `ares-install` ; on attaque ce
+front avec la même TV LG personnelle de l'utilisateur. Option A (binding
+libVLC dans Electron) reste possible en plan B côté Windows — pour l'instant
+rien ne le justifie.
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) :

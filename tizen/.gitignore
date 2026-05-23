@@ -1,0 +1,11 @@
+# Sortie du script scripts/build-tizen.mjs — régénéré à chaque build.
+# Contient le bundle Vite + les fichiers structure Tizen + le .wgt signé
+# produit par `tz pack` (dans Iptvax/Release/Iptvax.wgt).
+Iptvax/
+*.wgt
+
+# Résidus possibles d'invocations CLI Tizen à la racine du dossier `tizen/`
+# (`tz pack`/`tz build` peuvent écrire ici si on cible ce dossier par erreur).
+Debug/
+Release/
+tizen_web_project.yaml

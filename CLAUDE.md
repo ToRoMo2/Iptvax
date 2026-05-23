@@ -43,6 +43,7 @@ Le "backend" média vit dans `vite.config.ts` en **dev** (plugin inline, DX inch
 | QR code (page Premium / TV) | qrcode | 1.5.4 (`@types/qrcode` 1.5.6 dev) |
 | Paiement | Stripe Checkout (Edge Functions Deno, `stripe` esm.sh 17.7.0) | — |
 | Enrobage Windows (chantier §XI Phase 3) | electron + electron-builder | 34.5 / 25.1 |
+| Enrobage Samsung TV (chantier §XI Phase 4) | Tizen Extension Pack pour VS Code (CLI `tz` + `sdb` bundlées) | dernière stable Samsung |
 | Lint | eslint + typescript-eslint | 9.13 / 8.11 |
 
 ## IV. Garde-Fous non négociables
@@ -107,6 +108,7 @@ npm run server          # backend standalone (port $PORT ou 4000, ALLOWED_ORIGIN
 npm run electron:dev    # shell Electron sur le dist/ courant (proxy embarqué, loopback)
 npm run electron:start  # build React + lance Electron (test prod-like)
 npm run electron:build  # build React + electron-builder → installeur Windows NSIS dans release/
+npm run build:tizen     # bundle Samsung TV → tizen/Iptvax/ (puis packaging manuel : tz pack -t wgt -s Iptvax tizen/Iptvax ; install : tz install -p tizen/Iptvax/Release/Iptvax.wgt -e <IP_TV>:26101)
 npm run lint            # ESLint strict
 npm run preview         # Aperçu du build prod
 ```
@@ -184,7 +186,7 @@ docker compose down                               # arrêt
 >
 > **Feuille de route détaillée + état d'avancement : [`docs/native-port.md`](./docs/native-port.md).** Lire ce fichier au début de toute session liée au portage.
 
-**Garde-fou — abstraction de plateforme** : `src/lib/platform.ts` expose `isNative` / `isWeb`, figés au build via `VITE_RUNTIME` (`web` par défaut, `native` pour les shells empaquetés). Tout branchement proxy-vs-direct (URLs Xtream, images, HTTP, lecture) DOIT passer par `isNative` — jamais de détection ad-hoc. Le mode `web` reste **exactement** le comportement historique ; le mode `native` produit des URLs directes (sans `/api/*`) consommées par le lecteur natif. Le point de bascule HTTP natif est isolé dans `src/lib/http.ts`.
+**Garde-fou — abstraction de plateforme** : `src/lib/platform.ts` expose `isNative` / `isWeb` + les sous-flags `isCapacitor` / `isTizen` / `isWebOS`, figés au build via `VITE_RUNTIME` (`web` par défaut ; sinon `capacitor` pour Android, `tizen` pour Samsung TV, `webos` pour LG TV ; Electron reste sur `web` — Option B, proxy local embarqué). Tout branchement proxy-vs-direct (URLs Xtream, images, HTTP, lecture) DOIT passer par `isNative` (= union des 3 sous-modes) — jamais de détection ad-hoc. Les sous-flags `isCapacitor`/`isTizen`/`isWebOS` ne servent QUE pour les branchements spécifiques à un shell (choix du lecteur natif, client HTTP). Le mode `web` reste **exactement** le comportement historique ; les modes natifs produisent des URLs directes (sans `/api/*`) consommées par le lecteur natif. Le point de bascule HTTP natif est isolé dans `src/lib/http.ts`.
 
 **Avancement** : Phase 1 terminée (couches données + lecture découplées). Phase 2a (scaffolding Capacitor 7.6.5), 2b (HTTP natif `CapacitorHttp` + `usesCleartextTraffic`), 2e (OAuth natif Android — deep link `com.iptvax.app://auth-callback`, flux PKCE) et 2c (lecteur natif libVLC) faites — **app native Android validée sur appareil réel** : connexion Google, profil, catalogue, images **et lecture vidéo native** fonctionnent. 2d (Android TV) faite : l'app se lance comme application leanback (manifeste + bannière) sur émulateur Android TV, sélection de profil navigable à la télécommande. 2f (onboarding TV par QR code) faite et **validée de bout en bout** sur émulateur Android TV : la TV affiche un QR code au lieu du formulaire de connexion → l'utilisateur scanne, se connecte sur son téléphone, choisit son profil → la TV reçoit la session et entre dans l'app. **Phase 2 entièrement livrée.** **Phase 3 entièrement livrée et validée sur machine utilisateur** : (3a) app Windows Electron — proxy `server/proxy.cjs` embarqué sur la loopback à un port libre, lecture VOD/série OK depuis l'IP résidentielle (plus de blocage 403), installeur NSIS produit ; (3b) OAuth navigateur système — protocole custom `iptvax://auth-callback`, preload bridge `window.electron`, single-instance lock, flux PKCE → clic « Se connecter avec Google » ouvre Chrome/Edge avec sélecteur de compte natif, retour via `iptvax://` capté par le main process. Détail et statut à jour : `docs/native-port.md` §7.
 
