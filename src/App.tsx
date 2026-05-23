@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { isWebOS, isTizen } from './lib/platform';
 import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
@@ -180,14 +181,20 @@ function AppGate() {
 }
 
 function App() {
+  // webOS (.ipk) et Tizen (.wgt) sont servis depuis file:// ou une URL interne
+  // dont le pathname n'est pas '/'. BrowserRouter casserait le routing (path="/"
+  // ne correspond pas à '/usr/palm/.../index.html'). HashRouter utilise
+  // window.location.hash — invariant par rapport au pathname de base.
+  // BrowserRouter reste inchangé sur web/Capacitor (https://localhost/ → ok).
+  const Router = (isWebOS || isTizen) ? HashRouter : BrowserRouter;
   return (
-    <BrowserRouter>
+    <Router>
       <I18nProvider>
         <SupabaseAuthProvider>
           <AppGate />
         </SupabaseAuthProvider>
       </I18nProvider>
-    </BrowserRouter>
+    </Router>
   );
 }
 
