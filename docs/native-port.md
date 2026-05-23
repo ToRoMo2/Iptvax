@@ -242,6 +242,43 @@ VTT inchangés).
     Electron (flux part de l'IP résidentielle) ;
   - packaging (`npm run electron:build`) produit un installeur NSIS dans
     `release/` et l'app installée lance ffmpeg sans erreur d'asar.
+- **3b — OAuth navigateur système (protocole custom)** ✅ *(fait — 2026-05-23 ; à valider sur machine utilisateur)*
+  - Symptôme à corriger : par défaut, le clic « Se connecter avec Google »
+    naviguait DANS la fenêtre Electron → l'utilisateur perdait ses cookies
+    Chrome/Edge, devait retaper email + mot de passe, pas de sélecteur de
+    compte Google. UX largement en dessous d'IPTV Smarters & co.
+  - Solution : reproduire la Phase 2e Android dans Electron — ouvrir l'URL
+    OAuth dans le **navigateur système** (`shell.openExternal`), et capter le
+    retour via un **protocole custom** `iptvax://auth-callback?code=…` que
+    Supabase appelle à la fin du flow.
+  - **Détection runtime `isElectron`** dans `src/lib/platform.ts` : présence
+    du pont `window.electron` exposé par le preload. ⚠ `isNative` reste
+    **`false`** en Electron (Option B = mode `web`) — `isElectron` est un
+    sur-flag ciblé qui ne déclenche QUE la bascule OAuth.
+  - **Pont preload** (`electron/preload.cjs`, via `contextBridge`) :
+    `window.electron.openExternal(url)` et `window.electron.onAuthCallback(handler)`.
+    Validation `^https?://` côté main process pour empêcher un renderer
+    compromis de spawn `file://`, `ftp://`, `javascript:` etc.
+  - **Main process** (`electron/main.cjs`) : enregistre le protocole via
+    `app.setAsDefaultProtocolClient('iptvax', …)` (avec script en arg en dev,
+    sans en prod). `app.requestSingleInstanceLock()` + handler
+    `second-instance` pour récupérer l'URL `iptvax://…` de l'argv quand
+    Windows lance une 2e Iptvax.exe au clic sur le lien. Handler `open-url`
+    macOS pour le futur. URL initiale dans `process.argv` traitée aussi
+    (1er lancement à froid par clic protocole). L'URL est forwardée au
+    renderer via `webContents.send('iptvax:auth-callback', url)` — bufferisée
+    si la fenêtre n'a pas fini `did-finish-load`.
+  - **Frontend** : `supabase.ts` active `flowType: 'pkce'` quand `isElectron`
+    (en plus d'`isNative`) → PKCE obligatoire car le redirect n'aboutit pas
+    dans la fenêtre Electron, on doit échanger un `code` manuellement.
+    `SupabaseAuthContext` ajoute la branche `isElectron` :
+    `signInWithOAuth({ redirectTo:'iptvax://auth-callback', skipBrowserRedirect:true })`
+    → `window.electron.openExternal(data.url)` ; puis le `useEffect`
+    `onAuthCallback` parse `code` / `error_description` et appelle
+    `exchangeCodeForSession`. Branche Capacitor strictement inchangée.
+  - ⚙️ **Config requise côté Supabase** : ajouter `iptvax://auth-callback`
+    dans Authentication → URL Configuration → **Redirect URLs**. Sans ça,
+    Supabase refuse la redirection vers le protocole custom.
 
 ### Phase 4 — Tizen & webOS
 - Packaging propre à chaque plateforme (Tizen Studio / webOS CLI) — **pas** de
@@ -333,6 +370,8 @@ VTT inchangés).
 | 2026-05-22 | Phase 2f — Onboarding TV par QR code (table `tv_pairings` + plugin `TvDetect` + TvPairing/TvLink) | ✅ Fait |
 | 2026-05-23 | Validation 2f sur émulateur Android TV (appairage QR scan → connexion Google sur téléphone → choix profil → déblocage TV) | ✅ OK |
 | 2026-05-23 | Phase 3a — Scaffolding Electron (refactor `startServer`, `electron/main.cjs`, asarUnpack ffmpeg, electron-builder 25, electron 34) | ✅ Fait |
+| 2026-05-23 | Validation 3a sur machine utilisateur (lecture VOD OK, installeur NSIS OK) | ✅ OK |
+| 2026-05-23 | Phase 3b — OAuth navigateur système Electron (protocole `iptvax://`, preload bridge, PKCE) | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google

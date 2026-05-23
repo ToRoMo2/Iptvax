@@ -7,7 +7,7 @@
 // historique, juste hébergé localement. Les flux sortent par l'IP résidentielle
 // de l'utilisateur → plus de blocage 403 d'IP datacenter (cf. docs/native-port.md §1).
 
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
 
 // Réécriture des chemins ffmpeg/ffprobe pour la lecture en bundle asar.
@@ -33,10 +33,86 @@ const { startServer } = require(path.join(__dirname, '..', 'server', 'proxy.cjs'
 
 const isDev = !app.isPackaged;
 
+// ─── Protocole custom pour le retour OAuth (Phase 3b) ────────────────────────
+// Pendant le clic « Se connecter avec Google » dans Electron, on ouvre l'URL
+// d'autorisation Supabase dans le navigateur système (cookies Chrome/Edge déjà
+// posés, sélecteur de compte natif). Supabase redirige ensuite vers
+// `iptvax://auth-callback?code=…`. Windows/macOS rappellent Iptvax via le
+// protocole enregistré ; on récupère l'URL et on la transmet au renderer
+// (SupabaseAuthContext appelle `exchangeCodeForSession` — flux PKCE). Même
+// pattern que la Phase 2e Android (deep link `com.iptvax.app://auth-callback`).
+const OAUTH_PROTOCOL = 'iptvax';
+const OAUTH_REDIRECT_PREFIX = `${OAUTH_PROTOCOL}://`;
+
 let serverHandle = null;
 let mainWindow = null;
+// URL OAuth reçue avant que la fenêtre soit prête — on la garde et on la
+// re-émet après `did-finish-load` (premier lancement par clic sur lien).
+let pendingAuthUrl = null;
+
+function registerOAuthProtocol() {
+  // En dev (`electron .`), `process.execPath` = electron.exe dans node_modules
+  // → il faut passer le script (`electron/main.cjs`) en argument explicite,
+  // sinon Windows lance Electron sans pointer sur notre app. En prod
+  // (`Iptvax.exe`), un simple appel suffit.
+  if (process.defaultApp && process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(OAUTH_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+  } else {
+    app.setAsDefaultProtocolClient(OAUTH_PROTOCOL);
+  }
+}
+
+function forwardAuthCallback(url) {
+  if (typeof url !== 'string' || !url.startsWith(OAUTH_REDIRECT_PREFIX)) return;
+  if (mainWindow && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send('iptvax:auth-callback', url);
+  } else {
+    pendingAuthUrl = url;
+  }
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+}
+
+// Single-instance lock : sous Windows, un clic sur `iptvax://auth-callback?…`
+// lance une 2e Iptvax.exe ; il faut que la 1ère reçoive l'URL et que la 2nde
+// quitte. `second-instance` fournit l'argv de la 2nde — l'URL OAuth y figure.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.find((a) => typeof a === 'string' && a.startsWith(OAUTH_REDIRECT_PREFIX));
+    if (url) forwardAuthCallback(url);
+  });
+
+  // macOS : pour future-proof (pas la cible Phase 3, mais coût zéro).
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    forwardAuthCallback(url);
+  });
+
+  registerOAuthProtocol();
+
+  app.whenReady().then(bootstrap).catch((err) => {
+    console.error('[electron] bootstrap failed:', err);
+    app.quit();
+  });
+}
 
 async function bootstrap() {
+  // IPC : ouvre une URL http(s) dans le navigateur système. Validation stricte
+  // côté main pour éviter qu'un compromis renderer ne fasse exécuter n'importe
+  // quel `shell://` (potentiellement file://, ftp://, javascript:…).
+  ipcMain.handle('iptvax:open-external', async (_event, url) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+      return { ok: false, error: 'invalid url' };
+    }
+    await shell.openExternal(url);
+    return { ok: true };
+  });
+
   serverHandle = await startServer({
     port: 0,            // OS pioche un port libre — évite tout conflit utilisateur
     host: '127.0.0.1',  // jamais exposé sur le LAN
@@ -66,13 +142,20 @@ async function bootstrap() {
   const url = `http://127.0.0.1:${serverHandle.port}/`;
   await mainWindow.loadURL(url);
 
+  // Si l'app a été lancée PAR un clic sur `iptvax://…` (1er lancement à froid),
+  // l'URL est dans `process.argv` côté Windows — on la rejoue maintenant.
+  const initialAuthUrl = process.argv.find((a) => typeof a === 'string' && a.startsWith(OAUTH_REDIRECT_PREFIX));
+  if (initialAuthUrl) pendingAuthUrl = initialAuthUrl;
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingAuthUrl) {
+      mainWindow.webContents.send('iptvax:auth-callback', pendingAuthUrl);
+      pendingAuthUrl = null;
+    }
+  });
+
   if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
-
-app.whenReady().then(bootstrap).catch((err) => {
-  console.error('[electron] bootstrap failed:', err);
-  app.quit();
-});
 
 app.on('window-all-closed', () => {
   // Windows/Linux : quitter à la fermeture de la dernière fenêtre.

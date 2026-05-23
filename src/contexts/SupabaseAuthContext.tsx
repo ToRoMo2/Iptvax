@@ -12,7 +12,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { supabase } from '../lib/supabase';
-import { isNative } from '../lib/platform';
+import { isNative, isElectron } from '../lib/platform';
 
 interface SupabaseAuthContextValue {
   user: User | null;
@@ -35,6 +35,10 @@ const SupabaseAuthContext = createContext<SupabaseAuthContextValue | null>(null)
 // d'autorisation contre une session. Voir docs/native-port.md.
 const NATIVE_OAUTH_REDIRECT = 'com.iptvax.app://auth-callback';
 
+// Protocole custom Electron — enregistré au niveau OS par `electron/main.cjs`
+// (`app.setAsDefaultProtocolClient`). Même rôle que le deep link Android.
+const ELECTRON_OAUTH_REDIRECT = 'iptvax://auth-callback';
+
 // Lance l'OAuth en mode natif : Supabase renvoie l'URL d'autorisation (flux
 // PKCE, sans redirection navigateur automatique) qu'on ouvre dans un onglet
 // système. Retourne un message d'erreur, ou null si tout va bien.
@@ -45,6 +49,24 @@ async function startNativeOAuth(provider: 'google' | 'apple'): Promise<string | 
   });
   if (error) return error.message;
   if (data?.url) await Browser.open({ url: data.url });
+  return null;
+}
+
+// Variante Electron : on ouvre l'URL OAuth dans le NAVIGATEUR SYSTÈME (cookies
+// Chrome/Edge, sélecteur de compte Google natif → UX cohérente avec les autres
+// apps desktop). Le retour `iptvax://auth-callback?code=…` est capté par le
+// main process Electron (protocole custom + single-instance lock) et forwardé
+// au renderer via le pont preload (`window.electron.onAuthCallback`).
+async function startElectronOAuth(provider: 'google' | 'apple'): Promise<string | null> {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: ELECTRON_OAUTH_REDIRECT, skipBrowserRedirect: true },
+  });
+  if (error) return error.message;
+  if (data?.url && window.electron) {
+    const r = await window.electron.openExternal(data.url);
+    if (!r.ok) return r.error ?? 'Impossible d’ouvrir le navigateur';
+  }
   return null;
 }
 
@@ -94,10 +116,39 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return () => { handle?.remove(); };
   }, []);
 
+  // Retour OAuth Electron : le main process capte `iptvax://auth-callback?…`
+  // (protocole custom + single-instance lock) et nous le relaie via le pont
+  // preload. Même logique que le deep link natif Android : extraire le code,
+  // l'échanger contre une session, `onAuthStateChange` prend le relais.
+  useEffect(() => {
+    if (!isElectron || !window.electron) return;
+    const unsubscribe = window.electron.onAuthCallback(async (url) => {
+      try {
+        const params = new URL(url).searchParams;
+        const code = params.get('code');
+        const errDesc = params.get('error_description');
+        if (errDesc) {
+          setAuthError(errDesc);
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) setAuthError(error.message);
+        }
+      } catch {
+        setAuthError('Échec du retour de connexion.');
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   const signInWithGoogle = useCallback(async (redirectTo?: string) => {
     setAuthError(null);
     if (isNative) {
       const err = await startNativeOAuth('google');
+      if (err) setAuthError(err);
+      return;
+    }
+    if (isElectron) {
+      const err = await startElectronOAuth('google');
       if (err) setAuthError(err);
       return;
     }
@@ -112,6 +163,11 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
     if (isNative) {
       const err = await startNativeOAuth('apple');
+      if (err) setAuthError(err);
+      return;
+    }
+    if (isElectron) {
+      const err = await startElectronOAuth('apple');
       if (err) setAuthError(err);
       return;
     }

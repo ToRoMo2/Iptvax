@@ -20,8 +20,29 @@ export type RuntimeMode = 'web' | 'native';
 export const runtimeMode: RuntimeMode =
   import.meta.env.VITE_RUNTIME === 'native' ? 'native' : 'web';
 
-/** `true` dans les apps empaquetées (Capacitor / Electron / Tizen / webOS). */
+/** `true` dans les apps empaquetées (Capacitor / Tizen / webOS).
+ *
+ *  ⚠ FAUX en Electron : on a choisi l'Option B (proxy local embarqué) → l'app
+ *  Electron tourne exactement en mode `web` (cf. CLAUDE.md §XI Phase 3a). Pour
+ *  une bascule spécifique Electron (ex. OAuth via navigateur système), utiliser
+ *  `isElectron` plutôt que `isNative`. */
 export const isNative = runtimeMode === 'native';
 
 /** `true` pour le site web (vitrine + lecture via le proxy `/api/*`). */
 export const isWeb = runtimeMode === 'web';
+
+/** Pont préload Electron — exposé par `electron/preload.cjs`. Présent UNIQUEMENT
+ *  dans l'app Electron empaquetée ; absent sur le site web et dans Capacitor. */
+declare global {
+  interface Window {
+    electron?: {
+      openExternal: (url: string) => Promise<{ ok: boolean; error?: string }>;
+      onAuthCallback: (handler: (url: string) => void) => () => void;
+    };
+  }
+}
+
+/** `true` quand l'app tourne dans le shell Electron (détection runtime via le
+ *  preload). Sert au branchement OAuth « navigateur système » — l'app reste
+ *  en mode `web` (`isNative=false`), seul ce point précis diverge. */
+export const isElectron = typeof window !== 'undefined' && !!window.electron;
