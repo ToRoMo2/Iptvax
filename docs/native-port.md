@@ -372,6 +372,7 @@ VTT inchangés).
 | 2026-05-23 | Phase 3a — Scaffolding Electron (refactor `startServer`, `electron/main.cjs`, asarUnpack ffmpeg, electron-builder 25, electron 34) | ✅ Fait |
 | 2026-05-23 | Validation 3a sur machine utilisateur (lecture VOD OK, installeur NSIS OK) | ✅ OK |
 | 2026-05-23 | Phase 3b — OAuth navigateur système Electron (protocole `iptvax://`, preload bridge, PKCE) | ✅ Fait |
+| 2026-05-23 | Validation 3b sur machine utilisateur (clic Google → navigateur système → sélecteur de compte → retour `iptvax://` → session) | ✅ OK |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -398,21 +399,17 @@ remux ffmpeg du proxy web, beaucoup de serveurs Xtream ne le servent pas pour
 les films/épisodes → libVLC n'avait rien à lire (écran noir). Le lecteur natif
 force aussi l'orientation paysage pendant la lecture (`VlcPlayerPlugin`).
 
-**Phase 3a (Electron — Option B) livrée** : le shell Electron démarre
-`server/proxy.cjs` sur la loopback à un port libre, la fenêtre charge l'app
-React servie par ce proxy local. Mode `web` conservé → aucune régression sur
-le site et l'app reste 100 % UI existante. Validation locale : le proxy
-bootstrappe bien sous Electron (port libre + binaires ffmpeg-static via
-`app.asar.unpacked`) et sert `dist/` + `/api/*` correctement. **À valider sur
-la machine utilisateur** : lancement Electron en mode prod (`npm run
-electron:start`), lecture d'un flux qui retournait 403 sur le VPS (preuve que
-le flux sort par l'IP résidentielle), et packaging (`npm run electron:build`)
-produisant l'installeur NSIS.
+**Phase 3 entièrement livrée et validée.** App Windows Electron : le shell
+démarre `server/proxy.cjs` sur la loopback à un port libre, la fenêtre charge
+l'app React servie par ce proxy local — flux sortent par l'IP résidentielle
+(plus de blocage 403). Installeur NSIS produit. OAuth Google via navigateur
+système (protocole `iptvax://`) validé de bout en bout : clic → Chrome/Edge
+s'ouvre avec sélecteur de compte natif → retour `iptvax://auth-callback` →
+session. UX desktop alignée sur IPTV Smarters & co.
 
-**Prochaine étape : Phase 4 — Tizen & webOS** (une fois Phase 3 validée à
-l'œil). Option A (binding libVLC dans Electron) reste possible en plan B si
-le proxy local pose un problème inattendu côté Windows — pour l'instant rien
-ne le justifie.
+**Prochaine étape : Phase 4 — Tizen & webOS.** Option A (binding libVLC dans
+Electron) reste possible en plan B si on rencontre un cas où le proxy local
+poserait problème côté Windows — pour l'instant rien ne le justifie.
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) :
