@@ -46,11 +46,23 @@ export function TvPairing() {
         // Pré-amorce le profil choisi sur le téléphone → l'app entre directement
         // dessus (IptvProfileProvider le restaure depuis localStorage).
         localStorage.setItem(ACTIVE_PROFILE_KEY, session.profileId);
-        await supabase.auth.setSession({
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: session.accessToken,
           refresh_token: session.refreshToken,
         });
-        // onAuthStateChange (SupabaseAuthProvider) prend le relais.
+        if (sessionError) {
+          // Tokens expirés ou invalides : on ne peut pas récupérer sans rescanner.
+          console.error('[tv-pairing] setSession failed', sessionError);
+          setLinking(false);
+          setFailed(true);
+          setDebugError(sessionError.message);
+          return;
+        }
+        // onAuthStateChange (SupabaseAuthProvider) prend le relais normalement.
+        // Filet webOS / Tizen : sur certains navigateurs embarqués l'event
+        // n'est pas capté dans le même cycle React → reload forcé pour que
+        // SupabaseAuthProvider.getSession() récupère la session depuis le storage.
+        window.location.reload();
       }
     } catch (err) {
       // Transitoire (le poll / Realtime réessaiera), mais on trace pour debug.
