@@ -245,6 +245,9 @@ export function useNativePlayer(url: string | null, _mediaUrl?: string | null): 
     subtitleText: '',
     subtitleLoading: false,
     subtitleOffset,
+    // libVLC rend la vidéo sur une SurfaceView DERRIÈRE la WebView → la couche
+    // UI doit afficher un <div> transparent à la place du <video>.
+    usesNativeSurface: true,
     adjustSubtitleOffset,
     setSubtitleOffset,
     toggle,

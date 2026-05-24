@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
 import { useNativePlayer } from '../hooks/useNativePlayer';
-import { isNative } from '../lib/platform';
+import { useWebOSPlayer } from '../hooks/useWebOSPlayer';
+import { isNative, isWebOS } from '../lib/platform';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
 import { useI18n } from '../contexts/I18nContext';
@@ -85,13 +86,18 @@ export function VideoPlayer({
   onPersist,
 }: Props) {
   const { t } = useI18n();
-  // `isNative` est figé au build (cf. src/lib/platform.ts) → la branche est
-  // stable pour toute la vie du composant : appeler conditionnellement l'un ou
-  // l'autre hook est sûr ici (le lint rules-of-hooks ne peut pas le savoir).
+  // `isNative` / `isWebOS` sont figés au build (cf. src/lib/platform.ts) → la
+  // branche est stable pour toute la vie du composant : appeler conditionnellement
+  // l'un ou l'autre hook est sûr ici (le lint rules-of-hooks ne peut pas le
+  // savoir).
+  //   - webOS → <video> HTML5 + hls.js (URL Xtream directe, pas de proxy)
+  //   - autre natif (Capacitor/Tizen)  → libVLC via le plugin maison
+  //   - web → usePlayer (ffmpeg + /api/stream + sous-titres custom)
   /* eslint-disable react-hooks/rules-of-hooks */
-  const player: WebPlayerController = isNative
-    ? useNativePlayer(url, mediaUrl)
-    : usePlayer(url, mediaUrl);
+  const player: WebPlayerController =
+    isWebOS  ? useWebOSPlayer(url, mediaUrl)
+    : isNative ? useNativePlayer(url, mediaUrl)
+    :            usePlayer(url, mediaUrl);
   /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
@@ -300,18 +306,23 @@ export function VideoPlayer({
     : subColor === 'green' ? styles.subColorGreen
     : styles.subColorWhite;
 
+  // Surface native (vidéo rendue par un plan hardware DERRIÈRE la WebView) :
+  //   - Capacitor → libVLC (`useNativePlayer` pose `usesNativeSurface` à true)
+  //   - webOS Media Pipeline → `useWebOSPlayer` pose `usesNativeSurface` à true
+  //     pour les fichiers directs (MKV/MP4), false en HLS (rendu par <video>)
+  // Dans ces cas on n'affiche pas de <video> — juste un <div> transparent
+  // cliquable. La classe `native-video-surface` complète la chaîne CSS de
+  // transparence (cf. `iptvax-native-playback` dans app.css).
+  const useNativeSurface = player.usesNativeSurface === true;
   return (
     <div
       ref={player.wrapperRef}
-      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${isNative ? 'native-video-surface' : ''}`}
+      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${useNativeSurface ? 'native-video-surface' : ''}`}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
-      {/* En natif, la vidéo est rendue par libVLC dans une surface native
-          DERRIÈRE la WebView : on n'affiche pas de <video>, juste une zone
-          transparente cliquable (play/pause). En web, le <video> habituel. */}
-      {isNative ? (
+      {useNativeSurface ? (
         <div className={`${styles.video} native-video-surface`} onClick={player.toggle} />
       ) : (
         <video

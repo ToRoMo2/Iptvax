@@ -49,6 +49,14 @@ export interface PlayerController {
   subtitleText: string;
   subtitleLoading: boolean;
   subtitleOffset: number;
+  /**
+   * `true` quand la vidéo est rendue par une surface NATIVE (plan hardware sous
+   * la WebView) au lieu de l'élément `<video>` HTML5 — cas de libVLC sur
+   * Capacitor et de la Media Pipeline webOS. La couche UI doit alors rendre un
+   * `<div>` transparent à la place du `<video>` et activer la chaîne CSS
+   * `iptvax-native-playback` sur `<html>`. Défaut implicite : `false`.
+   */
+  usesNativeSurface?: boolean;
   adjustSubtitleOffset: (delta: number) => void;
   setSubtitleOffset: (value: number) => void;
   toggle: () => void;
