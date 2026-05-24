@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
 import { useNativePlayer } from '../hooks/useNativePlayer';
-import { isNative } from '../lib/platform';
+import { useWebOSPlayer } from '../hooks/useWebOSPlayer';
+import { isNative, isCapacitor, isWebOS } from '../lib/platform';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
 import { useI18n } from '../contexts/I18nContext';
@@ -85,13 +86,19 @@ export function VideoPlayer({
   onPersist,
 }: Props) {
   const { t } = useI18n();
-  // `isNative` est figé au build (cf. src/lib/platform.ts) → la branche est
-  // stable pour toute la vie du composant : appeler conditionnellement l'un ou
-  // l'autre hook est sûr ici (le lint rules-of-hooks ne peut pas le savoir).
+  // Les flags `isCapacitor` / `isWebOS` sont figés au build (cf. src/lib/platform.ts)
+  // → la branche est stable pour toute la vie du composant : appeler
+  // conditionnellement l'un ou l'autre hook est sûr ici (le lint rules-of-hooks
+  // ne peut pas le savoir). Une seule des conditions est vraie par build :
+  // - Capacitor (Android) → libVLC derrière la WebView (surface transparente)
+  // - webOS               → <video> HTML5 + hls.js (URL Xtream directe)
+  // - web (et Electron, Option B) → ffmpeg via /api/* (path historique)
   /* eslint-disable react-hooks/rules-of-hooks */
-  const player: WebPlayerController = isNative
+  const player: WebPlayerController = isCapacitor
     ? useNativePlayer(url, mediaUrl)
-    : usePlayer(url, mediaUrl);
+    : isWebOS
+      ? useWebOSPlayer(url, mediaUrl)
+      : usePlayer(url, mediaUrl);
   /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
@@ -303,15 +310,16 @@ export function VideoPlayer({
   return (
     <div
       ref={player.wrapperRef}
-      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${isNative ? 'native-video-surface' : ''}`}
+      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${isCapacitor ? 'native-video-surface' : ''}`}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
-      {/* En natif, la vidéo est rendue par libVLC dans une surface native
-          DERRIÈRE la WebView : on n'affiche pas de <video>, juste une zone
-          transparente cliquable (play/pause). En web, le <video> habituel. */}
-      {isNative ? (
+      {/* Surface vidéo :
+          - Capacitor (Android) → libVLC rend dans une surface native DERRIÈRE
+            la WebView ; on n'affiche qu'une zone transparente cliquable.
+          - webOS / web         → <video> HTML5 standard. */}
+      {isCapacitor ? (
         <div className={`${styles.video} native-video-surface`} onClick={player.toggle} />
       ) : (
         <video

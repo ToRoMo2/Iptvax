@@ -383,16 +383,50 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
     en Phase 4e : utiliser des imports Vite ou des chemins relatifs (`./logo.png`
     etc.) pour que le bundler les gère correctement.
 
-- **4e — Lecteur webOS + polish assets** — *(à venir)*
-  - **Correction assets statiques** : `AppLogo` et `TmdbPill` référencent
-    `/logo.png` et `/tmdb.png` (chemin absolu) → à remplacer par des imports
-    Vite (`import logoUrl from './logo.png?url'`) ou par `new URL('../public/logo.png', import.meta.url)` pour que Vite les réécrive avec le bon chemin relatif dans le bundle `.ipk`.
-  - **Lecteur vidéo** : v1 `<video>` HTML5 + `hls.js` déjà bundlé (webOS lit
-    HLS/MP4/MKV nativement depuis 4.0). `VideoPlayer.tsx` branche sur
-    `useWebOSPlayer` (nouveau hook) quand `isWebOS`. Ce hook utilise
-    `<video>` + `hls.js` avec l'URL directe Xtream (sans proxy ffmpeg). Si
-    insuffisant pour le multi-audio → v2 via Media Pipeline
+- **4e — Lecteur webOS + polish assets** ✅ *(fait — 2026-05-24 ; à valider sur simulateur)*
+  - **Correction assets statiques** : `AppLogo` (`src/components/AppLogo.tsx`)
+    et `TmdbPill` (`src/pages/Home.tsx`) construisent leur `src` via
+    `` `${import.meta.env.BASE_URL}logo.png` `` / `tmdb.png`. Vite substitue
+    `BASE_URL` au build (constante figée) : `/` côté web et Capacitor (proxy
+    same-origin / `http://localhost`), `./` côté Tizen/webOS (configuré dans
+    `vite.config.ts` via `NATIVE_RELATIVE_BASE`). Même traitement appliqué aux
+    favicons dans `index.html` via le placeholder Vite `%BASE_URL%`. Aucun
+    fichier déplacé : les sources restent dans `public/` (lues par
+    `scripts/build-tizen.mjs` au build) — seule la résolution change selon
+    le bundle cible.
+  - **Lecteur vidéo** : `src/hooks/useWebOSPlayer.ts` — implémentation
+    `WebPlayerController` minimaliste basée sur `<video>` HTML5 + `hls.js`
+    (déjà bundlé). Stratégie de chargement à 3 niveaux :
+    1. URL HLS + `canPlayType('application/vnd.apple.mpegurl')` truthy →
+       lecture HLS native (décodage hardware, démarrage rapide, peu de RAM).
+    2. URL HLS + MSE disponible → hls.js (expose les `levels` HLS dans le
+       menu qualité).
+    3. Fichier direct (MP4/MKV) → `video.src = url` (webOS lit ces conteneurs
+       nativement). Pas de probe ffprobe, pas de transcodage ; sur codec non
+       supporté, l'event `error` déclenche le fallback URL côté `VideoPlayer`.
+    Pistes audio multi-langue : exposées via `video.audioTracks` (MP4) ou
+    `AUDIO_TRACKS_UPDATED` (hls.js). **Sous-titres : non implémentés en v1**
+    — pas de proxy `/api/subtitle` en mode natif, et webOS n'expose pas les
+    pistes embarquées des MKV sans la Media Pipeline. Le menu CC est
+    automatiquement masqué par `VideoPlayer.tsx` (condition
+    `player.subtitleTracks.length > 0`). Bouton plein écran également masqué
+    (l'app .ipk est déjà plein écran). Si v1 insuffisant pour le multi-audio
+    MKV ou les sous-titres → v2 via Media Pipeline webOS
     (`luna://com.webos.media`).
+  - **Branchement** : `VideoPlayer.tsx` passe d'une bascule binaire
+    `isNative ? useNativePlayer : usePlayer` à un dispatch à 3 voies sur les
+    sous-flags figés au build :
+    ```ts
+    const player =
+      isCapacitor ? useNativePlayer(url, mediaUrl) :  // libVLC (Android)
+      isWebOS     ? useWebOSPlayer(url, mediaUrl)  :  // <video> + hls.js (LG TV)
+                    usePlayer(url, mediaUrl);         // ffmpeg via /api/* (web + Electron)
+    ```
+    La surface vidéo bascule aussi sur `isCapacitor` (pas `isNative`) : seul
+    Android a besoin du `<div>` transparent (libVLC rend derrière la
+    WebView) — webOS rend un `<video>` standard. Tizen ajoutera son
+    `useTizenPlayer` + injection `<object type="application/avplayer">` en
+    Phase 4c.
 
 - **Pré-requis machine pour 4c+** : pour Tizen, l'extension VS Code + un
   certificat actif suffisent. Pour webOS, installer `@webosose/ares-cli`
@@ -506,6 +540,9 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
 | 2026-05-23 | Correctif 4d-2 : `http.ts` — branchement `isCapacitor` au lieu de `isNative` pour `CapacitorHttp` (Tizen/webOS n'ont pas de runtime Capacitor → fetch standard) | ✅ Fait |
 | 2026-05-23 | Correctif 4d-3 : `App.tsx` — `HashRouter` pour `isWebOS \|\| isTizen` (pathname `file://` ≠ `/` → `<Route path="/">` ne correspondait jamais → main-content vide/noir) | ✅ Fait |
 | 2026-05-23 | Validation 4d sur simulateur webOS 26 : appairage QR → reload → catalogue Xtream visible. Assets statiques (`/logo.png`, `/tmdb.png`) non résolus dans le shell webOS → à corriger Phase 4e | ✅ App fonctionne (logos à corriger) |
+| 2026-05-24 | Phase 4e — Correction assets (`AppLogo` + `TmdbPill` + favicon index.html via `import.meta.env.BASE_URL` / `%BASE_URL%`) | ✅ Fait |
+| 2026-05-24 | Phase 4e — Lecteur webOS (`src/hooks/useWebOSPlayer.ts` : `<video>` natif + hls.js, pistes audio MP4 et HLS, pas de sous-titres v1) | ✅ Fait |
+| 2026-05-24 | Phase 4e — Dispatch 3 voies dans `VideoPlayer.tsx` (`isCapacitor` / `isWebOS` / web) + surface vidéo conditionnée à `isCapacitor` | ✅ Fait |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -669,16 +706,43 @@ visible ✅. **Limitation restante** : les assets statiques référencés avec
 des chemins absolus (`/logo.png`, `/tmdb.png`) ne sont pas résolus dans le
 shell webOS → AppLogo et TmdbPill n'affichent rien. À corriger en Phase 4e.
 
-**Prochaine étape : Phase 4e — Lecteur webOS + correction assets.** Deux
-objectifs :
-1. **Assets statiques** : corriger `AppLogo` (SVG inline ou import Vite) et
-   `TmdbPill` (`import tmdbUrl from '/tmdb.png?url'` → chemin relatif) pour
-   que les logos apparaissent dans le shell webOS.
-2. **Lecteur vidéo** : implémenter `useWebOSPlayer` (`src/hooks/useWebOSPlayer.ts`)
-   — `PlayerController` pour webOS utilisant `<video>` HTML5 + `hls.js`
-   directement avec l'URL Xtream (pas de proxy ffmpeg). Brancher dans
-   `VideoPlayer.tsx` sur `isWebOS`. v2 si insuffisant : Media Pipeline webOS
-   (`luna://com.webos.media`).
+**Phase 4e livrée (à valider sur simulateur)**. Deux livrables :
+
+1. **Assets statiques** — `AppLogo`, `TmdbPill` et les favicons d'`index.html`
+   construisent leur URL via `import.meta.env.BASE_URL` (constante Vite figée
+   au build) / `%BASE_URL%` (placeholder index.html). Web/Capacitor reçoivent
+   `/`, Tizen/webOS reçoivent `./` — déjà câblé dans `vite.config.ts` via
+   `NATIVE_RELATIVE_BASE`. Aucun fichier déplacé : les sources restent dans
+   `public/` (lues par `scripts/build-tizen.mjs` au build), seule la
+   résolution finale change.
+
+2. **Lecteur webOS** — `src/hooks/useWebOSPlayer.ts` implémente
+   `WebPlayerController` en s'appuyant sur `<video>` HTML5 + hls.js (déjà
+   bundlé). Chargement à 3 niveaux : HLS natif si `canPlayType` truthy, sinon
+   hls.js via MSE (webOS 4.0+ a Chromium récent → OK), sinon URL directe pour
+   les conteneurs MP4/MKV (webOS les lit nativement). Pistes audio
+   exposées via `video.audioTracks` (MP4) ou `AUDIO_TRACKS_UPDATED` (hls.js).
+   Sous-titres et plein écran : sans objet en v1 (menu CC + bouton fullscreen
+   masqués par `VideoPlayer.tsx`). Les sous-titres MKV embarqués
+   nécessiteraient la Media Pipeline webOS — réservé à une v2 si besoin.
+
+   `VideoPlayer.tsx` dispatch désormais sur 3 voies :
+   - `isCapacitor` → `useNativePlayer` (libVLC derrière surface transparente)
+   - `isWebOS`     → `useWebOSPlayer` (`<video>` natif + hls.js)
+   - défaut        → `usePlayer` (ffmpeg via `/api/*` — web + Electron Option B)
+
+   La surface vidéo conditionne sur `isCapacitor` (et non plus `isNative`) :
+   seul Android a besoin du `<div>` transparent ; webOS rend un `<video>`
+   standard. Tizen suivra le même schéma (`useTizenPlayer` + AVPlay
+   `<object>`) en Phase 4c.
+
+**Validation à faire** : rebuild `npm run build:webos`, repackager
+(`ares-package webos/Iptvax -o webos`), installer sur simulateur webOS 26 et
+lancer une lecture VOD/série/Live. Cas à vérifier : (a) logos AppLogo + TMDB
+affichés ; (b) `<video>` rend correctement ; (c) lecture HLS live ; (d)
+lecture VOD/série depuis l'IP résidentielle (pas de 403). Si le flux HLS live
+échoue, vérifier l'UA envoyé par le WebView webOS (Xtream rejette certains
+UA navigateur sur `/live/`).
 
 **Détails de finition différés** (cf. §6 — à reprendre plus tard, sauf si
 bloquant) :
