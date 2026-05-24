@@ -106,13 +106,20 @@ export function TvLink() {
         console.warn('[tv-link] notify broadcast failed (poll TV fallback)', err);
       }
       sessionStorage.removeItem(CODE_STORAGE_KEY);
-      // L'onglet web cesse d'utiliser le refresh token → la TV en est seule
-      // détentrice (pas de conflit de rotation). Déconnexion locale uniquement.
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch (err) {
-        console.warn('[tv-link] local signOut failed', err);
-      }
+      // ⚠ NE PAS appeler signOut() ici, même avec `scope: 'local'`. Contrairement
+      // à ce que le nom laisse penser, scope:'local' fait quand même un POST
+      // `/logout` côté serveur qui révoque le `session_id` du JWT — exactement
+      // celui qu'on vient de donner à la TV. Du coup `setSession` côté TV
+      // valide le JWT via `GET /user` → le serveur ne trouve plus le session_id
+      // → "Auth session missing!" → la TV reste bloquée. Cas race-conditionné :
+      // sur Android TV le broadcast Realtime est rapide donc la TV finit son
+      // setSession avant la révocation et passe (par chance) ; sur webOS où
+      // Realtime est lent, le poll de repli (6 s) déclenche claim() bien après
+      // la révocation → échec systématique. On laisse donc l'onglet tel quel ;
+      // l'utilisateur ferme la page après "TV liée ✓".
+      // (Tradeoff assumé : si l'utilisateur garde l'onglet ouvert ~55 min,
+      //  l'auto-refresh peut rentrer en conflit de rotation avec la TV. Rare
+      //  en pratique, et au pire l'un des deux re-loggue.)
       setPhase('done');
     },
     [code],
@@ -152,10 +159,9 @@ export function TvLink() {
   }
 
   /* ── TV liée ────────────────────────────────────────────────────────── */
-  // ⚠ Doit être AVANT le check `!user`. À la fin de `link()` on appelle
-  // `signOut({scope:'local'})` → l'utilisateur courant devient null avant que
-  // `setPhase('done')` ne re-render. Sans ce reordering, le succès retombe
-  // sur l'écran de Login au lieu d'afficher la confirmation.
+  // Garde le check `phase === 'done'` AVANT `!user` : si jamais un futur
+  // changement réintroduit une déconnexion locale après l'autorisation, le
+  // re-render basculerait sur l'écran de Login au lieu de la confirmation.
   if (phase === 'done') {
     return (
       <div className={styles.screen}>

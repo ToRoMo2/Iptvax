@@ -307,14 +307,6 @@ export function VideoPlayer({
     : subColor === 'green' ? styles.subColorGreen
     : styles.subColorWhite;
 
-  // Surface native (vidéo rendue par un plan hardware DERRIÈRE la WebView) :
-  //   - Capacitor → libVLC (`useNativePlayer` pose `usesNativeSurface` à true)
-  //   - webOS Media Pipeline → `useWebOSPlayer` pose `usesNativeSurface` à true
-  //     pour les fichiers directs (MKV/MP4), false en HLS (rendu par <video>)
-  // Dans ces cas on n'affiche pas de <video> — juste un <div> transparent
-  // cliquable. La classe `native-video-surface` complète la chaîne CSS de
-  // transparence (cf. `iptvax-native-playback` dans app.css).
-  const useNativeSurface = player.usesNativeSurface === true;
   return (
     <div
       ref={player.wrapperRef}

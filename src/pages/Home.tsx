@@ -19,9 +19,6 @@ import type { TmdbTrendingItem } from '../types/tmdb.types';
 import { groupByTitle, cleanTitle, titleKey, type TitleGroup } from '../utils/catalog';
 import { safeImgUrl } from '../utils/image';
 import styles from './Home.module.css';
-// Import Vite pour le logo TMDB — voir AppLogo.tsx : chemin absolu `/tmdb.png`
-// ne résout pas dans les builds natifs .ipk/.wgt servis depuis `file://`.
-import tmdbLogoUrl from '/tmdb.png?url';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 function PlayIcon() {
