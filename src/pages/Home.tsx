@@ -54,6 +54,11 @@ function RemoveIcon() {
 // des données TMDB côté UI. Voir conditions d'attribution de l'API :
 // https://www.themoviedb.org/about/logos-attribution
 // `size` contrôle le diamètre de la pastille (badge hero plus petit que rail).
+// `BASE_URL` substitué au build : `/` (web) ou `./` (Tizen/webOS) — sans ça
+// les apps empaquetées .wgt/.ipk servies depuis `file://` ne résolvent pas
+// le chemin absolu `/tmdb.png`.
+const TMDB_LOGO_URL = `${import.meta.env.BASE_URL}tmdb.png`;
+
 function TmdbPill({ size = 48 }: { size?: number }) {
   return (
     <span
@@ -62,7 +67,7 @@ function TmdbPill({ size = 48 }: { size?: number }) {
       aria-label="The Movie Database"
       role="img"
     >
-      <img src={tmdbLogoUrl} alt="TMDB" />
+      <img src={TMDB_LOGO_URL} alt="TMDB" />
     </span>
   );
 }
