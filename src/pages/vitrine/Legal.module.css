@@ -1,0 +1,50 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 80px var(--pad-edge);
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.sub {
+  color: var(--t-3);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 32px;
+}
+
+.placeholder {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-card);
+  padding: 24px 28px;
+  color: var(--t-2);
+  line-height: 1.7;
+}
+
+.placeholder strong {
+  color: var(--t-1);
+}
+
+.back {
+  display: inline-block;
+  margin-top: 24px;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.back:hover {
+  text-decoration: underline;
+}

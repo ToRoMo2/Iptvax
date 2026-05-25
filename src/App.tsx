@@ -1,6 +1,14 @@
 import { useEffect } from 'react';
-import { BrowserRouter, HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { isWebOS, isTizen } from './lib/platform';
+import {
+  BrowserRouter,
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
+import { isWebOS, isTizen, isVitrine } from './lib/platform';
 import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
@@ -27,11 +35,20 @@ import { MovieDetail } from './pages/MovieDetail';
 import { Player } from './pages/Player';
 import { Search } from './pages/Search';
 import { Favorites } from './pages/Favorites';
-import { Watched } from './pages/Watched';
 import { Community } from './pages/Community';
 import { MemberCine } from './pages/MemberCine';
 import { Settings } from './pages/Settings';
 import { Premium } from './pages/Premium';
+import { Watched } from './pages/Watched';
+// ── Vitrine (site web marketing, Phase 5) ─────────────────────────────────
+import { HeaderVitrine } from './components/vitrine/HeaderVitrine';
+import { FooterVitrine } from './components/vitrine/FooterVitrine';
+import { HomeVitrine } from './pages/vitrine/HomeVitrine';
+import { Downloads } from './pages/vitrine/Downloads';
+import { SettingsVitrine } from './pages/vitrine/SettingsVitrine';
+import { MentionsLegales } from './pages/vitrine/MentionsLegales';
+import { CGV } from './pages/vitrine/CGV';
+import { Confidentialite } from './pages/vitrine/Confidentialite';
 import './styles/app.css';
 
 function LoadingScreen({ label }: { label: string }) {
@@ -180,6 +197,55 @@ function AppGate() {
   );
 }
 
+/**
+ * Sous-arbre du SITE VITRINE (Phase 5). Monté uniquement quand `isVitrine`
+ * (web pur, hors Electron, hors natif). Pas de IptvProfile/Xtream/Library/etc.
+ * — uniquement marketing + compte + Stripe + appairage TV + téléchargements.
+ *
+ * Le filet de redirection vers `/tv-link` (présent dans `AppGate` pour le cas
+ * où l'OAuth atterrit sur la Site URL) est répliqué ici pour la même raison
+ * — si quelqu'un scanne un QR depuis sa TV et finit sur le site vitrine, on
+ * le renvoie sur la page d'appairage.
+ */
+function VitrineGate() {
+  const { user } = useSupabaseAuth();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (
+      user &&
+      pathname !== '/tv-link' &&
+      sessionStorage.getItem(TV_PAIRING_CODE_KEY)
+    ) {
+      navigate('/tv-link', { replace: true });
+    }
+  }, [user, pathname, navigate]);
+
+  return (
+    <SubscriptionProvider>
+      <HeaderVitrine />
+      <main>
+        <Routes>
+          <Route path="/" element={<HomeVitrine />} />
+          <Route path="/downloads" element={<Downloads />} />
+          <Route path="/premium" element={<Premium />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/settings" element={<SettingsVitrine />} />
+          <Route path="/tv-link" element={<TvLink />} />
+          <Route path="/mentions-legales" element={<MentionsLegales />} />
+          <Route path="/cgv" element={<CGV />} />
+          <Route path="/confidentialite" element={<Confidentialite />} />
+          {/* Toute URL d'app (live/movies/series/player/etc.) redirige vers
+              la page de téléchargements — explicite et SEO-safe. */}
+          <Route path="*" element={<Navigate to="/downloads" replace />} />
+        </Routes>
+      </main>
+      <FooterVitrine />
+    </SubscriptionProvider>
+  );
+}
+
 function App() {
   // webOS (.ipk) et Tizen (.wgt) sont servis depuis file:// ou une URL interne
   // dont le pathname n'est pas '/'. BrowserRouter casserait le routing (path="/"
@@ -191,7 +257,7 @@ function App() {
     <Router>
       <I18nProvider>
         <SupabaseAuthProvider>
-          <AppGate />
+          {isVitrine ? <VitrineGate /> : <AppGate />}
         </SupabaseAuthProvider>
       </I18nProvider>
     </Router>

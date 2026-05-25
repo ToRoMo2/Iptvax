@@ -74,3 +74,14 @@ declare global {
  *  preload). Sert au branchement OAuth « navigateur système » — l'app reste
  *  en mode `web` (`isNative=false`), seul ce point précis diverge. */
 export const isElectron = typeof window !== 'undefined' && !!window.electron;
+
+/** `true` quand l'app sert de SITE VITRINE (web pur, hors Electron, hors natif).
+ *
+ *  Sémantique : pas de catalogue, pas de player, pas de profils IPTV — uniquement
+ *  marketing + compte Supabase + checkout Stripe + `/tv-link` + téléchargements.
+ *  Voir CLAUDE.md §XI Phase 5.
+ *
+ *  ⚠ FAUX en Electron : l'app desktop embarque le proxy local (Option B Phase 3a)
+ *  et doit garder l'app complète. `isVitrine` exclut donc Electron explicitement,
+ *  même si `isWeb` y vaut `true`. */
+export const isVitrine = isWeb && !isElectron;
