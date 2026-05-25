@@ -307,19 +307,23 @@ export function VideoPlayer({
     : subColor === 'green' ? styles.subColorGreen
     : styles.subColorWhite;
 
+  // Surface native (vidéo rendue par un plan hardware DERRIÈRE la WebView) :
+  //   - Capacitor → libVLC (`useNativePlayer` pose `usesNativeSurface` à true)
+  //   - webOS Media Pipeline → `useWebOSPlayer` pose `usesNativeSurface` à true
+  //     pour les fichiers directs (MKV/MP4), false en HLS (rendu par <video>)
+  // Dans ces cas on n'affiche pas de <video> — juste un <div> transparent
+  // cliquable. La classe `native-video-surface` complète la chaîne CSS de
+  // transparence (cf. `iptvax-native-playback` dans app.css).
+  const useNativeSurface = player.usesNativeSurface === true;
   return (
     <div
       ref={player.wrapperRef}
-      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${isCapacitor ? 'native-video-surface' : ''}`}
+      className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${useNativeSurface ? 'native-video-surface' : ''}`}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
-      {/* Surface vidéo :
-          - Capacitor (Android) → libVLC rend dans une surface native DERRIÈRE
-            la WebView ; on n'affiche qu'une zone transparente cliquable.
-          - webOS / web         → <video> HTML5 standard. */}
-      {isCapacitor ? (
+      {useNativeSurface ? (
         <div className={`${styles.video} native-video-surface`} onClick={player.toggle} />
       ) : (
         <video

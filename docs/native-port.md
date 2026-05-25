@@ -428,6 +428,75 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
     `useTizenPlayer` + injection `<object type="application/avplayer">` en
     Phase 4c.
 
+- **4f — Media Pipeline webOS** ✅ *(code en place — 2026-05-25, cul-de-sac sur simulateur)*
+
+  Tentative d'aller chercher les pistes audio/sous-titres embarquées des
+  fichiers MKV/MP4 directs via la **Media Pipeline luna://**, équivalent
+  logique du plugin libVLC d'Android. Code livré dans `useWebOSPlayer.ts`
+  (déjà préexistant en partie, restauré après un merge qui l'avait écrasé),
+  `src/native/webosMedia.ts` et `src/native/webosLuna.ts`. Architecture :
+  - `WebOSMedia.load(uri)` → `mediaId`
+  - `WebOSMedia.subscribe(mediaId, onUpdate)` reçoit les events de la pipeline,
+    notamment `sourceInfo` contenant `tracks: MediaTrack[]` filtrés en
+    audio/text et mappés vers les states UI `audioTracks`/`subtitleTracks`
+    via `applyPipelineTracks` (ref `pipelineAudioMapRef` / `pipelineSubMapRef`
+    pour retraduire l'index UI vers l'index pipeline).
+  - `WebOSMedia.selectTrack(mediaId, 'audio'|'text', index)` pour switcher.
+  - Surface native transparente via `usesNativeSurface=true` + classe
+    `iptvax-native-playback` sur `<html>` (mêmes plombings que libVLC).
+
+  Robustesse — **`startPipeline` retourne `boolean`** et le caller appelle
+  `fallbackToVideo()` en cas d'échec (service indispo / refusé / firmware
+  incompatible). Le `<video>` direct reprend la main, lecture garantie même
+  si la pipeline ne marche pas. Bug subtil corrigé : `setUsesNativeSurface(true)`
+  ne doit être appelé QU'APRÈS que `WebOSMedia.load` ait réussi, sinon le
+  `<video>` est démonté du DOM par `VideoPlayer.tsx` avant que `fallbackToVideo`
+  ait lieu → écran noir.
+
+  Robustesse — **3 noms de service Luna essayés en cascade** dans
+  `webosMedia.ts` (`MEDIA_SERVICE_URIS`) : `com.webos.media` (canonique),
+  `com.webos.service.mediaserver` (alias intermédiaire),
+  `com.palm.umediapipeline` (alias historique). `resolveMediaService()`
+  probe chacun avec une méthode légère (`getMediaId`) et mémorise le premier
+  qui répond. Si tous échouent, le caller bascule sur fallback.
+
+  Fallback `<video>` enrichi — sur le chemin sans pipeline :
+  - Attribut `data-mediaoption` posé sur le `<video>` avant `src` (extension
+    propriétaire LG, peut déclencher l'attachement de tous les flux du
+    conteneur sur certains firmwares).
+  - Listener `umsmediainfo` event custom webOS (le plus documenté ; structure
+    `e.detail.info.audio[]` / `subtitle[]`).
+  - Probe `video.audioTracks` / `video.textTracks` standards HTML5 sur
+    `loadedmetadata` (au cas où Blink flag expérimental est activé).
+  - `setAudio` / `setSubtitle` étendus avec 3ᵉ chemin HTMLAudioTrackList /
+    TextTrackList pour switching natif.
+
+  **Diagnostic sur simulateur webOS 26 (2026-05-25)** : la WebView simu
+  refuse les 3 services Luna (`Service does not exist`), 18 names d'event
+  DOM custom testés → 0 fire, dump des propriétés non-standards du
+  HTMLVideoElement ne révèle aucune extension LG (que les `webkit*`
+  standards de Chromium). Conclusion : **les apps `type: "web"` sur webOS
+  n'ont aucun canal JS pour accéder aux tracks embarquées des fichiers
+  MKV/MP4 directs**. La lecture marche via fallback `<video>` mais les menus
+  audio/sous-titres restent vides. HLS Live garde ses tracks via hls.js
+  (`AUDIO_TRACKS_UPDATED` / `SUBTITLE_TRACKS_UPDATED`).
+
+  **Test sur TV LG physique reporté** : sur la TV de test de l'utilisateur
+  (LG ~2023), l'app `Developer Mode` est instable — le toggle `Key Server`
+  ne persiste pas entre lancements, `prisoner` SSH ne peut pas ouvrir de
+  PTY ni écrire dans `/media/developer/temp`. Causes possibles : compte LG
+  Dev non vérifié, app Dev Mode corrompue, firmware bridé sur ce modèle.
+  Tentative d'install échouée (`ssh exec failure: Permission denied` sur
+  cleanup du staging). **Décision** : on accepte la limitation pour le moment
+  et on retentera au déploiement réel sur d'autres TVs ou après une mise à
+  jour firmware. Le code Phase 4d/4e/4f est en place et fonctionnel sur le
+  papier ; il faut juste une TV LG dont le Dev Mode est sain pour le valider.
+
+  Conclusion provisoire Phase 4 LG : webOS shippe avec **lecture OK pour
+  tout type de contenu** mais **menus piste audio/sous-titres limités à HLS
+  via hls.js** sur le simulateur — à confirmer/infirmer sur TV réelle dès
+  que possible.
+
 - **Pré-requis machine pour 4c+** : pour Tizen, l'extension VS Code + un
   certificat actif suffisent. Pour webOS, installer `@webosose/ares-cli`
   (npm global) + compte LG Developer + TV en Developer Mode (app dédiée du
@@ -543,6 +612,14 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
 | 2026-05-24 | Phase 4e — Correction assets (`AppLogo` + `TmdbPill` + favicon index.html via `import.meta.env.BASE_URL` / `%BASE_URL%`) | ✅ Fait |
 | 2026-05-24 | Phase 4e — Lecteur webOS (`src/hooks/useWebOSPlayer.ts` : `<video>` natif + hls.js, pistes audio MP4 et HLS, pas de sous-titres v1) | ✅ Fait |
 | 2026-05-24 | Phase 4e — Dispatch 3 voies dans `VideoPlayer.tsx` (`isCapacitor` / `isWebOS` / web) + surface vidéo conditionnée à `isCapacitor` | ✅ Fait |
+| 2026-05-25 | Cleanup résidus de merge (3 imports/vars inutilisés dans `AppLogo`, `Home`, `VideoPlayer`) | ✅ Fait |
+| 2026-05-25 | Fix critique TV pairing — suppression de `signOut({scope:'local'})` côté téléphone dans `TvLink.tsx`. `scope:'local'` fait quand même un POST `/logout` qui révoque le `session_id` du JWT côté serveur, invalidant le token donné à la TV. Côté TV `setSession()` appelait ensuite `GET /user` qui retournait `Auth session missing!`. Plus de signOut côté téléphone → l'appairage marche fiablement sur webOS (et Android TV est plus fiable aussi). | ✅ Fait + validé sur simu webOS 26 |
+| 2026-05-25 | Phase 4f — Intégration Media Pipeline luna://com.webos.media dans `useWebOSPlayer.ts` (en réalité restaurée après merge qui l'avait écrasée — fichier était passé de 626 lignes à 393). Dispatch HLS via hls.js / fichier direct via WebOSMedia. Surface native transparente quand pipeline active. `applyPipelineTracks` parse les events `sourceInfo` pour peupler `audioTracks`/`subtitleTracks`. `selectTrack` luna pour switching à chaud. | ✅ Code en place |
+| 2026-05-25 | Phase 4f — Fallback robustness : `startPipeline` retourne `boolean`, en cas d'échec luna `fallbackToVideo()` prend la main et `<video src=url>` joue normalement. Surface bascule `usesNativeSurface=true` UNIQUEMENT après `WebOSMedia.load` réussi (sinon le `<video>` est démonté du DOM avant que le fallback ait lieu → écran noir, bug corrigé). | ✅ Fait |
+| 2026-05-25 | Phase 4f — 3 noms de service Luna essayés en cascade dans `webosMedia.ts` (`com.webos.media`, `com.webos.service.mediaserver`, `com.palm.umediapipeline`) — variants selon firmware. Le premier qui répond est mémorisé `resolvedService` pour la session. | ✅ Fait |
+| 2026-05-25 | Phase 4f — Fallback `<video>` enrichi : attribut `data-mediaoption` posé avant `src` (extension propriétaire LG qui peut débloquer l'exposition des pistes sur certains firmwares), listener `umsmediainfo` (event custom webOS le plus documenté) + probe `video.audioTracks`/`video.textTracks` sur `loadedmetadata`. Tout no-op silencieux quand rien ne remonte. `setAudio`/`setSubtitle` étendus avec 3ᵉ chemin HTML5 (HTMLAudioTrackList / TextTrackList). | ✅ Fait |
+| 2026-05-25 | Phase 4f — Diagnostic exhaustif sur simulateur webOS 26 : 3 services Luna → tous `Service does not exist`. 18 events DOM custom testés (`umsmediainfo`, `mediainfoupdate`, `webostvtracks`, `sourceinfo`, `audiotrackschanged`, ...) → 0 fire. Dump propriétés non-standards de `HTMLVideoElement` → uniquement extensions `webkit*` standards de Chromium (`webkitDecodedFrameCount`, `requestPictureInPicture`, etc.) — aucune extension LG exposée. `video.mediaOption`, `video.mediaInfo`, `video.audioTrack`, `video.setMediaOption` tous `undefined`. **Cul-de-sac JS confirmé** sur simulateur pour les fichiers MKV/MP4 directs. La lecture fonctionne via fallback `<video>` mais menus piste vides. | 🛑 Bloqué (simu webOS 26 — apps `type: "web"` n'ont pas l'ACL `mediaclient`) |
+| 2026-05-25 | Tentative install TV LG physique (2023) | 🛑 Bloqué — Developer Mode app instable sur la TV de test (toggle `Key Server` ne persiste pas entre lancements de l'app, `prisoner` SSH ne peut pas ouvrir de PTY ni écrire dans `/media/developer/temp`). Plusieurs causes possibles : compte LG Dev non vérifié, app Dev Mode corrompue, firmware bridé sur ce modèle. **Reporté au déploiement réel** (autre TV LG, ou correction firmware future) — le code Phase 4d/4e/4f reste en place et marchera dès qu'une TV LG fonctionnelle accepte l'install. |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google

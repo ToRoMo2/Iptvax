@@ -26,7 +26,17 @@
 
 import { lunaRequest, lunaSubscribe, type LunaSubscription, hasLunaBridge } from './webosLuna';
 
-const MEDIA_SERVICE = 'luna://com.webos.media';
+// Noms du service uMediaServer selon les firmwares webOS. On les essaie dans
+// l'ordre — le simulateur webOS 26 renvoie « Service does not exist » sur le
+// nom canonique, mais une vraie TV (ou une version différente) peut exposer
+// l'un des alias historiques.
+const MEDIA_SERVICE_URIS = [
+  'luna://com.webos.media',                // canonique (webOS 3+, vraies TVs)
+  'luna://com.webos.service.mediaserver',  // alias intermédiaire
+  'luna://com.palm.umediapipeline',        // alias historique (webOS 1.x-2.x)
+];
+// Une fois qu'un nom a répondu OK on le mémorise pour éviter de re-tester.
+let resolvedService: string | null = null;
 
 /** Type de piste exposée par la pipeline. */
 export type MediaTrackType = 'audio' | 'video' | 'text';
@@ -71,14 +81,46 @@ export interface MediaLoadOptions {
  * @param transport  Type de transport — défaut `URI` (fichier direct).
  *                   `HLS` active la logique adaptive bitrate côté pipeline.
  */
+// Probe les noms de service Luna possibles et mémorise le premier qui répond
+// sans « Service does not exist ». Émis une seule fois par session.
+async function resolveMediaService(): Promise<string> {
+  if (resolvedService) return resolvedService;
+  let lastError: Error | null = null;
+  for (const uri of MEDIA_SERVICE_URIS) {
+    try {
+      // `getMediaId` est un no-op léger sur uMediaServer — un service vivant
+      // répond avec returnValue:false + un errorText métier (pas « service does
+      // not exist »). On lit l'erreur pour distinguer les deux cas.
+      await lunaRequest(uri, 'getMediaId', {});
+      resolvedService = uri;
+      console.log('[webosMedia] service Luna actif:', uri);
+      return uri;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/does not exist/i.test(msg) || /not registered/i.test(msg)) {
+        // On tente le suivant.
+        lastError = e as Error;
+        continue;
+      }
+      // Erreur autre que « service inexistant » → le service répond donc il
+      // existe ; on l'adopte.
+      resolvedService = uri;
+      console.log('[webosMedia] service Luna actif (via erreur métier):', uri);
+      return uri;
+    }
+  }
+  throw lastError ?? new Error('Aucun service uMediaServer disponible');
+}
+
 async function load(
   uri: string,
   transport: MediaTransport = 'URI',
   opts: MediaLoadOptions = {},
 ): Promise<string> {
+  const service = await resolveMediaService();
   const appId = opts.appId ?? 'com.iptvax.app';
   const win = opts.displayWindow ?? { x: 0, y: 0, width: 1920, height: 1080 };
-  const res = await lunaRequest<{ mediaId: string }>(MEDIA_SERVICE, 'load', {
+  const res = await lunaRequest<{ mediaId: string }>(service, 'load', {
     uri,
     type: 'media',
     payload: {
@@ -100,31 +142,37 @@ async function load(
 }
 
 async function unload(mediaId: string): Promise<void> {
-  await lunaRequest(MEDIA_SERVICE, 'unload', { mediaId });
+  const service = await resolveMediaService();
+  await lunaRequest(service, 'unload', { mediaId });
 }
 
 async function play(mediaId: string): Promise<void> {
-  await lunaRequest(MEDIA_SERVICE, 'play', { mediaId });
+  const service = await resolveMediaService();
+  await lunaRequest(service, 'play', { mediaId });
 }
 
 async function pause(mediaId: string): Promise<void> {
-  await lunaRequest(MEDIA_SERVICE, 'pause', { mediaId });
+  const service = await resolveMediaService();
+  await lunaRequest(service, 'pause', { mediaId });
 }
 
 /** Seek en SECONDES (converti en ms pour la pipeline). */
 async function seek(mediaId: string, positionSec: number): Promise<void> {
+  const service = await resolveMediaService();
   const ms = Math.max(0, Math.round(positionSec * 1000));
-  await lunaRequest(MEDIA_SERVICE, 'seek', { mediaId, position: ms });
+  await lunaRequest(service, 'seek', { mediaId, position: ms });
 }
 
 /** Volume normalisé 0..1 (converti en 0..100 pour la pipeline). */
 async function setVolume(mediaId: string, volume: number): Promise<void> {
+  const service = await resolveMediaService();
   const v = Math.max(0, Math.min(100, Math.round(volume * 100)));
-  await lunaRequest(MEDIA_SERVICE, 'setVolume', { mediaId, volume: v });
+  await lunaRequest(service, 'setVolume', { mediaId, volume: v });
 }
 
 async function setMuted(mediaId: string, muted: boolean): Promise<void> {
-  await lunaRequest(MEDIA_SERVICE, 'setMuted', { mediaId, muted });
+  const service = await resolveMediaService();
+  await lunaRequest(service, 'setMuted', { mediaId, muted });
 }
 
 /**
@@ -135,7 +183,8 @@ async function setMuted(mediaId: string, muted: boolean): Promise<void> {
  *               renvoyée par l'event `sourceInfo`. `-1` désactive (sous-titres).
  */
 async function selectTrack(mediaId: string, type: MediaTrackType, index: number): Promise<void> {
-  await lunaRequest(MEDIA_SERVICE, 'selectTrack', { mediaId, type, index });
+  const service = await resolveMediaService();
+  await lunaRequest(service, 'selectTrack', { mediaId, type, index });
 }
 
 /** Positionne la fenêtre de rendu de la vidéo (plan hardware). */
@@ -143,7 +192,8 @@ async function setDisplayWindow(
   mediaId: string,
   window: { x: number; y: number; width: number; height: number },
 ): Promise<void> {
-  await lunaRequest(MEDIA_SERVICE, 'setDisplayWindow', {
+  const service = await resolveMediaService();
+  await lunaRequest(service, 'setDisplayWindow', {
     mediaId,
     destination: window,
     fullScreen: false,
@@ -162,12 +212,17 @@ function subscribe(
   onUpdate: (s: MediaStateUpdate) => void,
   onError?: (e: Error) => void,
 ): LunaSubscription {
+  // `subscribe` est sync (renvoie une `LunaSubscription`) → on ne peut pas
+  // attendre `resolveMediaService`. Mais comme `load()` aura déjà tourné
+  // avant qu'on subscribe (mediaId issu de `load`), `resolvedService` est
+  // déjà mémorisé. Repli sur le nom canonique si jamais ça n'a pas eu lieu.
+  const service = resolvedService ?? MEDIA_SERVICE_URIS[0];
   return lunaSubscribe<MediaStateUpdate & {
     position?: number;
     durationMs?: number;
     sourceInfo?: { tracks?: MediaTrack[] };
   }>(
-    MEDIA_SERVICE,
+    service,
     'subscribe',
     { mediaId },
     (res) => {

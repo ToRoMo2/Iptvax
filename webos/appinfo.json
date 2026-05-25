@@ -15,6 +15,6 @@
   "supportTouchMode": "none",
   "handlesRelaunch": false,
   "disableBackHistoryAPI": true,
-  "transparent": false,
+  "transparent": true,
   "uiRevision": 2
 }
