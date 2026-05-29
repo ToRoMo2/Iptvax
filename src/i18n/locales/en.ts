@@ -208,6 +208,7 @@ const en: typeof frDict = {
     audioTrack: 'Audio track',
     subtitles: 'Subtitles',
     customize: 'Customize',
+    subtitlePreview: 'Your subtitles will look like this',
     size: 'Size',
     background: 'Background',
     color: 'Color',

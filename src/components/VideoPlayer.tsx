@@ -8,6 +8,12 @@ import { isTvDevice } from '../native/tvDetect';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
 import { TvPlayerOverlay, type SubSize, type SubBg, type SubColor } from './TvPlayerOverlay';
+import {
+  IconPlay, IconPause, IconBack10, IconFwd10, IconPrev, IconNext,
+  IconAudio, IconSubtitles, IconQuality, IconCheck, IconBack, IconClose,
+  IconVolumeMute, IconVolumeLow, IconVolumeHigh,
+  IconFullscreenEnter, IconFullscreenExit, IconSettings, IconAlert,
+} from './PlayerIcons';
 import { useI18n } from '../contexts/I18nContext';
 import styles from './VideoPlayer.module.css';
 
@@ -72,6 +78,20 @@ function saveSubPrefs(prefs: SubPrefs) {
   try { localStorage.setItem(SUB_PREFS_KEY, JSON.stringify(prefs)); } catch { /* */ }
 }
 
+// Maps de style pour l'aperçu live + les chips « Aa » du panneau Personnaliser.
+// Tailles alignées sur les .subSm/Md/Lg/Xl du CSS pour que l'aperçu reflète
+// EXACTEMENT le rendu final. Mêmes couleurs/fonds que TvPlayerOverlay (DA).
+const PREVIEW_PX: Record<SubSize, number> = { sm: 18, md: 26, lg: 36, xl: 48 };
+const CHIP_PX: Record<SubSize, number> = { sm: 11, md: 15, lg: 20, xl: 26 };
+const SUB_COLOR_HEX: Record<SubColor, string> = {
+  white: '#ffffff', yellow: '#ffe066', cyan: 'var(--accent)', green: '#7eff7e',
+};
+const SUB_BG_CSS: Record<SubBg, string> = {
+  none: 'transparent', semi: 'rgba(0,0,0,0.6)', solid: 'rgba(0,0,0,0.92)',
+};
+const SUB_OUTLINE = '-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 6px rgba(0,0,0,0.55)';
+const SUB_SOFT_SHADOW = '0 1px 3px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.6)';
+
 export function VideoPlayer({
   url,
   title,
@@ -112,11 +132,47 @@ export function VideoPlayer({
         : usePlayer(url, mediaUrl);
   /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [showQuality, setShowQuality] = useState(false);
-  const [showAudio, setShowAudio] = useState(false);
-  const [showSubtitles, setShowSubtitles] = useState(false);
-  const [showSubSettings, setShowSubSettings] = useState(false);
+  // Panneau inline qui REMPLACE la rangée de contrôles (pattern TvPlayerOverlay).
+  // null = contrôles classiques affichés ; sinon le panneau prend la place et
+  // le lecteur est mis en pause automatiquement (cf. pausedByPanelRef).
+  const [panelKind, setPanelKind] = useState<'audio' | 'subtitles' | 'quality' | null>(null);
+  // Vue active dans le panneau sous-titres : 'tracks' (pistes + bouton
+  // Personnaliser) ou 'customize' (aperçu live + chips Taille/Couleur/Fond).
+  const [subView, setSubView] = useState<'tracks' | 'customize'>('tracks');
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Trace si NOUS avons mis le lecteur en pause à l'ouverture du panneau (pour
+  // éviter d'auto-reprendre une vidéo que l'utilisateur avait pausée lui-même).
+  const pausedByPanelRef = useRef(false);
+
+  // Ferme le panneau inline et reprend la lecture si on l'avait pausée.
+  // Définie ici (avant les useEffect qui en dépendent) pour respecter l'ordre
+  // de hoisting des `useCallback`.
+  const closePanel = useCallback(() => {
+    if (pausedByPanelRef.current) {
+      player.toggle();
+      pausedByPanelRef.current = false;
+    }
+    setPanelKind(null);
+    setSubView('tracks');
+  }, [player]);
+
+  // Alias pour le onClick du wrapper (clic en dehors des contrôles) : ferme tout.
+  const closeAllMenus = closePanel;
+
+  // Ouvre un panneau (audio / sous-titres / qualité). Si le même panneau est
+  // déjà ouvert dans sa vue de base, ferme. Sinon bascule + met en pause.
+  const openPanel = useCallback((kind: 'audio' | 'subtitles' | 'quality') => {
+    if (panelKind === kind && (kind !== 'subtitles' || subView === 'tracks')) {
+      closePanel();
+      return;
+    }
+    if (panelKind === null && player.status === 'playing') {
+      player.toggle();
+      pausedByPanelRef.current = true;
+    }
+    setPanelKind(kind);
+    if (kind === 'subtitles') setSubView('tracks');
+  }, [panelKind, subView, player, closePanel]);
 
   // Sous-titres : préférences visuelles persistées dans localStorage
   const initialPrefs = loadSubPrefs();
@@ -221,6 +277,13 @@ export function VideoPlayer({
     if (tvMode) return;
     const handleKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      // Escape ferme le panneau inline en priorité (reprend la lecture si on
+      // l'avait pausée).
+      if (e.key === 'Escape' && panelKind !== null) {
+        e.preventDefault();
+        closePanel();
+        return;
+      }
       switch (e.key) {
         case ' ':
         case 'k':
@@ -287,7 +350,7 @@ export function VideoPlayer({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [player, isLive, onPrevChannel, onNextChannel, tvMode]);
+  }, [player, isLive, onPrevChannel, onNextChannel, tvMode, panelKind, closePanel]);
 
   const progressPercent = !isLive && player.duration > 0
     ? (player.currentTime / player.duration) * 100
@@ -297,18 +360,11 @@ export function VideoPlayer({
     ? (player.bufferedEnd / player.duration) * 100
     : 0;
 
-  const volumeIcon = player.isMuted || player.volume === 0 ? '🔇'
-    : player.volume < 0.5 ? '🔉'
-    : '🔊';
+  const VolumeIcon = player.isMuted || player.volume === 0 ? IconVolumeMute
+    : player.volume < 0.5 ? IconVolumeLow
+    : IconVolumeHigh;
 
   const showControls = controlsVisible || !isPlaying || hasError;
-
-  const closeAllMenus = () => {
-    setShowQuality(false);
-    setShowAudio(false);
-    setShowSubtitles(false);
-    setShowSubSettings(false);
-  };
 
   const subSizeClass = subSize === 'sm' ? styles.subSm
     : subSize === 'lg' ? styles.subLg
@@ -339,23 +395,37 @@ export function VideoPlayer({
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
-      {isTizen ? (
-        <object
-          type="application/avplayer"
-          className={`${styles.video} native-video-surface`}
-          onClick={player.toggle}
-        />
-      ) : useNativeSurface ? (
-        <div className={`${styles.video} native-video-surface`} onClick={player.toggle} />
-      ) : (
-        <video
-          ref={player.videoRef}
-          className={styles.video}
-          playsInline
-          poster={safeImgUrl(poster)}
-          onClick={player.toggle}
-        />
-      )}
+      {(() => {
+        // Quand le panneau inline est ouvert, un clic sur la vidéo doit FERMER
+        // le panneau (et reprendre la lecture si on l'avait pausée) plutôt
+        // qu'appeler player.toggle directement — ce qui produirait un double-
+        // toggle (panneau resume + video toggle = pause à nouveau).
+        const onSurfaceClick = () => {
+          if (panelKind !== null) closePanel();
+          else player.toggle();
+        };
+        if (isTizen) {
+          return (
+            <object
+              type="application/avplayer"
+              className={`${styles.video} native-video-surface`}
+              onClick={onSurfaceClick}
+            />
+          );
+        }
+        if (useNativeSurface) {
+          return <div className={`${styles.video} native-video-surface`} onClick={onSurfaceClick} />;
+        }
+        return (
+          <video
+            ref={player.videoRef}
+            className={styles.video}
+            playsInline
+            poster={safeImgUrl(poster)}
+            onClick={onSurfaceClick}
+          />
+        );
+      })()}
 
       {/* Sous-titres personnalisés */}
       {subtitleText && (
@@ -391,7 +461,7 @@ export function VideoPlayer({
       {/* Erreur */}
       {hasError && (
         <div className={styles.centerOverlay}>
-          <span className={styles.errorIcon}>⚠</span>
+          <span className={styles.errorIcon}><IconAlert size={34} /></span>
           <p className={styles.errorMsg}>{player.error ?? t('player.error')}</p>
           <div className={styles.errorActions}>
             <button className={styles.retryBtn} onClick={player.retry}>
@@ -406,10 +476,11 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Bouton play central quand en pause (overlay souris/tactile) */}
-      {!tvMode && player.status === 'paused' && (
+      {/* Bouton play central quand en pause (overlay souris/tactile) — masqué
+          quand le panneau inline a la main (la pause est volontaire). */}
+      {!tvMode && player.status === 'paused' && panelKind === null && (
         <div className={styles.pauseHint} onClick={player.toggle}>
-          <div className={styles.bigPlayBtn}>▶</div>
+          <div className={styles.bigPlayBtn}><IconPlay size={28} /></div>
         </div>
       )}
 
@@ -476,226 +547,322 @@ export function VideoPlayer({
             </div>
           )}
 
-          {/* Barre du bas
-              Classes additionnelles pour le mobile :
-              - .primaryGroup → boutons de lecture (prev/play/next ou ±10s) centrés
-              - .playPauseBtn → bouton play/pause distinctif (pastille blanche)
-              - .secondaryGroup → menus + plein écran (alignés à droite)
-              Sur desktop, .bottomBar reste un flex flat ; le visuel est inchangé.
-              CSS gère le regroupement en 2 lignes uniquement sur mobile. */}
-          <div className={styles.bottomBar}>
-            {isLive && (onPrevChannel || onNextChannel) && (
-              <button
-                className={`${styles.controlBtn} ${styles.primaryGroup}`}
-                onClick={onPrevChannel}
-                disabled={!onPrevChannel}
-                title={t('player.prevChannel')}
+          {/* Aperçu live des sous-titres — rendu AU-DESSUS de la barre de
+              progression quand le panneau Personnaliser est ouvert (pattern
+              identique à TvPlayerOverlay). */}
+          {panelKind === 'subtitles' && subView === 'customize' && (
+            <div className={styles.subPreviewBar}>
+              <span
+                style={{
+                  fontSize: PREVIEW_PX[subSize],
+                  color: SUB_COLOR_HEX[subColor],
+                  background: SUB_BG_CSS[subBg],
+                  textShadow: subBg === 'none' ? SUB_OUTLINE : SUB_SOFT_SHADOW,
+                  padding: subBg === 'none' ? '0 4px' : '4px 14px',
+                  borderRadius: 'var(--r-ui)',
+                  fontWeight: 700,
+                  letterSpacing: '-0.005em',
+                  lineHeight: 1.3,
+                }}
               >
-                ⏮
-              </button>
-            )}
-
-            {!isLive && (
-              <button className={`${styles.controlBtn} ${styles.primaryGroup}`} onClick={() => player.seek(player.currentTime - 10)} title={t('player.back10')}>
-                ↩ 10s
-              </button>
-            )}
-
-            <button className={`${styles.controlBtn} ${styles.playPauseBtn} ${styles.primaryGroup}`} onClick={player.toggle} title={t('player.playPause')}>
-              {isPlaying ? '⏸' : '▶'}
-            </button>
-
-            {isLive && (onPrevChannel || onNextChannel) && (
-              <button
-                className={`${styles.controlBtn} ${styles.primaryGroup}`}
-                onClick={onNextChannel}
-                disabled={!onNextChannel}
-                title={t('player.nextChannel')}
-              >
-                ⏭
-              </button>
-            )}
-
-            {!isLive && (
-              <button className={`${styles.controlBtn} ${styles.primaryGroup}`} onClick={() => player.seek(player.currentTime + 10)} title={t('player.fwd10')}>
-                10s ↪
-              </button>
-            )}
-
-            <div className={styles.spacer} />
-
-            {/* Volume */}
-            <div className={styles.volumeGroup}>
-              <button className={styles.controlBtn} onClick={player.toggleMute} title={t('player.mute')}>
-                {volumeIcon}
-              </button>
-              <input
-                type="range"
-                className={styles.volumeSlider}
-                min={0}
-                max={1}
-                step={0.05}
-                value={player.isMuted ? 0 : player.volume}
-                onChange={(e) => player.setVolume(parseFloat(e.target.value))}
-              />
+                {t('player.subtitlePreview')}
+              </span>
             </div>
+          )}
 
-            {/* Sélecteur de piste audio */}
-            {player.audioTracks.length > 0 && (
-              <div className={`${styles.menuContainer} ${styles.secondaryGroup}`}>
+          {/* Barre du bas : rangée de contrôles OU panneau inline (qui REMPLACE
+              les contrôles, façon TvPlayerOverlay). Le panneau ouvre toujours
+              en pause auto, et reprend la lecture à sa fermeture. */}
+          {panelKind === null ? (
+            <div className={styles.bottomBar}>
+              {isLive && (onPrevChannel || onNextChannel) && (
                 <button
-                  className={`${styles.controlBtn} ${showAudio ? styles.controlBtnActive : ''}`}
-                  onClick={(e) => { e.stopPropagation(); setShowAudio((v) => !v); setShowQuality(false); setShowSubtitles(false); }}
+                  className={`${styles.controlBtn} ${styles.primaryGroup}`}
+                  onClick={onPrevChannel}
+                  disabled={!onPrevChannel}
+                  title={t('player.prevChannel')}
+                >
+                  <IconPrev size={22} />
+                </button>
+              )}
+
+              {!isLive && (
+                <button className={`${styles.controlBtn} ${styles.primaryGroup}`} onClick={() => player.seek(player.currentTime - 10)} title={t('player.back10')}>
+                  <IconBack10 size={22} />
+                </button>
+              )}
+
+              <button className={`${styles.controlBtn} ${styles.playPauseBtn} ${styles.primaryGroup}`} onClick={player.toggle} title={t('player.playPause')}>
+                {isPlaying ? <IconPause size={24} /> : <IconPlay size={24} />}
+              </button>
+
+              {isLive && (onPrevChannel || onNextChannel) && (
+                <button
+                  className={`${styles.controlBtn} ${styles.primaryGroup}`}
+                  onClick={onNextChannel}
+                  disabled={!onNextChannel}
+                  title={t('player.nextChannel')}
+                >
+                  <IconNext size={22} />
+                </button>
+              )}
+
+              {!isLive && (
+                <button className={`${styles.controlBtn} ${styles.primaryGroup}`} onClick={() => player.seek(player.currentTime + 10)} title={t('player.fwd10')}>
+                  <IconFwd10 size={22} />
+                </button>
+              )}
+
+              <div className={styles.spacer} />
+
+              {/* Volume */}
+              <div className={styles.volumeGroup}>
+                <button className={styles.controlBtn} onClick={player.toggleMute} title={t('player.mute')}>
+                  <VolumeIcon size={22} />
+                </button>
+                <input
+                  type="range"
+                  className={styles.volumeSlider}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={player.isMuted ? 0 : player.volume}
+                  onChange={(e) => player.setVolume(parseFloat(e.target.value))}
+                />
+              </div>
+
+              {/* Audio — ouvre le panneau inline */}
+              {player.audioTracks.length > 0 && (
+                <button
+                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup}`}
+                  onClick={(e) => { e.stopPropagation(); openPanel('audio'); }}
                   title={t('player.audioTrack')}
                 >
-                  🎵 {player.audioTracks[player.currentAudio]?.language?.toUpperCase() || 'AUDIO'}
+                  <IconAudio size={18} />
+                  <span className={styles.controlBtnLabel}>
+                    {player.audioTracks[player.currentAudio]?.language?.toUpperCase() || 'AUDIO'}
+                  </span>
                 </button>
-                {showAudio && (
-                  <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
-                    <div className={styles.menuHeader}>{t('player.audioTrack')}</div>
-                    {player.audioTracks.map((t) => (
-                      <button
-                        key={t.index}
-                        className={`${styles.menuOption} ${player.currentAudio === t.index ? styles.menuOptionActive : ''}`}
-                        onClick={() => { player.setAudio(t.index); setShowAudio(false); }}
-                      >
-                        <span className={styles.menuOptionIcon}>{player.currentAudio === t.index ? '✓' : ''}</span>
-                        {t.name}{t.language ? ` (${t.language})` : ''}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
-            {/* Sélecteur de sous-titres */}
-            {player.subtitleTracks.length > 0 && (
-              <div className={`${styles.menuContainer} ${styles.secondaryGroup}`}>
+              {/* Sous-titres — ouvre le panneau inline */}
+              {player.subtitleTracks.length > 0 && (
                 <button
-                  className={`${styles.controlBtn} ${showSubtitles ? styles.controlBtnActive : ''} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
-                  onClick={(e) => { e.stopPropagation(); setShowSubtitles((v) => !v); setShowQuality(false); setShowAudio(false); }}
+                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
+                  onClick={(e) => { e.stopPropagation(); openPanel('subtitles'); }}
                   title={t('player.subtitles')}
                 >
-                  CC{player.currentSubtitle >= 0 ? ` · ${player.subtitleTracks[player.currentSubtitle]?.language?.toUpperCase() || '●'}` : ''}
+                  <IconSubtitles size={18} />
+                  {player.currentSubtitle >= 0 && (
+                    <span className={styles.controlBtnLabel}>
+                      {player.subtitleTracks[player.currentSubtitle]?.language?.toUpperCase() || 'CC'}
+                    </span>
+                  )}
                 </button>
-                {showSubtitles && (
-                  <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
-                    <div className={styles.menuHeader}>
-                      {t('player.subtitles')}
-                      <button
-                        className={styles.menuSettingsBtn}
-                        onClick={() => setShowSubSettings((v) => !v)}
-                        title={t('player.customize')}
-                      >
-                        ⚙
-                      </button>
-                    </div>
+              )}
 
-                    {showSubSettings && (
-                      <div className={styles.subSettings}>
-                        <div className={styles.subSettingsRow}>
-                          <span className={styles.subSettingsLabel}>{t('player.size')}</span>
-                          <div className={styles.subSettingsBtns}>
-                            {(['sm', 'md', 'lg', 'xl'] as SubSize[]).map((s) => (
-                              <button key={s} className={`${styles.subSettingsOpt} ${subSize === s ? styles.subSettingsOptActive : ''}`} onClick={() => setSubSize(s)}>
-                                {s === 'sm' ? 'S' : s === 'md' ? 'M' : s === 'lg' ? 'L' : 'XL'}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className={styles.subSettingsRow}>
-                          <span className={styles.subSettingsLabel}>{t('player.background')}</span>
-                          <div className={styles.subSettingsBtns}>
-                            {(['none', 'semi', 'solid'] as SubBg[]).map((b) => (
-                              <button key={b} className={`${styles.subSettingsOpt} ${subBg === b ? styles.subSettingsOptActive : ''}`} onClick={() => setSubBg(b)}>
-                                {b === 'none' ? t('player.bgNone') : b === 'semi' ? t('player.bgSemi') : t('player.bgSolid')}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className={styles.subSettingsRow}>
-                          <span className={styles.subSettingsLabel}>{t('player.color')}</span>
-                          <div className={styles.subSettingsBtns}>
-                            {(['white', 'yellow', 'cyan', 'green'] as SubColor[]).map((c) => (
-                              <button key={c} className={`${styles.subSettingsOpt} ${subColor === c ? styles.subSettingsOptActive : ''}`} onClick={() => setSubColor(c)}>
-                                {c === 'white' ? t('player.colWhite') : c === 'yellow' ? t('player.colYellow') : c === 'cyan' ? t('player.colCyan') : t('player.colGreen')}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+              {/* Qualité — ouvre le panneau inline */}
+              {player.levels.length > 1 && (
+                <button
+                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup}`}
+                  onClick={(e) => { e.stopPropagation(); openPanel('quality'); }}
+                  title={t('player.quality')}
+                >
+                  <IconQuality size={18} />
+                  <span className={styles.controlBtnLabel}>
+                    {player.currentLevel === -1
+                      ? 'AUTO'
+                      : (player.levels[player.currentLevel]?.label ?? 'Q')}
+                  </span>
+                </button>
+              )}
 
-                    <button
-                      className={`${styles.menuOption} ${player.currentSubtitle === -1 ? styles.menuOptionActive : ''}`}
-                      onClick={() => { player.setSubtitle(-1); setShowSubtitles(false); }}
-                    >
-                      <span className={styles.menuOptionIcon}>{player.currentSubtitle === -1 ? '✓' : ''}</span>
-                      {t('player.subtitlesOff')}
-                    </button>
-                    {player.subtitleTracks.map((t) => (
+              {/* Plein écran — masqué en natif (l'app est déjà plein écran) */}
+              {!isNative && (
+                <button
+                  className={`${styles.controlBtn} ${styles.secondaryGroup}`}
+                  onClick={player.toggleFullscreen}
+                  title={t('player.fullscreen')}
+                >
+                  {player.isFullscreen ? <IconFullscreenExit size={20} /> : <IconFullscreenEnter size={20} />}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div
+              className={`${styles.inlinePanel} ${panelKind === 'subtitles' && subView === 'customize' ? styles.inlinePanelHoriz : ''}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header : back (customize) + titre + close */}
+              <div className={styles.inlinePanelHeader}>
+                {panelKind === 'subtitles' && subView === 'customize' ? (
+                  <button
+                    className={styles.inlinePanelBack}
+                    onClick={() => setSubView('tracks')}
+                    title={t('common.backWord')}
+                  >
+                    <IconBack size={14} />
+                  </button>
+                ) : (
+                  <span className={styles.inlinePanelHeaderSpacer} />
+                )}
+                <span className={styles.inlinePanelTitle}>
+                  {panelKind === 'audio' && t('player.audioTrack')}
+                  {panelKind === 'subtitles' && subView === 'tracks' && t('player.subtitles')}
+                  {panelKind === 'subtitles' && subView === 'customize' && t('player.customize')}
+                  {panelKind === 'quality' && t('player.videoQuality')}
+                </span>
+                <button
+                  className={styles.inlinePanelClose}
+                  onClick={closePanel}
+                  title={t('common.close')}
+                >
+                  <IconClose size={16} />
+                </button>
+              </div>
+
+              {/* Audio */}
+              {panelKind === 'audio' && (
+                <div className={styles.panelSection}>
+                  <div className={styles.panelItems}>
+                    {player.audioTracks.map((tr) => (
                       <button
-                        key={t.index}
-                        className={`${styles.menuOption} ${player.currentSubtitle === t.index ? styles.menuOptionActive : ''}`}
-                        onClick={() => { player.setSubtitle(t.index); setShowSubtitles(false); }}
+                        key={tr.index}
+                        className={`${styles.panelItem} ${player.currentAudio === tr.index ? styles.panelItemActive : ''}`}
+                        onClick={() => { player.setAudio(tr.index); closePanel(); }}
                       >
-                        <span className={styles.menuOptionIcon}>{player.currentSubtitle === t.index ? '✓' : ''}</span>
-                        {t.name}{t.language ? ` (${t.language})` : ''}
+                        {player.currentAudio === tr.index && <IconCheck size={14} className={styles.panelItemCheck} />}
+                        {tr.name}{tr.language ? ` (${tr.language})` : ''}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Sélecteur de qualité */}
-            {player.levels.length > 1 && (
-              <div className={`${styles.menuContainer} ${styles.secondaryGroup}`}>
-                <button
-                  className={`${styles.controlBtn} ${showQuality ? styles.controlBtnActive : ''}`}
-                  onClick={(e) => { e.stopPropagation(); setShowQuality((v) => !v); setShowAudio(false); setShowSubtitles(false); }}
-                  title={t('player.quality')}
-                >
-                  {player.currentLevel === -1
-                    ? 'AUTO'
-                    : (player.levels[player.currentLevel]?.label ?? 'Q')}
-                </button>
-                {showQuality && (
-                  <div className={styles.popupMenu} onClick={(e) => e.stopPropagation()}>
-                    <div className={styles.menuHeader}>{t('player.videoQuality')}</div>
+              {/* Qualité */}
+              {panelKind === 'quality' && (
+                <div className={styles.panelSection}>
+                  <div className={styles.panelItems}>
                     <button
-                      className={`${styles.menuOption} ${player.currentLevel === -1 ? styles.menuOptionActive : ''}`}
-                      onClick={() => { player.setLevel(-1); setShowQuality(false); }}
+                      className={`${styles.panelItem} ${player.currentLevel === -1 ? styles.panelItemActive : ''}`}
+                      onClick={() => { player.setLevel(-1); closePanel(); }}
                     >
-                      <span className={styles.menuOptionIcon}>{player.currentLevel === -1 ? '✓' : ''}</span>
+                      {player.currentLevel === -1 && <IconCheck size={14} className={styles.panelItemCheck} />}
                       {t('player.auto')}
                     </button>
                     {[...player.levels].reverse().map((lvl) => (
                       <button
                         key={lvl.index}
-                        className={`${styles.menuOption} ${player.currentLevel === lvl.index ? styles.menuOptionActive : ''}`}
-                        onClick={() => { player.setLevel(lvl.index); setShowQuality(false); }}
+                        className={`${styles.panelItem} ${player.currentLevel === lvl.index ? styles.panelItemActive : ''}`}
+                        onClick={() => { player.setLevel(lvl.index); closePanel(); }}
                       >
-                        <span className={styles.menuOptionIcon}>{player.currentLevel === lvl.index ? '✓' : ''}</span>
+                        {player.currentLevel === lvl.index && <IconCheck size={14} className={styles.panelItemCheck} />}
                         {lvl.label}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Plein écran — masqué en natif (l'app est déjà plein écran) */}
-            {!isNative && (
-              <button
-                className={`${styles.controlBtn} ${styles.secondaryGroup}`}
-                onClick={player.toggleFullscreen}
-                title={t('player.fullscreen')}
-              >
-                {player.isFullscreen ? '⊡' : '⊞'}
-              </button>
-            )}
-          </div>
+              {/* Sous-titres — vue tracks : pistes + bouton Personnaliser */}
+              {panelKind === 'subtitles' && subView === 'tracks' && (
+                <>
+                  <div className={styles.panelSection}>
+                    <div className={styles.panelItems}>
+                      <button
+                        className={`${styles.panelItem} ${player.currentSubtitle === -1 ? styles.panelItemActive : ''}`}
+                        onClick={() => { player.setSubtitle(-1); closePanel(); }}
+                      >
+                        {player.currentSubtitle === -1 && <IconCheck size={14} className={styles.panelItemCheck} />}
+                        {t('player.subtitlesOff')}
+                      </button>
+                      {player.subtitleTracks.map((tr) => (
+                        <button
+                          key={tr.index}
+                          className={`${styles.panelItem} ${player.currentSubtitle === tr.index ? styles.panelItemActive : ''}`}
+                          onClick={() => { player.setSubtitle(tr.index); closePanel(); }}
+                        >
+                          {player.currentSubtitle === tr.index && <IconCheck size={14} className={styles.panelItemCheck} />}
+                          {tr.name}{tr.language ? ` (${tr.language})` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.panelSection}>
+                    <div className={styles.panelSectionTitle}>{t('player.customize')}</div>
+                    <div className={styles.panelItems}>
+                      <button
+                        className={`${styles.panelItem} ${styles.panelItemAccent}`}
+                        onClick={() => setSubView('customize')}
+                      >
+                        <IconSettings size={14} />
+                        {t('player.customize')}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Sous-titres — vue customize : 3 colonnes Taille / Couleur / Fond */}
+              {panelKind === 'subtitles' && subView === 'customize' && (
+                <>
+                  <div className={styles.panelSection}>
+                    <div className={styles.panelSectionTitle}>{t('player.size')}</div>
+                    <div className={styles.panelItems}>
+                      {(['sm', 'md', 'lg', 'xl'] as SubSize[]).map((sz) => (
+                        <button
+                          key={sz}
+                          className={`${styles.panelItem} ${styles.panelItemChip} ${subSize === sz ? styles.panelItemActive : ''}`}
+                          onClick={() => setSubSize(sz)}
+                          title={sz.toUpperCase()}
+                        >
+                          <span className={styles.chipAa} style={{ fontSize: CHIP_PX[sz] }}>Aa</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.panelSection}>
+                    <div className={styles.panelSectionTitle}>{t('player.color')}</div>
+                    <div className={styles.panelItems}>
+                      {(['white', 'yellow', 'cyan', 'green'] as SubColor[]).map((c) => (
+                        <button
+                          key={c}
+                          className={`${styles.panelItem} ${styles.panelItemChip} ${subColor === c ? styles.panelItemActive : ''}`}
+                          onClick={() => setSubColor(c)}
+                        >
+                          <span className={styles.chipAa} style={{ color: SUB_COLOR_HEX[c], textShadow: SUB_OUTLINE, fontSize: 17 }}>Aa</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.panelSection}>
+                    <div className={styles.panelSectionTitle}>{t('player.background')}</div>
+                    <div className={styles.panelItems}>
+                      {(['none', 'semi', 'solid'] as SubBg[]).map((b) => (
+                        <button
+                          key={b}
+                          className={`${styles.panelItem} ${styles.panelItemChip} ${subBg === b ? styles.panelItemActive : ''}`}
+                          onClick={() => setSubBg(b)}
+                        >
+                          <span
+                            className={styles.chipAa}
+                            style={{
+                              background: SUB_BG_CSS[b],
+                              color: '#fff',
+                              padding: '2px 8px',
+                              borderRadius: 'var(--r-ui)',
+                              fontSize: 15,
+                              textShadow: b === 'none' ? SUB_OUTLINE : SUB_SOFT_SHADOW,
+                            }}
+                          >Aa</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
       )}

@@ -59,8 +59,11 @@
 }
 
 .errorIcon {
-  font-size: 34px;
   color: var(--live);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 12px var(--live-glow, rgba(255, 80, 80, 0.4)));
 }
 
 .errorMsg {
@@ -124,16 +127,14 @@
 }
 
 .bigPlayBtn {
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   background: #FFFFFF;
   color: #000;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  padding-left: 4px;
+  display: grid;
+  place-items: center;
+  padding-left: 3px; /* léger offset visuel du triangle Play */
   transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
 }
 
@@ -228,28 +229,61 @@
   50%      { opacity: 1;   transform: scale(1); }
 }
 
-/* ── Controls overlay (chrome) ── */
+/* ── Controls overlay (chrome) — transparent slide-up façon TvPlayerOverlay ── */
 .controls {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  opacity: 0;
-  transition: opacity 240ms var(--ease);
   /* IMPORTANT : pointer-events reste 'none' sur le wrapper .controls — sinon la
      zone vide du milieu intercepte les clics et empêche le clic-pour-play. Seuls
      les éléments enfants (topBar / bottomSection) acceptent les pointer events. */
   pointer-events: none;
+  z-index: 6;
 }
 
-.wrapper.showControls .controls {
-  opacity: 1;
+/* topBar : slide depuis le haut + fondu */
+.topBar {
+  transform: translateY(-18px);
+  opacity: 0;
+  transition: transform 280ms var(--ease), opacity 240ms var(--ease);
+}
+
+/* bottomSection : slide depuis le bas + fondu (un peu plus appuyé) */
+.bottomSection {
+  transform: translateY(60%);
+  opacity: 0;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms var(--ease);
 }
 
 .wrapper.showControls .topBar,
 .wrapper.showControls .bottomSection {
+  transform: translateY(0);
+  opacity: 1;
   pointer-events: all;
+}
+
+/* Sous-titres React : on les remonte quand l'overlay est visible pour ne pas
+   être recouverts par le panneau du bas. Anim douce pour éviter un saut. */
+.subtitleOverlay,
+.subtitleLoading {
+  transition: bottom 240ms var(--ease);
+}
+
+.wrapper.showControls .subtitleOverlay,
+.wrapper.showControls .subtitleLoading {
+  bottom: 200px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topBar, .bottomSection {
+    transition: opacity 200ms var(--ease);
+    transform: none;
+  }
+  .wrapper.showControls .topBar,
+  .wrapper.showControls .bottomSection { transform: none; }
+  .subtitleOverlay, .subtitleLoading { transition: none; }
 }
 
 /* ── Top bar (player-top : crumb + live flag) ── */
@@ -404,24 +438,36 @@
 }
 
 .controlBtn {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-width: 44px;
   height: 44px;
   padding: 0 12px;
   background: transparent;
   border: 0;
   color: var(--t-1);
-  font-size: 15px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   border-radius: var(--r-pill);
   cursor: pointer;
-  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
+  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease), transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
   white-space: nowrap;
   line-height: 1;
 }
 
 .controlBtn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Focus clavier : anneau cyan unique de la DA Iptvax — masqué à la souris. */
+.controlBtn:focus { outline: none; }
+.controlBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--accent-glow);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .controlBtn:disabled {
@@ -437,6 +483,23 @@
 .controlBtnOn {
   color: var(--accent) !important;
 }
+
+/* Boutons icone + label (audio / sous-titres / qualité). Le label gagne du
+   weight, l'icône reste neutre. */
+.controlBtnLabeled {
+  padding: 0 14px;
+}
+
+.controlBtnLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--t-2);
+  text-transform: uppercase;
+}
+
+.controlBtnLabeled:hover:not(:disabled) .controlBtnLabel { color: var(--t-1); }
+.controlBtnOn .controlBtnLabel { color: var(--accent); }
 
 .spacer {
   flex: 1;
@@ -457,195 +520,199 @@
   cursor: pointer;
 }
 
-/* ── Menus popup (qualité / audio / sous-titres) ── */
-.menuContainer {
-  position: relative;
-}
-
-.popupMenu {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  right: 0;
-  background: rgba(8, 8, 8, 0.92);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  padding: 6px;
-  min-width: 190px;
-  max-height: 320px;
-  overflow-y: auto;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
-  backdrop-filter: saturate(160%) blur(24px);
-  -webkit-backdrop-filter: saturate(160%) blur(24px);
-  z-index: 20;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
-}
-
-.menuHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--t-3);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  border-bottom: 1px solid var(--line-soft);
-  margin-bottom: 4px;
-}
-
-.menuSettingsBtn {
-  background: transparent;
-  border: 0;
-  color: var(--t-3);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: var(--r-ui);
-  transition: color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
-}
-
-.menuSettingsBtn:hover {
-  color: var(--t-1);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.menuOption {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 9px 10px;
-  background: transparent;
-  border: 0;
-  color: var(--t-2);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-  border-radius: var(--r-ui);
-  cursor: pointer;
-  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
-  gap: 6px;
-}
-
-.menuOption:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--t-1);
-}
-
-.menuOptionActive {
-  color: var(--accent) !important;
-  font-weight: 600;
-}
-
-.menuOptionIcon {
-  width: 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-/* ── Paramètres sous-titres ── */
-.subSettings {
-  padding: 10px 6px;
-  border-bottom: 1px solid var(--line-soft);
-  margin-bottom: 4px;
+/* ── Panneau inline (audio / sous-titres / qualité) ──
+   Remplace la rangée de contrôles dans le MÊME slot du `.bottomSection` ; le
+   lecteur est automatiquement mis en pause à l'ouverture et reprend à la
+   fermeture. Pattern identique à `TvPlayerOverlay.panel` (DA : chips pills,
+   focus anneau cyan, item actif coloré --accent). */
+.inlinePanel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  pointer-events: all;
 }
 
-.subSettingsRow {
+.inlinePanelHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+  padding: 0 4px;
 }
 
-.subSettingsLabel {
+.inlinePanelTitle {
+  flex: 1;
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   color: var(--t-3);
-  white-space: nowrap;
+  text-align: center;
 }
 
-.subSettingsBtns {
-  display: flex;
-  gap: 4px;
-}
-
-.subSettingsOpt {
-  padding: 5px 9px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  color: var(--t-2);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
-}
-
-.subSettingsOpt:hover {
-  color: var(--t-1);
-  border-color: var(--line-strong);
-}
-
-.subSettingsOptActive {
-  background: #FFFFFF !important;
-  border-color: #FFFFFF !important;
-  color: #000 !important;
-}
-
-/* ── Qualité (legacy alias vers popupMenu) ── */
-.qualityContainer {
-  position: relative;
-}
-
-.qualityMenu {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  right: 0;
-  background: rgba(8, 8, 8, 0.92);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  padding: 6px;
-  min-width: 100px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
-  backdrop-filter: saturate(160%) blur(24px);
-  -webkit-backdrop-filter: saturate(160%) blur(24px);
-  z-index: 20;
-}
-
-.qualityOption {
-  display: block;
-  width: 100%;
-  padding: 9px 12px;
+.inlinePanelBack,
+.inlinePanelClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   background: transparent;
   border: 0;
   color: var(--t-2);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-  border-radius: var(--r-ui);
+  border-radius: 50%;
   cursor: pointer;
-  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
+  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
 }
 
-.qualityOption:hover {
-  background: rgba(255, 255, 255, 0.06);
+.inlinePanelBack:hover,
+.inlinePanelClose:hover {
+  background: rgba(255, 255, 255, 0.08);
   color: var(--t-1);
 }
 
-.qualityActive {
-  color: var(--accent) !important;
-  font-weight: 600;
+.inlinePanelBack:focus-visible,
+.inlinePanelClose:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 18px var(--accent-glow);
 }
 
-/* Classes-hooks pour le regroupement mobile (sans effet sur desktop) */
+.inlinePanelHeaderSpacer { width: 32px; }
+
+.panelSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.panelSectionTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--t-3);
+  text-align: center;
+}
+
+.panelItems {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 2px 8px;
+}
+
+.panelItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--r-pill);
+  color: var(--t-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease), color var(--d-micro) var(--ease), transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
+}
+
+.panelItem:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--t-1);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.panelItem:focus { outline: none; }
+.panelItem:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--accent-glow);
+}
+
+.panelItemActive {
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  background: rgba(0, 200, 220, 0.06);
+}
+
+.panelItemCheck { color: var(--accent); }
+
+.panelItemAccent {
+  color: var(--accent);
+}
+
+.panelItemAccent:hover { color: var(--accent); }
+
+/* Chip compact pour les options d'apparence (Aa) : carré au lieu de pill. */
+.panelItemChip {
+  min-width: 50px;
+  min-height: 40px;
+  padding: 6px 12px;
+  justify-content: center;
+}
+
+.chipAa {
+  display: inline-block;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* Mode customize : 3 sections (Taille/Couleur/Fond) côte à côte au lieu
+   d'empilées verticalement → moins de hauteur. */
+.inlinePanelHoriz {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.inlinePanelHoriz .inlinePanelHeader {
+  flex: 1 0 100%;
+  margin-bottom: -4px;
+}
+
+.inlinePanelHoriz .panelSection {
+  flex: 0 0 auto;
+}
+
+/* Aperçu live des sous-titres — au-dessus de la barre de progression sur le film
+   (zone transparente du dégradé `.bottomSection`, donc lisible sur la vidéo). */
+.subPreviewBar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 56px;
+  margin-bottom: -4px;
+  text-align: center;
+}
+
+/* Classes-hooks pour le regroupement (sans effet desktop ≥ 901px) */
 .primaryGroup {}
 .secondaryGroup {}
-.playPauseBtn {}
+
+/* Bouton play/pause — pastille blanche distincte façon Netflix, même DA sur
+   desktop et mobile. Plus gros que les autres contrôles pour ancrer l'œil. */
+.playPauseBtn {
+  background: #FFFFFF;
+  color: #000;
+  min-width: 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  margin: 0 6px;
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.playPauseBtn:hover:not(:disabled) {
+  background: #FFFFFF;
+  transform: scale(1.06);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.35);
+}
+.playPauseBtn:active { transform: scale(0.96); }
+.playPauseBtn:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent), 0 0 28px var(--accent-glow);
+}
 
 /* ====================================================================
    Responsive — Tablette portrait (641px – 900px)
@@ -775,60 +842,33 @@
   .subLg .subtitleLine { font-size: 24px; }
   .subXl .subtitleLine { font-size: 32px; }
 
-  /* ── Menus audio/CC/qualité → bottom sheet plein-écran ────────
-       Sur mobile, le popover étriqué est inutilisable : on le bascule
-       en bottom sheet qui slide depuis le bas, avec swipe-to-dismiss
-       implicite (tap hors zone ferme via closeAllMenus). */
-  .popupMenu, .qualityMenu {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: auto;
-    width: 100vw;
-    max-width: 100vw;
-    min-width: 0;
-    max-height: 65vh;
-    margin: 0;
-    border-radius: 18px 18px 0 0;
-    border: 0;
-    border-top: 1px solid var(--line-strong);
-    padding: 8px 6px calc(20px + var(--safe-bottom));
-    background: rgba(8, 8, 8, 0.96);
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.75);
-    z-index: 30;
-    animation: vp-sheet-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* ── Panneau inline mobile : items plus aérés, scroll horizontal natif ── */
+  .inlinePanel { gap: 12px; }
+  .panelItems {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding: 4px 8px;
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
   }
-  /* Petite poignée visuelle façon iOS pour signaler le « drawer » */
-  .popupMenu::before, .qualityMenu::before {
-    content: '';
-    display: block;
-    width: 36px;
-    height: 4px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.22);
-    margin: 4px auto 10px;
+  .panelItems::-webkit-scrollbar { display: none; }
+  .panelItem {
+    flex: 0 0 auto;
+    padding: 12px 18px;
+    font-size: 14px;
+    scroll-snap-align: start;
   }
-  @keyframes vp-sheet-up {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
+  .panelItemChip { min-height: 52px; min-width: 64px; }
+  .subPreviewBar { min-height: 68px; }
+  /* Customize : sur mobile on RESTE empilé (plus lisible que 3 colonnes
+     squeezées). Override de `.inlinePanelHoriz`. */
+  .inlinePanelHoriz {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
   }
-
-  /* Options : padding généreux, cibles tactiles confortables */
-  .menuHeader {
-    padding: 10px 14px 14px;
-    font-size: 12px;
-    border-bottom: 1px solid var(--line-soft);
-    margin-bottom: 6px;
-  }
-  .menuOption, .qualityOption {
-    padding: 14px 14px;
-    font-size: 15px;
-    border-radius: var(--r-ui);
-  }
-  .menuOption + .menuOption { margin-top: 2px; }
-  .subSettings { padding: 12px 8px; gap: 14px; }
-  .subSettingsOpt { padding: 8px 12px; font-size: 13px; }
+  .inlinePanelHoriz .inlinePanelHeader { margin-bottom: 0; }
 }
 
 /* ====================================================================
@@ -862,20 +902,7 @@
   }
   .secondaryGroup { flex: 0 0 auto; }
   .secondaryGroup .controlBtn { width: auto; max-width: none; }
-  /* Bottom sheets : redeviennent un popover normal en paysage (plus de place) */
-  .popupMenu, .qualityMenu {
-    position: absolute;
-    left: auto;
-    right: 0;
-    bottom: calc(100% + 8px);
-    width: auto;
-    min-width: 180px;
-    max-width: 280px;
-    border-radius: var(--r-card);
-    border: 1px solid var(--line);
-    border-top: 1px solid var(--line);
-    padding: 6px;
-    animation: none;
-  }
-  .popupMenu::before, .qualityMenu::before { display: none; }
+  /* Panneau inline plus tassé en paysage (peu de hauteur disponible). */
+  .inlinePanel { gap: 8px; }
+  .panelItem { padding: 8px 14px; font-size: 13px; }
 }

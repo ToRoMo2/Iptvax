@@ -208,6 +208,7 @@ const es: typeof frDict = {
     audioTrack: 'Pista de audio',
     subtitles: 'Subtítulos',
     customize: 'Personalizar',
+    subtitlePreview: 'Tus subtítulos se verán así',
     size: 'Tamaño',
     background: 'Fondo',
     color: 'Color',

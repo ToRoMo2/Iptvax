@@ -125,3 +125,95 @@ export function IconBack({ size = 24, className }: IconProps) {
     </svg>
   );
 }
+
+export function IconVolumeMute({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5h3.5L12 5v14L7.5 14.5H4z" fill="currentColor" stroke="none" />
+      <line x1="16.5" y1="9" x2="21.5" y2="15" />
+      <line x1="21.5" y1="9" x2="16.5" y2="15" />
+    </svg>
+  );
+}
+
+export function IconVolumeLow({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5h3.5L12 5v14L7.5 14.5H4z" fill="currentColor" stroke="none" />
+      <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" />
+    </svg>
+  );
+}
+
+export function IconVolumeHigh({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5h3.5L12 5v14L7.5 14.5H4z" fill="currentColor" stroke="none" />
+      <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" />
+      <path d="M18 7a7 7 0 0 1 0 10" />
+    </svg>
+  );
+}
+
+export function IconFullscreenEnter({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 9 4 4 9 4" />
+      <polyline points="20 9 20 4 15 4" />
+      <polyline points="4 15 4 20 9 20" />
+      <polyline points="20 15 20 20 15 20" />
+    </svg>
+  );
+}
+
+export function IconFullscreenExit({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 4 9 9 4 9" />
+      <polyline points="15 4 15 9 20 9" />
+      <polyline points="9 20 9 15 4 15" />
+      <polyline points="15 20 15 15 20 15" />
+    </svg>
+  );
+}
+
+export function IconSettings({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+export function IconAlert({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+export function IconClose({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  );
+}
+
+export function IconEpisodes({ size = 24, className }: IconProps) {
+  // Stack de cartes / liste épisodes (pour Phase chantier 3).
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="8" width="18" height="12" rx="2.2" />
+      <line x1="6" y1="4.5" x2="18" y2="4.5" />
+      <line x1="7.5" y1="6.5" x2="16.5" y2="6.5" />
+      <line x1="7" y1="13" x2="13" y2="13" />
+      <line x1="7" y1="16.5" x2="11" y2="16.5" />
+    </svg>
+  );
+}

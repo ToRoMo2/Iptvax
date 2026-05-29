@@ -210,6 +210,7 @@ const fr = {
     audioTrack: 'Piste audio',
     subtitles: 'Sous-titres',
     customize: 'Personnaliser',
+    subtitlePreview: 'Vos sous-titres ressembleront à ceci',
     size: 'Taille',
     background: 'Fond',
     color: 'Couleur',
