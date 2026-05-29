@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
 import { useNativePlayer } from '../hooks/useNativePlayer';
 import { useWebOSPlayer } from '../hooks/useWebOSPlayer';
-import { isNative, isCapacitor, isWebOS } from '../lib/platform';
+import { useTizenPlayer } from '../hooks/useTizenPlayer';
+import { isNative, isCapacitor, isWebOS, isTizen } from '../lib/platform';
+import { isTvDevice } from '../native/tvDetect';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
+import { TvPlayerOverlay, type SubSize, type SubBg, type SubColor } from './TvPlayerOverlay';
 import { useI18n } from '../contexts/I18nContext';
 import styles from './VideoPlayer.module.css';
 
@@ -43,9 +46,8 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-type SubSize = 'sm' | 'md' | 'lg' | 'xl';
-type SubBg = 'none' | 'semi' | 'solid';
-type SubColor = 'white' | 'yellow' | 'cyan' | 'green';
+// Types `SubSize` / `SubBg` / `SubColor` centralisés dans TvPlayerOverlay
+// (partagés entre l'overlay TV et l'overlay souris/tactile).
 
 // ── Persistance des préférences de sous-titres ───────────────────────────────
 const SUB_PREFS_KEY = 'iptv-subtitle-prefs';
@@ -86,19 +88,28 @@ export function VideoPlayer({
   onPersist,
 }: Props) {
   const { t } = useI18n();
-  // Les flags `isCapacitor` / `isWebOS` sont figés au build (cf. src/lib/platform.ts)
-  // → la branche est stable pour toute la vie du composant : appeler
-  // conditionnellement l'un ou l'autre hook est sûr ici (le lint rules-of-hooks
-  // ne peut pas le savoir). Une seule des conditions est vraie par build :
+  // Sur TV (Android TV / Tizen / webOS), l'overlay est piloté à la télécommande
+  // par `TvPlayerOverlay` (machine à états D-pad) ; l'overlay souris/tactile et
+  // ses raccourcis clavier ci-dessous sont alors désactivés. `isTvDevice()` est
+  // résolu au boot → constant pour la vie du composant.
+  const tvMode = isTvDevice();
+  // Les flags `isCapacitor` / `isWebOS` / `isTizen` sont figés au build (cf.
+  // src/lib/platform.ts) → la branche est stable pour toute la vie du composant :
+  // appeler conditionnellement l'un ou l'autre hook est sûr ici (le lint
+  // rules-of-hooks ne peut pas le savoir). Une seule des conditions est vraie
+  // par build :
   // - Capacitor (Android) → libVLC derrière la WebView (surface transparente)
-  // - webOS               → <video> HTML5 + hls.js (URL Xtream directe)
+  // - webOS (LG TV)       → <video> HTML5 + hls.js / Media Pipeline luna://
+  // - Tizen (Samsung TV)  → AVPlay derrière la WebView (surface transparente)
   // - web (et Electron, Option B) → ffmpeg via /api/* (path historique)
   /* eslint-disable react-hooks/rules-of-hooks */
   const player: WebPlayerController = isCapacitor
     ? useNativePlayer(url, mediaUrl)
     : isWebOS
       ? useWebOSPlayer(url, mediaUrl)
-      : usePlayer(url, mediaUrl);
+      : isTizen
+        ? useTizenPlayer(url, mediaUrl)
+        : usePlayer(url, mediaUrl);
   /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showQuality, setShowQuality] = useState(false);
@@ -204,8 +215,10 @@ export function VideoPlayer({
     if (!isPlaying) setControlsVisible(true);
   }, [isPlaying]);
 
-  // Raccourcis clavier
+  // Raccourcis clavier (overlay souris/tactile uniquement — sur TV c'est
+  // `TvPlayerOverlay` qui gère toutes les touches de la télécommande).
   useEffect(() => {
+    if (tvMode) return;
     const handleKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       switch (e.key) {
@@ -274,7 +287,7 @@ export function VideoPlayer({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [player, isLive, onPrevChannel, onNextChannel]);
+  }, [player, isLive, onPrevChannel, onNextChannel, tvMode]);
 
   const progressPercent = !isLive && player.duration > 0
     ? (player.currentTime / player.duration) * 100
@@ -309,9 +322,12 @@ export function VideoPlayer({
 
   // Surface native (vidéo rendue par un plan hardware DERRIÈRE la WebView) :
   //   - Capacitor → libVLC (`useNativePlayer` pose `usesNativeSurface` à true)
+  //   - Tizen → AVPlay (`useTizenPlayer` pose `usesNativeSurface` à true) ; la
+  //     surface est un <object type="application/avplayer"> qui réserve le plan
+  //     vidéo (cf. webapis.avplay)
   //   - webOS Media Pipeline → `useWebOSPlayer` pose `usesNativeSurface` à true
   //     pour les fichiers directs (MKV/MP4), false en HLS (rendu par <video>)
-  // Dans ces cas on n'affiche pas de <video> — juste un <div> transparent
+  // Dans ces cas on n'affiche pas de <video> — juste un élément transparent
   // cliquable. La classe `native-video-surface` complète la chaîne CSS de
   // transparence (cf. `iptvax-native-playback` dans app.css).
   const useNativeSurface = player.usesNativeSurface === true;
@@ -323,7 +339,13 @@ export function VideoPlayer({
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
-      {useNativeSurface ? (
+      {isTizen ? (
+        <object
+          type="application/avplayer"
+          className={`${styles.video} native-video-surface`}
+          onClick={player.toggle}
+        />
+      ) : useNativeSurface ? (
         <div className={`${styles.video} native-video-surface`} onClick={player.toggle} />
       ) : (
         <video
@@ -384,14 +406,33 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Bouton play central quand en pause */}
-      {player.status === 'paused' && (
+      {/* Bouton play central quand en pause (overlay souris/tactile) */}
+      {!tvMode && player.status === 'paused' && (
         <div className={styles.pauseHint} onClick={player.toggle}>
           <div className={styles.bigPlayBtn}>▶</div>
         </div>
       )}
 
-      {/* Overlay contrôles */}
+      {/* Overlay TV (télécommande) — rendu uniquement sur TV. */}
+      {tvMode && (
+        <TvPlayerOverlay
+          player={player}
+          title={title}
+          isLive={!!isLive}
+          channelPosition={channelPosition}
+          onPrevChannel={onPrevChannel}
+          onNextChannel={onNextChannel}
+          subSize={subSize}
+          subColor={subColor}
+          subBg={subBg}
+          onSubSize={setSubSize}
+          onSubColor={setSubColor}
+          onSubBg={setSubBg}
+        />
+      )}
+
+      {/* Overlay contrôles souris/tactile — masqué sur TV. */}
+      {!tvMode && (
       <div className={styles.controls} onClick={(e) => e.stopPropagation()}>
 
         {/* Barre du haut */}
@@ -657,6 +698,7 @@ export function VideoPlayer({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

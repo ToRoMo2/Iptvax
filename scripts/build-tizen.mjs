@@ -21,7 +21,7 @@
  * selon le réseau), donc se font à la main avec `tz package --sign Iptvax` et
  * `sdb install`. Voir docs/native-port.md.
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -71,6 +71,24 @@ mkdirSync(OUT, { recursive: true });
 cpSync(DIST, OUT, { recursive: true });
 cpSync(CONFIG, join(OUT, 'config.xml'));
 cpSync(ICON_SRC, join(OUT, 'icon.png'));
+
+// Injection du script `webapis.js` dans l'index.html packagé. `$WEBAPIS` est un
+// chemin spécial résolu par le runtime web Samsung TV vers la lib AVPlay
+// (`webapis.avplay`). Sur une vraie TV/émulateur, `window.webapis` est en plus
+// auto-injecté pour les apps .wgt — ce <script> est donc un filet de sécurité.
+// On le pose en POST-build (et non dans le index.html source) pour que Vite ne
+// tente pas de résoudre le chemin `$WEBAPIS/...` au bundling. C'est un script
+// classique (non-module) → il s'exécute AVANT le bundle React (module deferred).
+const indexPath = join(OUT, 'index.html');
+if (existsSync(indexPath)) {
+  let html = readFileSync(indexPath, 'utf8');
+  const tag = '<script src="$WEBAPIS/webapis/webapis.js"></script>';
+  if (!html.includes('webapis/webapis.js')) {
+    html = html.replace(/<head>/i, `<head>\n    ${tag}`);
+    writeFileSync(indexPath, html);
+    log('Script webapis.js injecté dans index.html (AVPlay).');
+  }
+}
 
 // `.project` et `.tproject` : fichiers de structure exigés par `tz pack` pour
 // reconnaître le dossier comme un projet web Tizen. Format Eclipse legacy

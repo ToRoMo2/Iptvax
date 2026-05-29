@@ -331,26 +331,49 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
     prête à recevoir un `.wgt` une fois le rootstrap installé et Phase 4c
     livrée.
 
-- **4c — Lecteur Tizen (AVPlay)** — *(à venir)*
-  - `src/hooks/useTizenPlayer.ts` : implémentation `PlayerController` via
-    `webapis.avplay` (API JS injectée par le shell Tizen).
-  - Typings minimaux dans `src/native/tizenAvplay.ts`.
-  - `<object type="application/avplayer">` injecté conditionnellement par
-    `VideoPlayer.tsx` quand `isTizen`.
-  - Branchement final dans `VideoPlayer.tsx` :
+- **4c — Lecteur Tizen (AVPlay)** ✅ *(fait — 2026-05-29 ; à valider sur émulateur Tizen TV)*
+  - `src/native/tizenAvplay.ts` : typings minimaux de `webapis.avplay` (open/
+    prepareAsync/play/pause/stop/seekTo/getTotalTrackInfo/setSelectTrack/
+    setListener/setDisplayRect/setSilentSubtitle/close) + helpers `getAvPlay()`,
+    `hasAvPlay()`, `getTvAudioControl()` (volume système via
+    `tizen.tvaudiocontrol`, AVPlay n'ayant pas de volume propre) et
+    `parseTrackLang()` (extrait la langue de `extra_info`, clés variables selon
+    Tizen).
+  - `src/hooks/useTizenPlayer.ts` : implémentation `WebPlayerController` via
+    AVPlay — pendant Tizen de `useNativePlayer` (libVLC). Cycle de vie :
+    `open` → `setListener` → `setDisplayRect(0,0,1920,1080)` +
+    `setDisplayMethod(LETTER_BOX)` → `prepareAsync` → `getTotalTrackInfo` +
+    `getDuration` (0 = live) → `play`. Re-open (changement de chaîne/source)
+    fait `stop()` + `close()` avant le nouvel `open`. Pistes audio/sous-titres
+    via `getTotalTrackInfo` + `setSelectTrack('AUDIO'|'TEXT', index)` ;
+    sous-titres rendus PAR AVPlay sur le plan vidéo (`setSilentSubtitle`),
+    `subtitleText` reste vide. Position via `oncurrentplaytime` (ms→s).
+  - `<object type="application/avplayer">` rendu par `VideoPlayer.tsx` quand
+    `isTizen` (réserve le plan vidéo) à la place du `<video>` ; AVPlay rend
+    DERRIÈRE la WebView → `usesNativeSurface = true` + classe
+    `iptvax-native-playback` (mêmes plombings CSS que libVLC).
+  - **Dispatch 4 voies** dans `VideoPlayer.tsx` :
     ```ts
     const player =
-      isTizen     ? useTizenPlayer(url, mediaUrl) :
-      isWebOS     ? useWebOSPlayer(url, mediaUrl) :
-      isCapacitor ? useNativePlayer(url, mediaUrl) :
-                    usePlayer(url, mediaUrl);
+      isCapacitor ? useNativePlayer(url, mediaUrl) :  // libVLC (Android)
+      isWebOS     ? useWebOSPlayer(url, mediaUrl)  :  // <video>/hls.js/luna (LG)
+      isTizen     ? useTizenPlayer(url, mediaUrl)  :  // AVPlay (Samsung)
+                    usePlayer(url, mediaUrl);          // ffmpeg /api/* (web+Electron)
     ```
-  - **Risque pivot** à valider avant tout code : tester un échantillon de flux
-    Xtream variés (HLS, MKV direct, HEVC) sur l'émulateur ou la TV avec un
-    AVPlay minimal — si AVPlay ne lit pas un container qu'on a, retomber sur
-    Media Pipeline (alternative bas niveau).
-  - Note WebView Tizen 4.0 : Chromium ancien → vérifier le `build.target` de
-    Vite si du JS moderne (top-level await, certains operators) explose.
+  - `tizen/config.xml` : privilège `http://tizen.org/privilege/tv.audio` ajouté
+    (volume système). `scripts/build-tizen.mjs` injecte en post-build
+    `<script src="$WEBAPIS/webapis/webapis.js">` dans l'index.html packagé
+    (filet de sécurité pour la dispo d'AVPlay ; posé après le `vite build` pour
+    que Vite ne résolve pas le chemin `$WEBAPIS`).
+  - **Validation : émulateur Tizen TV** (pas la TV physique 2018, bloquée par la
+    politique Partner — cf. §7). L'émulateur accepte un install dev sans cert
+    Partner ET fait tourner le vrai AVPlay → validation lecture de bout en bout.
+    Workflow émulateur dans §7.
+  - **Risque résiduel à valider sur émulateur** : si AVPlay ne lit pas un
+    conteneur qu'on a (MKV/HEVC selon firmware), `onerror` remonte → retomber
+    sur Media Pipeline (alternative bas niveau) en v2. Note WebView Tizen 4.0 :
+    Chromium ancien → vérifier le `build.target` de Vite si du JS moderne
+    explose (build actuel : OK, `tsc -b && vite build` passe).
 
 - **4d — Scaffolding webOS** ✅ *(fait — 2026-05-23)*
   - `webos/appinfo.json` (manifeste LG), icônes 80×80 + 130×130,
@@ -661,6 +684,9 @@ binaires (`iptvax.apk`, `Iptvax-Setup.exe`, `com.iptvax.app_1.0.0_all.ipk`,
 | 2026-05-29 | Phase 5 — Bascule vitrine (`isVitrine = isWeb && !isElectron` dans `platform.ts`) + `src/config/vitrine.ts` (WEB_URL/GITHUB_REPO/DOWNLOADS/detectVisitorPlatform) + `App.tsx` branche `VitrineGate` vs `AppGate`. Sous-arbre vitrine minimal (I18n+Supabase+Subscription). | ✅ Fait |
 | 2026-05-29 | Phase 5 — Pages vitrine : `HomeVitrine`, `Downloads`, `SettingsVitrine`, pages légales placeholders. Routes orphelines → redirect `/downloads`. `/tv-link` standalone. Meta SEO/og: pour iptvax.com. | ✅ Fait |
 | 2026-05-29 | Phase 5 — Intégration design Claude Design « OLED-First/Vanta » : `src/styles/vitrine.css` scopé sous `.vitrine` (zéro pollution `app.css` natif, keyframes `v-`), hooks `useScrollReveal`/`useVitrineChrome`/`useHomeFx` (zéro dép.), `VitrineLayout` + composants réécrits (hero ondes canvas, bento, story sticky, pricing odometer, showcase power-on, downloads détection OS). | ✅ Fait + vérifié (build/lint OK, preview, 0 erreur console) |
+| 2026-05-29 | Phase 4c — Lecteur Tizen AVPlay : `src/native/tizenAvplay.ts` (typings webapis.avplay + helpers volume/langue), `src/hooks/useTizenPlayer.ts` (WebPlayerController via AVPlay, surface native), dispatch 4 voies dans `VideoPlayer.tsx` + `<object type="application/avplayer">`, privilège `tv.audio` dans config.xml, injection `webapis.js` post-build. `tsc -b && vite build` OK, lint OK. | ✅ Code en place — à valider sur émulateur Tizen TV |
+| 2026-05-29 | Validation 4c sur émulateur Tizen TV : install OK (cert Samsung avec DUID émulateur ajoutée `XTCJYJZXZBZVK`), nav télécommande + lecture vidéo OK. Fluidité dégradée (émulateur = decode logiciel, pas de SoC média) → non représentatif d'une vraie TV ; codecs/sous-titres à confirmer sur hardware réel au déploiement. | ✅ Fonctionnel validé (perf hors scope émulateur) |
+| 2026-05-29 | Overlay TV télécommande dédié : `src/components/TvPlayerOverlay.tsx` + `PlayerIcons.tsx` (SVG zéro emoji). Machine à états D-pad (`idle`/`controls`/`scrub`/`panel`) ; volume retiré ; focus anneau cyan `--accent` (DA Iptvax) ; rangée centrée. Panneau sous-titres en double vue (`tracks` + bouton Personnaliser → `customize` : aperçu live au-dessus de la barre de progression sur le film + 3 colonnes Taille/Couleur/Fond, chips « Aa » qui reflètent visuellement chaque option, prefs partagées avec `VideoPlayer`). Point cyan sur l'icône CC quand piste active. Branchement via `isTvDevice()` ; l'overlay souris/tactile historique reste intact hors TV. | ✅ Itéré avec validation utilisateur sur émulateur Tizen |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -725,6 +751,43 @@ lecteur AVPlay, inscription Samsung Partner (process long), ou TV Tizen
 plus récente. Le repo reste prêt — dès que la TV accepte un cert,
 `npm run build:tizen` + `tz pack` produit un wgt installable sans changement
 côté code.
+
+**Validation par ÉMULATEUR Tizen TV (voie retenue 2026-05-29).** Puisque la TV
+physique 2018 est murée par la politique Partner (et qu'on reste en
+émulateur-only par choix produit), la validation du lecteur AVPlay (Phase 4c)
+passe par l'**émulateur Tizen TV** — il accepte un install dev SANS cert Partner
+et embarque le vrai pipeline AVPlay. Workflow :
+
+1. **Installer l'image émulateur** : VS Code → extension « Tizen » → Package
+   Manager → sous `TIZEN-TV`, cocher l'**Emulator** (image TV, en plus des
+   paquets « 10.0 Tizen » + « 10.0 TV » déjà requis pour `tz pack`). Installe
+   aussi l'« Emulator Manager ».
+2. **Lancer l'émulateur** : Tizen → Emulator Manager → créer une instance TV
+   (résolution 1920×1080) → Launch. L'émulateur démarre une TV Tizen virtuelle.
+3. **Builder + packager** : `npm run build:tizen` → `tz pack -t wgt -s Iptvax
+   tizen/Iptvax` (le profil de signature « Iptvax » suffit, pas besoin du cert
+   Samsung DUID-bound réservé aux TV physiques).
+4. **Installer sur l'émulateur** : `sdb devices` doit lister l'émulateur (ex.
+   `0.0.0.0:26101  device  emulator-...`). Puis `tz install -p
+   tizen/Iptvax/Release/Iptvax.wgt` (ou bouton « Run Project » de l'extension,
+   cible = émulateur). Pas de `download failed[116]` / `install failed[118012]`
+   ici : ces erreurs étaient spécifiques à la TV physique 2018.
+5. **Tester** : lancer l'app, appairer via QR (TvPairing → téléphone), entrer
+   dans le catalogue, puis ouvrir un VOD/série/Live. Cas à vérifier :
+   (a) `<object type="application/avplayer">` rend la vidéo derrière la WebView
+   (chaîne `iptvax-native-playback` active) ; (b) lecture HLS Live ;
+   (c) lecture VOD/série fichier direct (MP4 ; MKV selon support firmware émul.) ;
+   (d) menus audio/sous-titres peuplés via `getTotalTrackInfo` ; (e) switch de
+   piste audio/CC ; (f) seek + reprise.
+   Si AVPlay refuse un conteneur (MKV/HEVC sur cet émulateur) → `onerror`
+   remonte une erreur visible ; noter le `eventType` pour décider d'un fallback
+   Media Pipeline en v2.
+
+⚠ L'émulateur ne reproduit pas parfaitement les codecs hardware d'une vraie TV
+(décodage logiciel, support MKV variable) : il valide le **branchement AVPlay**
+et l'UI, pas la garantie codec-par-codec. La validation codec définitive
+nécessitera une TV Samsung réelle (Tizen 5.5+ où le cert Individual passe, ou
+compte Partner) — reportée au déploiement, comme pour LG webOS.
 
 ⚠ **Pièges Tizen rencontrés et résolus en session 2026-05-23** (à garder en
 tête pour Phase 4c et tout futur changement de `config.xml`) :
@@ -876,6 +939,16 @@ bloquant) :
 - Raffinement possible : permettre la *création* d'un profil (identifiants
   Xtream) depuis `TvLink` — aujourd'hui `TvLink` ne fait que *sélectionner*
   un profil existant.
+- **Liste des épisodes dans l'overlay TV** : bouton dédié (icône « épisodes »)
+  ouvrant la liste des épisodes d'une série directement dans le lecteur, façon
+  Netflix. Demandé par l'utilisateur, **reporté** (feature en plus, à faire
+  après la passe overlay TV de base).
+- **Overlay souris/tactile (mobile/desktop)** : la refonte D-pad a livré
+  `TvPlayerOverlay` (TV uniquement). La même refonte visuelle (pictogrammes
+  SVG `PlayerIcons`, overlay transparent, suppression des emojis) reste à
+  appliquer à l'overlay `VideoPlayer` classique pour mobile/desktop. Inclut le
+  décalage des sous-titres React quand l'overlay est visible (sur TV les
+  sous-titres sont rendus nativement par le lecteur → non concernés).
 
 **Phase 5 livrée et vérifiée** (site vitrine). Le web pur passe en mode
 **vitrine** via `isVitrine = isWeb && !isElectron` : `App.tsx` monte
