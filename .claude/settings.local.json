@@ -117,7 +117,12 @@
       "Bash(git commit -m 'fix\\(tv-pairing\\): setSession error check + reload forcé après claim \\(webOS/Tizen\\) *)",
       "Bash(git commit -m 'fix\\(webos\\): fetch au lieu de CapacitorHttp sur Tizen/webOS + doc *)",
       "Bash(git commit -m 'fix\\(webos\\): use HashRouter for webOS/Tizen — BrowserRouter path mismatch *)",
-      "Bash(git commit -m 'docs: update native-port.md + CLAUDE.md — webOS Phase 4d validated *)"
+      "Bash(git commit -m 'docs: update native-port.md + CLAUDE.md — webOS Phase 4d validated *)",
+      "Bash(git show *)",
+      "Bash(tar -tf bundle)",
+      "Bash(tar -xf bundle)",
+      "Bash(xargs ls -la)",
+      "Bash(awk '{print $5, $9}')"
     ]
   }
 }

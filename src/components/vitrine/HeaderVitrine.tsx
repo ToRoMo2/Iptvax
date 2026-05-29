@@ -1,38 +1,46 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppLogo } from '../AppLogo';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
-import styles from './HeaderVitrine.module.css';
 
+/**
+ * Header sticky vitrine (design Vanta) : blur progressif au scroll, hairline
+ * cyan qui s'allume, underline « progress bar » sous les liens. Markup fidèle
+ * au design ; classes globales scopées sous `.vitrine` (voir vitrine.css).
+ */
 export function HeaderVitrine() {
   const { user } = useSupabaseAuth();
   const { pathname } = useLocation();
+  const [scrolled, setScrolled] = useState(false);
+  const activeNav = pathname.startsWith('/downloads')
+    ? 'downloads'
+    : pathname === '/premium'
+      ? 'premium'
+      : undefined;
 
-  const linkClass = (path: string) =>
-    `${styles.link} ${pathname === path ? styles.linkActive : ''}`;
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className={styles.header}>
-      <Link to="/" className={styles.brand} aria-label="Iptvax — accueil">
-        <AppLogo size={32} />
+    <header className={`hdr${scrolled ? ' scrolled' : ''}`}>
+      <Link className="brand" to="/" aria-label="Iptvax — accueil">
+        <AppLogo size={30} />
         <span>Iptvax</span>
       </Link>
-
-      <nav className={styles.nav} aria-label="Navigation principale">
-        <Link to="/downloads" className={linkClass('/downloads')}>
+      <nav className="nav" aria-label="Navigation principale">
+        <Link className={`nav-link${activeNav === 'downloads' ? ' active' : ''}`} to="/downloads">
           Télécharger
         </Link>
-        <Link to="/premium" className={linkClass('/premium')}>
+        <a className={`nav-link${activeNav === 'premium' ? ' active' : ''}`} href="/#pricing">
           Premium
+        </a>
+        <Link className="nav-link nav-cta-wrap" to={user ? '/settings' : '/login'} style={{ padding: 0 }}>
+          <span className="nav-cta">{user ? 'Mon compte' : 'Se connecter'}</span>
         </Link>
-        {user ? (
-          <Link to="/settings" className={`${styles.link} ${styles.ctaLink}`}>
-            Mon compte
-          </Link>
-        ) : (
-          <Link to="/login" className={`${styles.link} ${styles.ctaLink}`}>
-            Se connecter
-          </Link>
-        )}
       </nav>
     </header>
   );
