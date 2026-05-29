@@ -1,7 +1,8 @@
 .page {
   min-height: 100vh;
   background: var(--bg);
-  padding: 80px var(--pad-edge);
+  /* +topnav-h : dégager le header vitrine fixe (72px) */
+  padding: calc(var(--topnav-h, 72px) + 56px) var(--pad-edge) 96px;
 }
 
 .container {

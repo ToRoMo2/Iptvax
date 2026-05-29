@@ -95,7 +95,6 @@ export function useVitrineChrome(
     });
 
     return () => cleanups.forEach((fn) => fn());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootRef, rerunKey]);
 
   return cursorReady;

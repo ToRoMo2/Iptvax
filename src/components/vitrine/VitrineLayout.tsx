@@ -9,17 +9,10 @@ import '../../styles/vitrine.css';
  * Enveloppe commune à toutes les pages vitrine (design « OLED-First/Vanta »).
  * Pose la racine `.vitrine` (scope CSS), le grain, le curseur custom, le header
  * sticky et le footer. Gère le smooth-scroll et le scroll vers une ancre
- * (`/#pricing`) après navigation.
- *
- * @param activeNav  onglet de nav à surligner (« downloads » | « premium »)
+ * (`/#pricing`) après navigation. L'onglet de nav actif est dérivé de la route
+ * directement dans `HeaderVitrine`.
  */
-export function VitrineLayout({
-  children,
-  activeNav,
-}: {
-  children: ReactNode;
-  activeNav?: 'downloads' | 'premium';
-}) {
+export function VitrineLayout({ children }: { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const { pathname, hash } = useLocation();
   const cursorReady = useVitrineChrome(rootRef, pathname);
@@ -53,7 +46,7 @@ export function VitrineLayout({
       <div className="grain" />
       <div className="cursor-ring" />
       <div className="cursor-dot" />
-      <HeaderVitrine activeNav={activeNav} />
+      <HeaderVitrine />
       <main>{children}</main>
       <FooterVitrine />
     </div>

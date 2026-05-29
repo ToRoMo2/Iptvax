@@ -909,9 +909,6 @@
   .vitrine .dl-head { padding: 70px var(--pad-edge) 24px; }
 }
 
-/* ── Pages secondaires (compte / légal) : clear le header fixe ─────── */
-.vitrine .v-subpage { padding-top: var(--topnav-h); }
-
 /* ── Responsive gutters (fidèle au design) ─────────────────────────── */
 @media (max-width: 900px) { .vitrine { --pad-edge: 28px; } .vitrine .section { padding: 72px var(--pad-edge); } }
 @media (max-width: 640px) { .vitrine { --pad-edge: 18px; } .vitrine .section { padding: 60px var(--pad-edge); } .vitrine .btn { height: 46px; padding: 0 20px; font-size: 14px; } }

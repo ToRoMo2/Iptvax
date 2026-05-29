@@ -41,8 +41,7 @@ import { Settings } from './pages/Settings';
 import { Premium } from './pages/Premium';
 import { Watched } from './pages/Watched';
 // ── Vitrine (site web marketing, Phase 5) ─────────────────────────────────
-import { HeaderVitrine } from './components/vitrine/HeaderVitrine';
-import { FooterVitrine } from './components/vitrine/FooterVitrine';
+import { VitrineLayout } from './components/vitrine/VitrineLayout';
 import { HomeVitrine } from './pages/vitrine/HomeVitrine';
 import { Downloads } from './pages/vitrine/Downloads';
 import { SettingsVitrine } from './pages/vitrine/SettingsVitrine';
@@ -222,17 +221,18 @@ function VitrineGate() {
     }
   }, [user, pathname, navigate]);
 
+  // Page d'appairage TV : standalone, sans le chrome marketing (header/footer).
+  if (pathname === '/tv-link') return <TvLink />;
+
   return (
     <SubscriptionProvider>
-      <HeaderVitrine />
-      <main>
+      <VitrineLayout>
         <Routes>
           <Route path="/" element={<HomeVitrine />} />
           <Route path="/downloads" element={<Downloads />} />
           <Route path="/premium" element={<Premium />} />
           <Route path="/login" element={<Login />} />
           <Route path="/settings" element={<SettingsVitrine />} />
-          <Route path="/tv-link" element={<TvLink />} />
           <Route path="/mentions-legales" element={<MentionsLegales />} />
           <Route path="/cgv" element={<CGV />} />
           <Route path="/confidentialite" element={<Confidentialite />} />
@@ -240,8 +240,7 @@ function VitrineGate() {
               la page de téléchargements — explicite et SEO-safe. */}
           <Route path="*" element={<Navigate to="/downloads" replace />} />
         </Routes>
-      </main>
-      <FooterVitrine />
+      </VitrineLayout>
     </SubscriptionProvider>
   );
 }
