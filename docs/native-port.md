@@ -502,11 +502,49 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
   (npm global) + compte LG Developer + TV en Developer Mode (app dédiée du
   LG Content Store).
 
-### Phase 5 — Site vitrine
-- Réduire le web à : marketing, connexion, achat Premium, gestion du compte,
-  liens de téléchargement. Retirer la lecture (et le catalogue, ou garder un
-  aperçu).
-- La partie paiement (Stripe + Supabase) existe déjà — rien à refaire.
+### Phase 5 — Site vitrine *(livrée)*
+
+Le web pur devient une **vitrine pure** (cut net) : marketing, connexion, achat
+Premium, gestion du compte, téléchargements, appairage TV. La lecture, le
+catalogue, Journal et Communauté ne sont **plus accessibles via URL** sur le web
+— mais tout le code reste en place et intact pour les builds natifs/Electron.
+
+- **Bascule runtime** : `isVitrine = isWeb && !isElectron` (`src/lib/platform.ts`).
+  Vrai uniquement sur le web pur ; faux en Capacitor/Tizen/webOS (sous-flags
+  natifs) et en Electron (`window.electron` du preload) → ces builds gardent
+  l'app complète. `App.tsx` branche `VitrineGate` (sous-arbre marketing) ou
+  `AppGate` (app complète) selon `isVitrine`.
+- **Sous-arbre vitrine** : `VitrineGate` monte uniquement I18n + Supabase +
+  Subscription (pas de IptvProfile/Xtream/Library/Ratings/Social — inutiles sans
+  catalogue). `/tv-link` reste rendu **standalone** (sans chrome marketing).
+- **Routes** : `/` (HomeVitrine), `/downloads`, `/premium` (réutilisé, Stripe),
+  `/login` (réutilisé), `/settings` (SettingsVitrine — compte minimal, sépare de
+  Settings app qui dépend de Xtream/IptvProfile), `/tv-link` (réutilisé),
+  `/mentions-legales` · `/cgv` · `/confidentialite` (placeholders). Toute URL
+  d'app (live/movies/series/player/journal/communaute…) → redirect `/downloads`.
+- **Téléchargements** : `src/config/vitrine.ts` = source de vérité unique
+  (`WEB_URL=iptvax.com`, `GITHUB_REPO=ToRoMo2/Iptvax`, `RELEASES_BASE` →
+  `github.com/.../releases/latest/download/<filename>`). Détection OS
+  (`detectVisitorPlatform`) met en avant le binaire pertinent.
+- **Design** (intégration d'un bundle Claude Design « OLED-First/Vanta ») :
+  - `src/styles/vitrine.css` — tout le design **scopé sous `.vitrine`** pour ne
+    JAMAIS polluer le `.btn`/tokens de `app.css` (partagé avec les builds
+    natifs). Keyframes préfixées `v-`.
+  - Moteur d'interaction porté en hooks React zéro-dépendance :
+    `useScrollReveal` (IntersectionObserver `[data-reveal]`), `useVitrineChrome`
+    (curseur custom + boutons magnétiques), `useHomeFx` (hero + ondes broadcast
+    canvas + showcase power-on/tilt/parallaxe/hop + compteurs + story sticky +
+    pricing spotlight/odometer). Tout dégrade sous `prefers-reduced-motion`.
+  - `VitrineLayout` partagé (grain, curseur, header sticky blur, footer
+    watermark, smooth/hash-scroll). `HeaderVitrine`/`FooterVitrine`/
+    `DeviceShowcase`/`HomeVitrine`/`Downloads` réécrits sur le markup du design.
+- **Paiement** (Stripe + Supabase) et **OAuth** réutilisés tels quels — rien à
+  refaire (voir CLAUDE.md §X).
+
+**Reste à faire (hors code)** : DNS `iptvax.com` ; premier GitHub Release des 4
+binaires (`iptvax.apk`, `Iptvax-Setup.exe`, `com.iptvax.app_1.0.0_all.ipk`,
+`Iptvax.wgt`) ; vrais screenshots dans `DeviceShowcase` (placeholders CSS
+`// screenshot …` en attendant) ; contenu juridique réel des 3 pages.
 
 ## 5. Conventions
 
@@ -620,6 +658,9 @@ embarque la CLI `tz` + `sdb` dans `~/.tizen-extension-platform/...`).
 | 2026-05-25 | Phase 4f — Fallback `<video>` enrichi : attribut `data-mediaoption` posé avant `src` (extension propriétaire LG qui peut débloquer l'exposition des pistes sur certains firmwares), listener `umsmediainfo` (event custom webOS le plus documenté) + probe `video.audioTracks`/`video.textTracks` sur `loadedmetadata`. Tout no-op silencieux quand rien ne remonte. `setAudio`/`setSubtitle` étendus avec 3ᵉ chemin HTML5 (HTMLAudioTrackList / TextTrackList). | ✅ Fait |
 | 2026-05-25 | Phase 4f — Diagnostic exhaustif sur simulateur webOS 26 : 3 services Luna → tous `Service does not exist`. 18 events DOM custom testés (`umsmediainfo`, `mediainfoupdate`, `webostvtracks`, `sourceinfo`, `audiotrackschanged`, ...) → 0 fire. Dump propriétés non-standards de `HTMLVideoElement` → uniquement extensions `webkit*` standards de Chromium (`webkitDecodedFrameCount`, `requestPictureInPicture`, etc.) — aucune extension LG exposée. `video.mediaOption`, `video.mediaInfo`, `video.audioTrack`, `video.setMediaOption` tous `undefined`. **Cul-de-sac JS confirmé** sur simulateur pour les fichiers MKV/MP4 directs. La lecture fonctionne via fallback `<video>` mais menus piste vides. | 🛑 Bloqué (simu webOS 26 — apps `type: "web"` n'ont pas l'ACL `mediaclient`) |
 | 2026-05-25 | Tentative install TV LG physique (2023) | 🛑 Bloqué — Developer Mode app instable sur la TV de test (toggle `Key Server` ne persiste pas entre lancements de l'app, `prisoner` SSH ne peut pas ouvrir de PTY ni écrire dans `/media/developer/temp`). Plusieurs causes possibles : compte LG Dev non vérifié, app Dev Mode corrompue, firmware bridé sur ce modèle. **Reporté au déploiement réel** (autre TV LG, ou correction firmware future) — le code Phase 4d/4e/4f reste en place et marchera dès qu'une TV LG fonctionnelle accepte l'install. |
+| 2026-05-29 | Phase 5 — Bascule vitrine (`isVitrine = isWeb && !isElectron` dans `platform.ts`) + `src/config/vitrine.ts` (WEB_URL/GITHUB_REPO/DOWNLOADS/detectVisitorPlatform) + `App.tsx` branche `VitrineGate` vs `AppGate`. Sous-arbre vitrine minimal (I18n+Supabase+Subscription). | ✅ Fait |
+| 2026-05-29 | Phase 5 — Pages vitrine : `HomeVitrine`, `Downloads`, `SettingsVitrine`, pages légales placeholders. Routes orphelines → redirect `/downloads`. `/tv-link` standalone. Meta SEO/og: pour iptvax.com. | ✅ Fait |
+| 2026-05-29 | Phase 5 — Intégration design Claude Design « OLED-First/Vanta » : `src/styles/vitrine.css` scopé sous `.vitrine` (zéro pollution `app.css` natif, keyframes `v-`), hooks `useScrollReveal`/`useVitrineChrome`/`useHomeFx` (zéro dép.), `VitrineLayout` + composants réécrits (hero ondes canvas, bento, story sticky, pricing odometer, showcase power-on, downloads détection OS). | ✅ Fait + vérifié (build/lint OK, preview, 0 erreur console) |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google
@@ -835,3 +876,19 @@ bloquant) :
 - Raffinement possible : permettre la *création* d'un profil (identifiants
   Xtream) depuis `TvLink` — aujourd'hui `TvLink` ne fait que *sélectionner*
   un profil existant.
+
+**Phase 5 livrée et vérifiée** (site vitrine). Le web pur passe en mode
+**vitrine** via `isVitrine = isWeb && !isElectron` : `App.tsx` monte
+`VitrineGate` (marketing + compte + Stripe + téléchargements + `/tv-link`) au
+lieu de l'app complète. Les builds natifs (Capacitor/Tizen/webOS) et Electron
+gardent `isVitrine=false` → `AppGate` complet **inchangé** (aucune ligne touchée
+dans les lecteurs, services natifs ou pages app). Le design « OLED-First/Vanta »
+(bundle Claude Design) est porté en React/CSS-Modules : `src/styles/vitrine.css`
+**scopé sous `.vitrine`** (n'altère jamais `app.css` partagé), hooks
+zéro-dépendance (`useScrollReveal`/`useVitrineChrome`/`useHomeFx`), `VitrineLayout`
+partagé. Build `tsc -b && vite build` OK (0 erreur), lint OK (warnings
+préexistants seulement), preview validée (hero ondes canvas, bento, story
+sticky, pricing odometer, showcase power-on, downloads détection OS, 0 erreur
+console). Détails Phase 5 : §4 ci-dessus. Reste hors-code : DNS `iptvax.com`,
+premier GitHub Release des 4 binaires, vrais screenshots du `DeviceShowcase`,
+contenu juridique réel.
