@@ -94,6 +94,10 @@ public class VlcPlayerPlugin extends Plugin {
         options.add("--freetype-background-opacity=" + subBgOpacity);
         options.add("--freetype-background-color=0");
         options.add("--sub-margin=" + SUB_MARGIN);
+        // Gras + ombre portée pour coller au rendu de la preview React
+        // (fontWeight 700 + text-shadow). Améliore aussi la lisibilité.
+        options.add("--freetype-bold");
+        options.add("--freetype-shadow-opacity=180");
         libVLC = new LibVLC(getContext(), options);
         mediaPlayer = new MediaPlayer(libVLC);
         mediaPlayer.setEventListener(this::onVlcEvent);
@@ -152,9 +156,8 @@ public class VlcPlayerPlugin extends Plugin {
         return media;
     }
 
-    /** Lit les options de style depuis l'appel JS (si présentes). */
-    private void readSubStyle(PluginCall call) {
-        JSObject style = call.getObject("subStyle");
+    /** Applique un objet de style (scale/color/bgOpacity) aux champs courants. */
+    private void applySubStyle(JSObject style) {
         if (style == null) return;
         subScale = style.optInt("scale", subScale);
         subColor = style.optLong("color", subColor);
@@ -168,7 +171,7 @@ public class VlcPlayerPlugin extends Plugin {
             call.reject("url manquante");
             return;
         }
-        readSubStyle(call);
+        applySubStyle(call.getObject("subStyle"));
         getActivity().runOnUiThread(() -> {
             try {
                 Log.d(TAG, "load: " + url);
@@ -323,7 +326,9 @@ public class VlcPlayerPlugin extends Plugin {
 
     @PluginMethod
     public void setSubtitleStyle(final PluginCall call) {
-        readSubStyle(call);
+        // ⚠ Le JS envoie { scale, color, bgOpacity } au PREMIER niveau (pas
+        // imbriqué sous "subStyle" comme dans load) → on lit call.getData().
+        applySubStyle(call.getData());
         getActivity().runOnUiThread(() -> {
             if (mediaPlayer == null || currentUrl == null) { call.resolve(); return; }
             if (!styleChanged()) { call.resolve(); return; }
