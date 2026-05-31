@@ -67,21 +67,43 @@ public class VlcPlayerPlugin extends Plugin {
     private boolean restoreTracksPending = false;
     private int pendingAudioId = -999;
     private int pendingSpuId = -999;
+    // Style avec lequel l'instance LibVLC courante a été construite (pour savoir
+    // s'il faut reconstruire le moteur quand le style change).
+    private int engScale = -1;
+    private long engColor = -1;
+    private int engBgOpacity = -1;
 
     // ── Cycle de vie du moteur ────────────────────────────────────────────────
 
+    /**
+     * Construit l'instance LibVLC + le MediaPlayer.
+     *
+     * ⚠ Les options de rendu des sous-titres (`sub-text-scale`, `freetype-*`,
+     * `sub-margin`) DOIVENT être passées ICI, au constructeur de LibVLC : ce
+     * sont des options de MODULE (niveau moteur), pas des options d'input. En
+     * tant qu'options média (`:option`) elles sont silencieusement ignorées.
+     * Changer le style impose donc de reconstruire le moteur (cf. rebuildEngine).
+     */
+    private void buildEngine() {
+        ArrayList<String> options = new ArrayList<>();
+        options.add("--no-drop-late-frames");
+        options.add("--no-skip-frames");
+        options.add("--network-caching=1500");
+        options.add("--sub-text-scale=" + subScale);
+        options.add("--freetype-color=" + subColor);
+        options.add("--freetype-background-opacity=" + subBgOpacity);
+        options.add("--freetype-background-color=0");
+        options.add("--sub-margin=" + SUB_MARGIN);
+        libVLC = new LibVLC(getContext(), options);
+        mediaPlayer = new MediaPlayer(libVLC);
+        mediaPlayer.setEventListener(this::onVlcEvent);
+        engScale = subScale;
+        engColor = subColor;
+        engBgOpacity = subBgOpacity;
+    }
+
     private void ensurePlayer() {
-        if (libVLC == null) {
-            ArrayList<String> options = new ArrayList<>();
-            options.add("--no-drop-late-frames");
-            options.add("--no-skip-frames");
-            options.add("--network-caching=1500");
-            libVLC = new LibVLC(getContext(), options);
-        }
-        if (mediaPlayer == null) {
-            mediaPlayer = new MediaPlayer(libVLC);
-            mediaPlayer.setEventListener(this::onVlcEvent);
-        }
+        if (libVLC == null) buildEngine();
         if (videoLayout == null) {
             videoLayout = new VLCVideoLayout(getContext());
             ViewGroup parent = (ViewGroup) getBridge().getWebView().getParent();
@@ -96,20 +118,34 @@ public class VlcPlayerPlugin extends Plugin {
         }
     }
 
+    /** Détruit et reconstruit le moteur (videoLayout conservé) — pour appliquer
+     *  un nouveau style de sous-titres (options niveau moteur). */
+    private void rebuildEngine() {
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+            if (viewsAttached) { mediaPlayer.detachViews(); viewsAttached = false; }
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
+        if (libVLC != null) { libVLC.release(); libVLC = null; }
+        ensurePlayer(); // reconstruit le moteur avec le style courant + ré-attache
+    }
+
+    /** `true` si le style courant diffère de celui du moteur construit. */
+    private boolean styleChanged() {
+        return subScale != engScale || subColor != engColor || subBgOpacity != engBgOpacity;
+    }
+
     // ── Méthodes exposées au JS ───────────────────────────────────────────────
 
     /**
-     * Construit un Media avec les options de style des sous-titres (et,
-     * optionnellement, une position de départ pour un reload sans coupure).
+     * Construit un Media. Le style des sous-titres est porté par l'instance
+     * LibVLC (cf. buildEngine) ; ici on ne pose que le décodage HW et,
+     * optionnellement, une position de départ (reload sans coupure).
      */
     private Media buildMedia(String url, long startTimeMs) {
         Media media = new Media(libVLC, Uri.parse(url));
         media.setHWDecoderEnabled(true, false);
-        media.addOption(":sub-text-scale=" + subScale);
-        media.addOption(":freetype-color=" + subColor);
-        media.addOption(":freetype-background-opacity=" + subBgOpacity);
-        media.addOption(":freetype-background-color=0");
-        media.addOption(":sub-margin=" + SUB_MARGIN);
         if (startTimeMs > 0) {
             media.addOption(":start-time=" + (startTimeMs / 1000.0));
         }
@@ -137,6 +173,9 @@ public class VlcPlayerPlugin extends Plugin {
             try {
                 Log.d(TAG, "load: " + url);
                 ensurePlayer();
+                // Moteur déjà présent mais style obsolète (prefs changées hors
+                // lecture) → on le reconstruit avec le style courant.
+                if (styleChanged()) rebuildEngine();
                 hasPlayed = false;
                 currentUrl = url;
                 restoreTracksPending = false;
@@ -287,13 +326,15 @@ public class VlcPlayerPlugin extends Plugin {
         readSubStyle(call);
         getActivity().runOnUiThread(() -> {
             if (mediaPlayer == null || currentUrl == null) { call.resolve(); return; }
-            // libVLC 3.x ne restyle pas à chaud → recharge le média au même
-            // point avec les nouvelles options, en préservant les pistes.
+            if (!styleChanged()) { call.resolve(); return; }
+            // Les options de style sont au niveau MOTEUR (cf. buildEngine) → on
+            // RECONSTRUIT le moteur puis recharge le média au même point, en
+            // préservant les pistes audio/CC (réappliquées dans l'event Playing).
             long time = mediaPlayer.getTime();
             pendingAudioId = mediaPlayer.getAudioTrack();
             pendingSpuId = mediaPlayer.getSpuTrack();
             restoreTracksPending = true;
-            mediaPlayer.stop();
+            rebuildEngine();
             Media media = buildMedia(currentUrl, time);
             mediaPlayer.setMedia(media);
             media.release();
