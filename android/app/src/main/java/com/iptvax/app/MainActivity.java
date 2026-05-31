@@ -11,6 +11,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VlcPlayerPlugin.class);
         // Plugin de détection TV vs téléphone (Phase 2f — onboarding QR code).
         registerPlugin(TvDetectPlugin.class);
+        // Plugin de contrôle du volume média système (Chantier 4 — slider volume lecteur).
+        registerPlugin(VolumeControlPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

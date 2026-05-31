@@ -4,6 +4,7 @@ import { useNativePlayer } from '../hooks/useNativePlayer';
 import { useWebOSPlayer } from '../hooks/useWebOSPlayer';
 import { useTizenPlayer } from '../hooks/useTizenPlayer';
 import { isNative, isCapacitor, isWebOS, isTizen } from '../lib/platform';
+import { volumeControl } from '../native/volumeControl';
 import { isTvDevice } from '../native/tvDetect';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
@@ -162,6 +163,9 @@ export function VideoPlayer({
   const [tapFlash, setTapFlash] = useState<'left' | 'right' | null>(null);
   // Luminosité simulée par overlay sombre (0.1 = très sombre, 1.0 = plein)
   const [brightness, setBrightness] = useState(1.0);
+  // Volume affiché dans le slider : volume système Android (Capacitor) ou
+  // player.volume (web/Electron). null = pas encore lu.
+  const [sysVolume, setSysVolume] = useState<number | null>(null);
   // Refs sur les pistes des sliders verticaux (luminosité + volume)
   const brightnessTrackRef = useRef<HTMLDivElement>(null);
   const volumeTrackRef = useRef<HTMLDivElement>(null);
@@ -413,8 +417,24 @@ export function VideoPlayer({
     if (e.type === 'pointermove' && e.buttons === 0) return;
     e.stopPropagation();
     const v = getSliderPct(e, volumeTrackRef);
-    if (v !== null) player.setVolume(v);
+    if (v === null) return;
+    if (isCapacitor) {
+      // Sur Android : pilote le volume média système (STREAM_MUSIC).
+      setSysVolume(v);
+      volumeControl.setMediaVolume(v).catch(() => {});
+    } else {
+      player.setVolume(v);
+    }
   }, [player]);
+
+  // Sync volume système Android (Capacitor uniquement).
+  // Lit le volume initial + s'abonne aux changements via boutons physiques.
+  // Sur web/Electron/TV : no-op (volumeControl rend des valeurs neutres).
+  useEffect(() => {
+    volumeControl.getMediaVolume().then(setSysVolume).catch(() => {});
+    const unsub = volumeControl.onVolumeChange(setSysVolume);
+    return unsub;
+  }, []);
 
   // Raccourcis clavier (overlay souris/tactile uniquement — sur TV c'est
   // `TvPlayerOverlay` qui gère toutes les touches de la télécommande).
@@ -575,8 +595,13 @@ export function VideoPlayer({
     ? (player.bufferedEnd / player.duration) * 100
     : 0;
 
-  const VolumeIcon = player.isMuted || player.volume === 0 ? IconVolumeMute
-    : player.volume < 0.5 ? IconVolumeLow
+  // Volume affiché dans le slider : volume système (Capacitor) ou player.volume
+  const displayVolume = isCapacitor && sysVolume !== null
+    ? sysVolume
+    : (player.isMuted ? 0 : player.volume);
+
+  const VolumeIcon = displayVolume === 0 ? IconVolumeMute
+    : displayVolume < 0.5 ? IconVolumeLow
     : IconVolumeHigh;
 
   const showControls = controlsVisible || !isPlaying || hasError;
@@ -780,7 +805,6 @@ export function VideoPlayer({
             <span className={styles.mobileSideBarIcon}><IconSun size={18} /></span>
             <div ref={brightnessTrackRef} className={styles.mobileSideBarTrack}>
               <div className={styles.mobileSideBarFill} style={{ height: `${brightness * 100}%` }} />
-              <div className={styles.mobileSideBarThumb} style={{ bottom: `calc(${brightness * 100}% - 9px)` }} />
             </div>
           </div>
 
@@ -821,8 +845,7 @@ export function VideoPlayer({
           >
             <span className={styles.mobileSideBarIcon}><VolumeIcon size={18} /></span>
             <div ref={volumeTrackRef} className={styles.mobileSideBarTrack}>
-              <div className={styles.mobileSideBarFill} style={{ height: `${(player.isMuted ? 0 : player.volume) * 100}%` }} />
-              <div className={styles.mobileSideBarThumb} style={{ bottom: `calc(${(player.isMuted ? 0 : player.volume) * 100}% - 9px)` }} />
+              <div className={styles.mobileSideBarFill} style={{ height: `${displayVolume * 100}%` }} />
             </div>
           </div>
         </div>
