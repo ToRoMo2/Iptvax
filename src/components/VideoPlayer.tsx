@@ -419,12 +419,34 @@ export function VideoPlayer({
     }
   }, [panelKind, closePanel, isLive, player, resetHideTimer]);
 
+  // Marque qu'un toucher vient d'avoir lieu (n'importe où dans le lecteur —
+  // les events touch bubblent jusqu'au wrapper). Sert à NEUTRALISER les events
+  // souris synthétiques (mouseleave/mousemove) que les WebView mobiles émettent
+  // après un tap : sans ça, `onMouseLeave` masquait l'overlay aussitôt affiché.
+  const markTouch = useCallback(() => {
+    touchHappenedRef.current = true;
+    if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
+    touchHappenedTimerRef.current = setTimeout(() => { touchHappenedRef.current = false; }, 700);
+  }, []);
+
   // Nettoyage des timers double-tap / single-tap à l'unmount.
   useEffect(() => () => {
     if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
     if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
     if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
   }, []);
+
+  // Wake lock écran (web + Electron uniquement — sur Capacitor c'est le plugin
+  // libVLC qui pose FLAG_KEEP_SCREEN_ON). Empêche la mise en veille en lecture.
+  useEffect(() => {
+    if (isNative) return;
+    if (!isPlaying) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    const wl = (navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock;
+    if (!wl) return;
+    wl.request('screen').then((l) => { lock = l; }).catch(() => {});
+    return () => { lock?.release().catch(() => {}); };
+  }, [isPlaying]);
 
   // Helpers sliders verticaux (luminosité / volume) : calcule la valeur 0-1
   // à partir de la position Y du pointeur sur la piste du slider.
@@ -700,8 +722,9 @@ export function VideoPlayer({
     <div
       ref={player.wrapperRef}
       className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${useNativeSurface ? 'native-video-surface' : ''}`}
-      onMouseMove={resetHideTimer}
-      onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
+      onTouchStart={markTouch}
+      onMouseMove={() => { if (!touchHappenedRef.current) resetHideTimer(); }}
+      onMouseLeave={() => { if (!touchHappenedRef.current && isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
       {(() => {

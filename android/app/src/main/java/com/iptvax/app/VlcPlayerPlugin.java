@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -109,6 +110,12 @@ public class VlcPlayerPlugin extends Plugin {
                 // plein écran immersif, sans chevauchement avec les contrôles.
                 setImmersive(true);
 
+                // Empêche la mise en veille de l'écran pendant la lecture (la
+                // vidéo est rendue par libVLC sur une SurfaceView, pas par le
+                // <video> de la WebView → Android ne détecte pas de média actif).
+                getActivity().getWindow().addFlags(
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
                 // Rend la WebView transparente → la vidéo libVLC apparaît derrière
                 // les contrôles React.
                 getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
@@ -154,6 +161,9 @@ public class VlcPlayerPlugin extends Plugin {
             getBridge().getWebView().setBackgroundColor(Color.BLACK);
             // Restaure les barres système et l'orientation d'avant la lecture.
             setImmersive(false);
+            // Réautorise la mise en veille de l'écran hors lecture.
+            getActivity().getWindow().clearFlags(
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (orientationForced) {
                 getActivity().setRequestedOrientation(previousOrientation);
                 orientationForced = false;
