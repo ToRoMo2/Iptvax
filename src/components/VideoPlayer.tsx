@@ -187,9 +187,11 @@ export function VideoPlayer({
   const epSeasonChipsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const epCardsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Double-tap seek : dernière frappe mémorisée (timestamp + côté gauche/droite).
-  const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
+  // Double-tap seek : dernière frappe mémorisée (timestamp + côté + état overlay).
+  const lastTapRef = useRef<{ time: number; side: 'left' | 'right'; wasVisible: boolean } | null>(null);
   const tapFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timer 320ms du single-tap (annulé si un second tap arrive = double-tap).
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Bloque le click natif qui suit un touchend (évite le double-trigger play/pause).
   const touchHappenedRef = useRef(false);
   const touchHappenedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -349,9 +351,16 @@ export function VideoPlayer({
   }, [isPlaying]);
 
   // Double-tap seek (mobile/touch) — gère touchend sur la surface vidéo.
-  // Single-tap : affiche/masque les contrôles sans affecter play/pause.
-  // Double-tap gauche/droite dans les 320ms : seek ±10s + flash (VOD uniquement).
-  // Pose touchHappenedRef = true pour que le click natif post-touchend soit ignoré.
+  //
+  // Pattern :
+  //   1er tap → on ATTEND 320ms avant d'agir (cas single-tap).
+  //   2e tap < 320ms, même côté → double-tap : annule l'attente, seek ±10s.
+  //     · Si l'overlay était caché avant le 1er tap : seek silencieux (pas d'overlay).
+  //     · Si l'overlay était visible : seek + reset du timer (overlay reste).
+  //
+  // Le `onTouchStart` du wrapper est supprimé pour éviter de montrer l'overlay
+  // dès le 1er tap d'un double-tap ; le reset du timer est délégué au div
+  // `.controls` et `.mobileCenterControls` qui ont `onTouchStart={resetHideTimer}`.
   const handleSurfaceTouchEnd = useCallback((e: React.TouchEvent) => {
     touchHappenedRef.current = true;
     if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
@@ -365,10 +374,18 @@ export function VideoPlayer({
     const side: 'left' | 'right' = touch.clientX - rect.left < rect.width / 2 ? 'left' : 'right';
     const now = Date.now();
     const last = lastTapRef.current;
+    // Capture l'état AVANT tout setState en attente (le rendu n'a pas eu lieu).
+    const wasVisible = controlsVisibleRef.current;
 
     if (last && now - last.time < 320 && last.side === side) {
-      // Double-tap : seek ±10s
+      // ── Double-tap détecté ───────────────────────────────────────────────
+      // Annule l'action pending du 1er tap (toggle overlay).
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
       lastTapRef.current = null;
+
       if (!isLive) {
         const delta = side === 'left' ? -10 : 10;
         player.seek(Math.max(0, player.currentTime + delta));
@@ -376,23 +393,37 @@ export function VideoPlayer({
         if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
         tapFlashTimerRef.current = setTimeout(() => setTapFlash(null), 700);
       }
-      resetHideTimer();
-    } else {
-      // Single-tap : bascule visibilité contrôles
-      lastTapRef.current = { time: now, side };
-      if (controlsVisibleRef.current) {
-        setControlsVisible(false);
-        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      } else {
+
+      // Si l'overlay était déjà visible → le garder visible (reset timer).
+      // Si l'overlay était caché → seek silencieux, pas d'overlay.
+      if (last.wasVisible) {
         resetHideTimer();
       }
+      // else : on ne touche pas à controlsVisible → l'overlay reste caché.
+
+    } else {
+      // ── 1er tap (potential double-tap) ──────────────────────────────────
+      // Enregistre l'état courant et attend 320ms.
+      lastTapRef.current = { time: now, side, wasVisible };
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        // Confirmation : c'était bien un single-tap → bascule l'overlay.
+        if (controlsVisibleRef.current) {
+          setControlsVisible(false);
+          if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        } else {
+          resetHideTimer();
+        }
+      }, 320);
     }
   }, [panelKind, closePanel, isLive, player, resetHideTimer]);
 
-  // Nettoyage des timers double-tap à l'unmount.
+  // Nettoyage des timers double-tap / single-tap à l'unmount.
   useEffect(() => () => {
     if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
     if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
   }, []);
 
   // Helpers sliders verticaux (luminosité / volume) : calcule la valeur 0-1
@@ -670,7 +701,6 @@ export function VideoPlayer({
       ref={player.wrapperRef}
       className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${useNativeSurface ? 'native-video-surface' : ''}`}
       onMouseMove={resetHideTimer}
-      onTouchStart={resetHideTimer}
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
@@ -798,7 +828,7 @@ export function VideoPlayer({
           CSS : display:none sur desktop, display:flex sur ≤640px ou landscape.
           ─────────────────────────────────────────────────────────────────── */}
       {!tvMode && showControls && panelKind === null && (
-        <div className={styles.mobileCenterControls} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.mobileCenterControls} onClick={(e) => e.stopPropagation()} onTouchStart={resetHideTimer}>
 
           {/* Slider luminosité — gauche */}
           <div
@@ -902,7 +932,7 @@ export function VideoPlayer({
 
       {/* Overlay contrôles souris/tactile — masqué sur TV. */}
       {!tvMode && (
-      <div className={styles.controls} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.controls} onClick={(e) => e.stopPropagation()} onTouchStart={resetHideTimer}>
 
         {/* Barre du haut */}
         <div className={styles.topBar}>

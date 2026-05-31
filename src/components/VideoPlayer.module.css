@@ -12,6 +12,9 @@
   overflow: hidden;
   cursor: pointer;
   user-select: none;
+  /* Supprime le flash bleu Android WebView sur le div plein-écran */
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 .video {
