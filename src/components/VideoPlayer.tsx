@@ -654,16 +654,6 @@ export function VideoPlayer({
     el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
   }, [epFocus, panelKind]);
 
-  const subSizeClass = subSize === 'sm' ? styles.subSm
-    : subSize === 'lg' ? styles.subLg
-    : subSize === 'xl' ? styles.subXl
-    : styles.subMd;
-  const subBgClass = subBg === 'none' ? styles.subBgNone : subBg === 'solid' ? styles.subBgSolid : styles.subBgSemi;
-  const subColorClass = subColor === 'yellow' ? styles.subColorYellow
-    : subColor === 'cyan' ? styles.subColorCyan
-    : subColor === 'green' ? styles.subColorGreen
-    : styles.subColorWhite;
-
   // Surface native (vidéo rendue par un plan hardware DERRIÈRE la WebView) :
   //   - Capacitor → libVLC (`useNativePlayer` pose `usesNativeSurface` à true)
   //   - Tizen → AVPlay (`useTizenPlayer` pose `usesNativeSurface` à true) ; la
@@ -732,11 +722,25 @@ export function VideoPlayer({
         style={{ opacity: brightness < 1 ? 1 - brightness : 0 }}
       />
 
-      {/* Sous-titres personnalisés */}
+      {/* Sous-titres personnalisés — inline styles identiques à la preview
+          pour garantir que le rendu réel = l'aperçu Personnaliser à 100%.
+          On évite les classes CSS (qui seraient écrasées par media queries). */}
       {subtitleText && (
-        <div className={`${styles.subtitleOverlay} ${subSizeClass} ${subBgClass} ${subColorClass}`}>
+        <div className={styles.subtitleOverlay}>
           {subtitleText.split('\n').map((line, i) => (
-            <span key={i} className={styles.subtitleLine}
+            <span
+              key={i}
+              className={styles.subtitleLine}
+              style={{
+                fontSize: PREVIEW_PX[subSize],
+                color: SUB_COLOR_HEX[subColor],
+                background: SUB_BG_CSS[subBg],
+                textShadow: subBg === 'none' ? SUB_OUTLINE : SUB_SOFT_SHADOW,
+                padding: subBg === 'none' ? '0 6px' : '4px 14px',
+                fontWeight: 700,
+                letterSpacing: '-0.005em',
+                lineHeight: 1.3,
+              }}
               dangerouslySetInnerHTML={{ __html: line }}
             />
           ))}
