@@ -96,13 +96,13 @@ public class VlcPlayerPlugin extends Plugin {
         options.add("--sub-margin=" + SUB_MARGIN);
         // Gras pour coller au rendu de la preview React (fontWeight 700).
         options.add("--freetype-bold");
-        // Contour noir net (comme le text-shadow outline de la preview sans fond).
-        options.add("--freetype-outline-color=0");
-        options.add("--freetype-outline-opacity=255");
+        // ⚠ Ne PAS forcer --freetype-outline-color : sur ce build libVLC la
+        // valeur 0 est interprétée comme « non défini » → contour blanc parasite
+        // EN PLUS du contour noir par défaut (halo blanc disgracieux). On laisse
+        // le contour noir natif de libVLC, qui convient.
         // Ombre portée UNIQUEMENT avec un fond : sans fond, l'ombre par défaut
-        // de libVLC (blanche) crée un halo disgracieux sur du texte blanc → on
-        // la coupe et on ne garde que le contour. Avec fond, l'ombre tombe sur
-        // la boîte → rendu propre.
+        // de libVLC (blanche) crée un halo sur du texte blanc → on la coupe.
+        // Avec fond, l'ombre tombe sur la boîte → rendu propre.
         options.add("--freetype-shadow-opacity=" + (subBgOpacity > 0 ? 130 : 0));
         libVLC = new LibVLC(getContext(), options);
         mediaPlayer = new MediaPlayer(libVLC);
