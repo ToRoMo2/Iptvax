@@ -151,6 +151,10 @@ export function VideoPlayer({
         : usePlayer(url, mediaUrl);
   /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsVisibleRef = useRef(controlsVisible);
+  controlsVisibleRef.current = controlsVisible;
+  // Double-tap seek flash (mobile/touch) — 'left' | 'right' | null
+  const [tapFlash, setTapFlash] = useState<'left' | 'right' | null>(null);
   // Panneau inline qui REMPLACE la rangée de contrôles (pattern TvPlayerOverlay).
   // null = contrôles classiques affichés ; sinon le panneau prend la place et
   // le lecteur est mis en pause automatiquement (cf. pausedByPanelRef).
@@ -169,6 +173,12 @@ export function VideoPlayer({
   const epSeasonChipsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const epCardsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Double-tap seek : dernière frappe mémorisée (timestamp + côté gauche/droite).
+  const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null);
+  const tapFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bloque le click natif qui suit un touchend (évite le double-trigger play/pause).
+  const touchHappenedRef = useRef(false);
+  const touchHappenedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Trace si NOUS avons mis le lecteur en pause à l'ouverture du panneau (pour
   // éviter d'auto-reprendre une vidéo que l'utilisateur avait pausée lui-même).
   const pausedByPanelRef = useRef(false);
@@ -323,6 +333,53 @@ export function VideoPlayer({
   useEffect(() => {
     if (!isPlaying) setControlsVisible(true);
   }, [isPlaying]);
+
+  // Double-tap seek (mobile/touch) — gère touchend sur la surface vidéo.
+  // Single-tap : affiche/masque les contrôles sans affecter play/pause.
+  // Double-tap gauche/droite dans les 320ms : seek ±10s + flash (VOD uniquement).
+  // Pose touchHappenedRef = true pour que le click natif post-touchend soit ignoré.
+  const handleSurfaceTouchEnd = useCallback((e: React.TouchEvent) => {
+    touchHappenedRef.current = true;
+    if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
+    touchHappenedTimerRef.current = setTimeout(() => { touchHappenedRef.current = false; }, 600);
+
+    if (panelKind !== null) { closePanel(); return; }
+
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const side: 'left' | 'right' = touch.clientX - rect.left < rect.width / 2 ? 'left' : 'right';
+    const now = Date.now();
+    const last = lastTapRef.current;
+
+    if (last && now - last.time < 320 && last.side === side) {
+      // Double-tap : seek ±10s
+      lastTapRef.current = null;
+      if (!isLive) {
+        const delta = side === 'left' ? -10 : 10;
+        player.seek(Math.max(0, player.currentTime + delta));
+        setTapFlash(side);
+        if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
+        tapFlashTimerRef.current = setTimeout(() => setTapFlash(null), 700);
+      }
+      resetHideTimer();
+    } else {
+      // Single-tap : bascule visibilité contrôles
+      lastTapRef.current = { time: now, side };
+      if (controlsVisibleRef.current) {
+        setControlsVisible(false);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      } else {
+        resetHideTimer();
+      }
+    }
+  }, [panelKind, closePanel, isLive, player, resetHideTimer]);
+
+  // Nettoyage des timers double-tap à l'unmount.
+  useEffect(() => () => {
+    if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
+    if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
+  }, []);
 
   // Raccourcis clavier (overlay souris/tactile uniquement — sur TV c'est
   // `TvPlayerOverlay` qui gère toutes les touches de la télécommande).
@@ -563,15 +620,16 @@ export function VideoPlayer({
       ref={player.wrapperRef}
       className={`${styles.wrapper} ${showControls ? styles.showControls : ''} ${useNativeSurface ? 'native-video-surface' : ''}`}
       onMouseMove={resetHideTimer}
+      onTouchStart={resetHideTimer}
       onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
       onClick={closeAllMenus}
     >
       {(() => {
-        // Quand le panneau inline est ouvert, un clic sur la vidéo doit FERMER
-        // le panneau (et reprendre la lecture si on l'avait pausée) plutôt
-        // qu'appeler player.toggle directement — ce qui produirait un double-
-        // toggle (panneau resume + video toggle = pause à nouveau).
+        // Sur desktop (souris) : clic sur la vidéo = play/pause ou ferme le panel.
+        // Sur mobile (touch) : touchend est intercepté par handleSurfaceTouchEnd
+        // qui pose touchHappenedRef = true → le click natif post-touch est ignoré.
         const onSurfaceClick = () => {
+          if (touchHappenedRef.current) return;
           if (panelKind !== null) closePanel();
           else player.toggle();
         };
@@ -581,11 +639,18 @@ export function VideoPlayer({
               type="application/avplayer"
               className={`${styles.video} native-video-surface`}
               onClick={onSurfaceClick}
+              onTouchEnd={handleSurfaceTouchEnd}
             />
           );
         }
         if (useNativeSurface) {
-          return <div className={`${styles.video} native-video-surface`} onClick={onSurfaceClick} />;
+          return (
+            <div
+              className={`${styles.video} native-video-surface`}
+              onClick={onSurfaceClick}
+              onTouchEnd={handleSurfaceTouchEnd}
+            />
+          );
         }
         return (
           <video
@@ -594,6 +659,7 @@ export function VideoPlayer({
             playsInline
             poster={safeImgUrl(poster)}
             onClick={onSurfaceClick}
+            onTouchEnd={handleSurfaceTouchEnd}
           />
         );
       })()}
@@ -652,6 +718,16 @@ export function VideoPlayer({
       {!tvMode && player.status === 'paused' && panelKind === null && (
         <div className={styles.pauseHint} onClick={player.toggle}>
           <div className={styles.bigPlayBtn}><IconPlay size={28} /></div>
+        </div>
+      )}
+
+      {/* Flash double-tap seek (mobile/touch, VOD uniquement) */}
+      {!tvMode && tapFlash !== null && !isLive && (
+        <div className={`${styles.tapFlashZone} ${tapFlash === 'left' ? styles.tapFlashLeft : styles.tapFlashRight}`}>
+          <div className={styles.tapFlashCircle}>
+            {tapFlash === 'left' ? <IconBack10 size={28} /> : <IconFwd10 size={28} />}
+            <span className={styles.tapFlashLabel}>{tapFlash === 'left' ? '−10s' : '+10s'}</span>
+          </div>
         </div>
       )}
 

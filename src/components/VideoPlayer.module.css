@@ -890,6 +890,54 @@
 }
 
 /* ====================================================================
+   Flash double-tap seek (mobile/touch)
+   Cercle blanc semi-transparent qui scale + fade-out en 700 ms.
+   S'applique sur tout device tactile (pas de media-query) — invisible
+   en pratique sur desktop car aucun touchend n'est émis à la souris.
+   ==================================================================== */
+.tapFlashZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 8;
+}
+.tapFlashLeft  { left: 0; }
+.tapFlashRight { right: 0; }
+
+.tapFlashCircle {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #fff;
+  animation: vp-tap-ripple 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.tapFlashLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+@keyframes vp-tap-ripple {
+  0%   { opacity: 0.9; transform: scale(0.82); }
+  18%  { opacity: 1;   transform: scale(1.0);  }
+  100% { opacity: 0;   transform: scale(1.18); }
+}
+
+/* ====================================================================
    Responsive — Tablette portrait (641px – 900px)
    Marges réduites, capsule top compacte. Layout flat conservé.
    ==================================================================== */
