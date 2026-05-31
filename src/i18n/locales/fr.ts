@@ -27,6 +27,7 @@ const fr = {
     minChars: 'Tapez au moins {n} caractères…',
     resultOne: '{count} résultat',
     resultOther: '{count} résultats',
+    popular: 'Populaires',
   },
   app: {
     connecting: 'Connexion en cours…',

@@ -173,6 +173,167 @@
 }
 
 /* ====================================================================
+   Rails (overview Films / Séries) — une rangée horizontale par catégorie
+   ====================================================================
+   Les rails « débordent » jusqu'au bord de l'écran : `.page` est inset par
+   --pad-edge, donc `.shelves` applique un margin négatif et l'en-tête + le
+   rail ré-appliquent le padding. Même pattern que Home (rangées horizontales). */
+.shelves {
+  margin: 0 calc(-1 * var(--pad-edge));
+}
+
+.shelf {
+  margin-bottom: var(--row-gap);
+}
+
+.shelfHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 var(--pad-edge);
+  margin-bottom: 16px;
+}
+
+.shelfTitleGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.shelfTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--t-1);
+  letter-spacing: 0.01em;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shelfDivider {
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: var(--line);
+  transform: translateY(-4px);
+  flex-shrink: 0;
+}
+
+.shelfCount {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--t-3);
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  flex-shrink: 0;
+}
+
+.shelfSeeAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--d-micro) var(--ease);
+}
+.shelfSeeAll:hover { color: var(--t-1); }
+
+.shelfRail {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding: 4px var(--pad-edge);
+}
+.shelfRail::-webkit-scrollbar { display: none; }
+
+/* Cellule à largeur fixe dans un rail (PreviewCard + carte « Voir tout »). */
+.posterCell {
+  width: 180px;
+  scroll-snap-align: start;
+}
+
+/* Carte « Voir tout » en fin de rail → ouvre la catégorie complète. */
+.seeAllCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--r-card);
+  background: var(--accent-faint);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  transition: background var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease), transform var(--d-micro) var(--ease);
+}
+.seeAllCard:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.seeAllIcon { display: grid; place-items: center; }
+.seeAllLabel {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* ── En-tête du mode « catégorie complète » (?cat=) ──────────────────────── */
+.catHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.backBtn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  color: var(--t-1);
+  cursor: pointer;
+  transition: background var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
+}
+.backBtn:hover { background: var(--bg-card-hover); border-color: var(--line-strong); }
+
+.catTitle {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--t-1);
+  letter-spacing: -0.01em;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ====================================================================
    Responsive
    ==================================================================== */
 @media (max-width: 900px) {
@@ -184,6 +345,9 @@
   .gridPoster { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .gridLoading { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .grid { gap: 22px 16px; }
+  .posterCell { width: 150px; }
+  .shelfTitle { font-size: 16px; }
+  .catTitle { font-size: 24px; }
 }
 
 @media (max-width: 640px) {
@@ -208,6 +372,15 @@
   /* Chaînes : 2 par ligne strict, adapte la taille à l'écran */
   .gridChannel { grid-template-columns: repeat(2, 1fr); }
   .grid { gap: 18px 14px; }
+
+  /* Rails : cartes plus petites + en-têtes compacts (peek de la carte suivante). */
+  .posterCell { width: 140px; }
+  .shelfRail { gap: 12px; }
+  .shelfHeader { margin-bottom: 12px; }
+  .seeAllLabel { font-size: 12px; }
+  .catHeader { gap: 10px; margin-bottom: 18px; }
+  .catTitle { font-size: 22px; }
+  .backBtn { width: 38px; height: 38px; }
 }
 
 @media (max-width: 380px) {
@@ -215,4 +388,5 @@
   .gridLoading { grid-template-columns: repeat(2, 1fr); }
   .gridChannel { grid-template-columns: repeat(2, 1fr); }
   .grid { gap: 14px 12px; }
+  .posterCell { width: 124px; }
 }

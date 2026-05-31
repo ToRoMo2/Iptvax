@@ -110,11 +110,17 @@ export function TopNav() {
 
   return (
     <>
-      {/* ── Brand — fixé à gauche ───────────────────────────────────── */}
-      <div className="brand-fixed" title="Iptvax">
+      {/* ── Brand — fixé à gauche, cliquable → Accueil ──────────────── */}
+      <button
+        type="button"
+        className="brand-fixed"
+        title="Iptvax"
+        aria-label={t('nav.home')}
+        onClick={() => navigate('/')}
+      >
         <AppLogo size={22} />
         <span className="brand-name">IPTVAX</span>
-      </div>
+      </button>
 
       {/* ── Search button — mobile only (en haut à droite, à côté du profil)
             Sur desktop il vit dans la capsule .topnav ; sur mobile la capsule

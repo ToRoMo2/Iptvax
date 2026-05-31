@@ -15,8 +15,17 @@
   align-items: center;
   gap: 10px;
   height: 48px;
-  pointer-events: none;
+  /* Bouton cliquable → Accueil. Reset des styles natifs du <button>. */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform var(--d-micro) var(--ease), opacity var(--d-micro) var(--ease);
 }
+.brand-fixed:hover { opacity: 0.82; }
+.brand-fixed:active { transform: scale(0.94); }
 .brand-fixed .brand-mark {
   width: 10px; height: 10px;
   border-radius: 50%;

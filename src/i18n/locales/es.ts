@@ -26,6 +26,7 @@ const es: typeof frDict = {
     minChars: 'Escribe al menos {n} caracteres…',
     resultOne: '{count} resultado',
     resultOther: '{count} resultados',
+    popular: 'Populares',
   },
   app: {
     connecting: 'Conectando…',
