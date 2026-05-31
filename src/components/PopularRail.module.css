@@ -1,0 +1,56 @@
+/* ── Carrousel « Populaires » (rupture visuelle vs rails de catégorie) ──────── */
+
+.popRail {
+  /* Largeur d'un poster « populaire » — pilote aussi le padding de centrage. */
+  --pop-w: 260px;
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* Padding latéral = (50% - moitié d'un item) → le 1er et le dernier poster
+     peuvent venir se centrer (scroll-snap center). */
+  padding: 14px calc(50% - var(--pop-w) / 2);
+}
+.popRail::-webkit-scrollbar {
+  display: none;
+}
+
+.popItem {
+  flex: 0 0 auto;
+  width: var(--pop-w);
+  scroll-snap-align: center;
+  transform-origin: center center;
+  /* Transition courte = le scaling « suit » le doigt sans paraître saccadé
+     (le JS pose la valeur cible à chaque frame de scroll). */
+  transition: transform 0.14s linear, opacity 0.14s linear;
+  will-change: transform, opacity;
+}
+
+/* La carte remplit l'item (PreviewCard rendue SANS largeur fixe ici). */
+.popItem > * {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popItem {
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .popRail { --pop-w: 230px; }
+}
+
+@media (max-width: 640px) {
+  .popRail { --pop-w: 210px; gap: 14px; }
+}
+
+@media (max-width: 380px) {
+  .popRail { --pop-w: 180px; }
+}

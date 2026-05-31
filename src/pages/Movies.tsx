@@ -8,6 +8,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { ScrollRail } from '../components/ScrollRail';
+import { PopularRail } from '../components/PopularRail';
 import type { VodCategory, VodStream } from '../types/xtream.types';
 import { groupByTitle, titleKey, type TitleGroup } from '../utils/catalog';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -326,9 +327,16 @@ export function Movies() {
       ) : (
         <div className={styles.shelves}>
           {popular.length > 0 && (
-            <Shelf title={t('common.popular')} count={popular.length}>
-              {popular.map((g) => renderCard(g, true))}
-            </Shelf>
+            <section className={styles.shelf}>
+              <div className={styles.shelfHeader}>
+                <div className={styles.shelfTitleGroup}>
+                  <h2 className={styles.shelfTitle}>{t('common.popular')}</h2>
+                  <span className={styles.shelfDivider} aria-hidden="true" />
+                  <span className={styles.shelfCount}>{popular.length}</span>
+                </div>
+              </div>
+              <PopularRail>{popular.map((g) => renderCard(g, false))}</PopularRail>
+            </section>
           )}
           {rails.map((r) => (
             <Shelf

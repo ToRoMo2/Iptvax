@@ -262,10 +262,18 @@
   padding: 4px var(--pad-edge);
 }
 .shelfRail::-webkit-scrollbar { display: none; }
+/* ⚠ flex-shrink: 0 obligatoire : le titre des cartes est en `nowrap`, donc
+   sans ça chaque carte a un min-width différent (longueur du titre) → elles
+   rétrécissent inégalement → posters de tailles différentes. */
+.shelfRail > * {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
 
 /* Cellule à largeur fixe dans un rail (PreviewCard + carte « Voir tout »). */
 .posterCell {
   width: 180px;
+  flex-shrink: 0;
   scroll-snap-align: start;
 }
 
