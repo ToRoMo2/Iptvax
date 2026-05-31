@@ -10,11 +10,8 @@
   overflow: hidden;
 }
 
+/* .backBtn conservé uniquement pour l'écran .noMedia (pas de VideoPlayer) */
 .backBtn {
-  position: absolute;
-  top: 28px;
-  left: var(--pad-edge);
-  z-index: 10;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -28,11 +25,7 @@
   border-radius: var(--r-pill);
   transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
 }
-
-.backBtn:hover {
-  color: var(--t-1);
-  border-color: var(--line-strong);
-}
+.backBtn:hover { color: var(--t-1); border-color: var(--line-strong); }
 
 .playerWrapper {
   flex: 1;

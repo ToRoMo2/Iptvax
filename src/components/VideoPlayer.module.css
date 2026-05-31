@@ -20,6 +20,137 @@
   display: block;
   object-fit: contain;
   background: #000;
+  /* Supprime le flash bleu Android au tap sur la surface vidéo */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Overlay luminosité simulée ── */
+.brightnessOverlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 60ms linear;
+}
+
+/* ── Bouton retour × (mobile uniquement, remplace le backBtn de Player.tsx) ── */
+.mobileBackBtn {
+  display: none; /* affiché via media query mobile ci-dessous */
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 22;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--t-1);
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--d-micro) var(--ease);
+}
+.mobileBackBtn:hover { background: rgba(0, 0, 0, 0.68); }
+
+/* ── Contrôles centraux mobile (play/pause + ±10s + sliders lat.) ── */
+.mobileCenterControls {
+  display: none; /* affiché via media query */
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%; transform: translateY(-50%);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  pointer-events: none; /* les enfants re-activent */
+  z-index: 12;
+  gap: 12px;
+}
+
+/* Groupe back10 / play / fwd10 */
+.mobileCenterPlayGroup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  pointer-events: all;
+  flex: 0 0 auto;
+}
+
+/* Boutons ±10s : transparents, sans fond */
+.mobileSeekBtn {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.88);
+  min-width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
+  -webkit-tap-highlight-color: transparent;
+}
+.mobileSeekBtn:hover:not(:disabled),
+.mobileSeekBtn:active { color: #fff; background: rgba(255,255,255,0.1) !important; }
+
+/* Bouton play/pause central : pastille blanche */
+.mobileCenterPlayBtn {
+  background: #fff !important;
+  color: #000 !important;
+  min-width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  -webkit-tap-highlight-color: transparent;
+}
+.mobileCenterPlayBtn:active { transform: scale(0.93); }
+
+/* Sliders verticaux latéraux (luminosité / volume) */
+.mobileSideBar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: all;
+  cursor: pointer;
+  flex: 0 0 auto;
+  padding: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobileSideBarIcon {
+  color: rgba(255, 255, 255, 0.75);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.mobileSideBarTrack {
+  position: relative;
+  width: 4px;
+  height: 140px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  touch-action: none;
+}
+.mobileSideBarFill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-radius: 2px;
+  background: #fff;
+  transition: height 40ms linear;
+}
+.mobileSideBarThumb {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  transition: bottom 40ms linear;
 }
 
 /* ── Center overlays (loading / error / idle) ── */
@@ -952,6 +1083,43 @@
 }
 
 /* ====================================================================
+   Mobile commun : portrait ≤640px ET paysage téléphone (≤500px hauteur)
+   Active les contrôles centraux, masque le primaryGroup du bottom bar,
+   affiche le bouton × retour.
+   ==================================================================== */
+@media (max-width: 640px), (max-height: 500px) and (orientation: landscape) {
+  /* Contrôles centraux + bouton retour */
+  .mobileCenterControls { display: flex; }
+  .mobileBackBtn { display: flex; }
+
+  /* pauseHint remplacé par le groupe central */
+  .pauseHint { display: none; }
+
+  /* Cacher back10/play/fwd10 du bottomBar (ils sont maintenant au centre) */
+  .bottomBar .primaryGroup { display: none !important; }
+
+  /* Cacher le spacer (inutile sans primaryGroup) */
+  .spacer { display: none !important; }
+
+  /* Centrer le groupe secondaire dans le bottom bar */
+  .bottomBar {
+    justify-content: center !important;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  /* Masquer le volume (slider latéral gère le son) */
+  .volumeGroup { display: none; }
+
+  /* Sliders plus courts en paysage (hauteur limitée) */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .mobileSideBarTrack { height: 90px; }
+    .mobileCenterPlayBtn { min-width: 52px !important; height: 52px !important; }
+    .mobileSeekBtn { min-width: 40px !important; height: 40px !important; }
+  }
+}
+
+/* ====================================================================
    Responsive — Mobile portrait (≤ 640px) : REFONTE complète
    Conventions Apple HIG / Material : zones tactiles 44px+ ; play/pause
    en pastille blanche centrée comme ancre visuelle ; menus en bottom
@@ -985,10 +1153,10 @@
   .progressKnob { width: 16px; height: 16px; }
   .timeLabel { font-size: 11px; min-width: 38px; }
 
-  /* ── Bottom bar : 2 rangées via flex-wrap ─────────────────────── */
+  /* ── Bottom bar : nowrap centré (primaryGroup déjà masqué par règle commune) */
   .bottomBar {
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
   }
@@ -1003,20 +1171,9 @@
   }
   .controlBtn:disabled { opacity: 0.3; }
 
-  /* Volume masqué (géré par les boutons hardware sur mobile) */
-  .volumeGroup { display: none; }
+  /* Volume masqué (slider latéral gère le son — règle commune ci-dessus) */
 
-  /* Spacer : devient une coupure de ligne pour wrapper sur 2 rangées */
-  .spacer {
-    flex: 1 0 100%;
-    height: 0;
-  }
-
-  /* Groupe primaire (back10/play/fwd10 OU prev/play/next) : rangée 1
-     centrée, plus aérée. */
-  .primaryGroup { flex: 0 0 auto; }
-
-  /* Bouton play/pause : pastille blanche distinctive, plus grosse */
+  /* Bouton play/pause dans la bottomBar (desktop fallback, visible hors mobile) */
   .playPauseBtn {
     background: #FFFFFF !important;
     color: #000 !important;

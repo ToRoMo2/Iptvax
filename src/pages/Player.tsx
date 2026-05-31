@@ -218,11 +218,11 @@ export function Player() {
 
   return (
     <div className={`${styles.page} ${isNative ? 'native-video-surface' : ''}`}>
-      <button className={styles.backBtn} onClick={() => navigate(-1)}>{t('common.back')}</button>
       <div className={styles.playerWrapper}>
         <VideoPlayer
           url={activeUrl}
           title={state.title}
+          onBack={() => navigate(-1)}
           poster={state.poster}
           isLiveType={state.type === 'live'}
           fallbackUrl={!useFallback ? state.fallbackUrl : undefined}

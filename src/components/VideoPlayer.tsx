@@ -13,7 +13,7 @@ import {
   IconAudio, IconSubtitles, IconQuality, IconCheck, IconBack, IconClose,
   IconVolumeMute, IconVolumeLow, IconVolumeHigh,
   IconFullscreenEnter, IconFullscreenExit, IconSettings, IconAlert,
-  IconEpisodes,
+  IconEpisodes, IconSun,
 } from './PlayerIcons';
 import { useI18n } from '../contexts/I18nContext';
 import type { Episode } from '../types/xtream.types';
@@ -54,6 +54,10 @@ interface Props {
   stillsBySeason?: Record<number, TmdbEpisodeStills>;
   onLoadSeasonStills?: (season: number) => void;
   onPlayEpisode?: (ep: Episode) => void;
+  // Bouton retour (×) intégré dans l'overlay (visible uniquement quand les
+  // contrôles sont affichés). Géré ici plutôt que dans Player.tsx pour avoir
+  // accès direct à `controlsVisible`.
+  onBack?: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -125,6 +129,7 @@ export function VideoPlayer({
   stillsBySeason,
   onLoadSeasonStills,
   onPlayEpisode,
+  onBack,
 }: Props) {
   const { t } = useI18n();
   // Sur TV (Android TV / Tizen / webOS), l'overlay est piloté à la télécommande
@@ -155,6 +160,11 @@ export function VideoPlayer({
   controlsVisibleRef.current = controlsVisible;
   // Double-tap seek flash (mobile/touch) — 'left' | 'right' | null
   const [tapFlash, setTapFlash] = useState<'left' | 'right' | null>(null);
+  // Luminosité simulée par overlay sombre (0.1 = très sombre, 1.0 = plein)
+  const [brightness, setBrightness] = useState(1.0);
+  // Refs sur les pistes des sliders verticaux (luminosité + volume)
+  const brightnessTrackRef = useRef<HTMLDivElement>(null);
+  const volumeTrackRef = useRef<HTMLDivElement>(null);
   // Panneau inline qui REMPLACE la rangée de contrôles (pattern TvPlayerOverlay).
   // null = contrôles classiques affichés ; sinon le panneau prend la place et
   // le lecteur est mis en pause automatiquement (cf. pausedByPanelRef).
@@ -380,6 +390,31 @@ export function VideoPlayer({
     if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
     if (touchHappenedTimerRef.current) clearTimeout(touchHappenedTimerRef.current);
   }, []);
+
+  // Helpers sliders verticaux (luminosité / volume) : calcule la valeur 0-1
+  // à partir de la position Y du pointeur sur la piste du slider.
+  // Défini en dehors de useCallback car il n'utilise que son argument.
+  function getSliderPct(e: React.PointerEvent, trackRef: React.RefObject<HTMLDivElement>): number | null {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || rect.height === 0) return null;
+    return Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+  }
+
+  const handleBrightnessPointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.type === 'pointerdown') e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.type === 'pointermove' && e.buttons === 0) return;
+    e.stopPropagation();
+    const v = getSliderPct(e, brightnessTrackRef);
+    if (v !== null) setBrightness(Math.max(0.08, v));
+  }, []);
+
+  const handleVolumePointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.type === 'pointerdown') e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.type === 'pointermove' && e.buttons === 0) return;
+    e.stopPropagation();
+    const v = getSliderPct(e, volumeTrackRef);
+    if (v !== null) player.setVolume(v);
+  }, [player]);
 
   // Raccourcis clavier (overlay souris/tactile uniquement — sur TV c'est
   // `TvPlayerOverlay` qui gère toutes les touches de la télécommande).
@@ -664,6 +699,14 @@ export function VideoPlayer({
         );
       })()}
 
+      {/* Overlay luminosité simulée (filtre sombre sur la vidéo) — toujours
+          présent pour éviter un mount/unmount ; opacity pilotée par `brightness`.
+          z-index 1 : au-dessus de la surface vidéo, sous les sous-titres. */}
+      <div
+        className={styles.brightnessOverlay}
+        style={{ opacity: brightness < 1 ? 1 - brightness : 0 }}
+      />
+
       {/* Sous-titres personnalisés */}
       {subtitleText && (
         <div className={`${styles.subtitleOverlay} ${subSizeClass} ${subBgClass} ${subColorClass}`}>
@@ -714,11 +757,86 @@ export function VideoPlayer({
       )}
 
       {/* Bouton play central quand en pause (overlay souris/tactile) — masqué
-          quand le panneau inline a la main (la pause est volontaire). */}
+          quand le panneau inline a la main ou sur mobile (centre controls gère). */}
       {!tvMode && player.status === 'paused' && panelKind === null && (
         <div className={styles.pauseHint} onClick={player.toggle}>
           <div className={styles.bigPlayBtn}><IconPlay size={28} /></div>
         </div>
+      )}
+
+      {/* ── Mobile / paysage : contrôles centrés + sliders latéraux ─────────
+          Visibles uniquement quand showControls (overlay visible).
+          CSS : display:none sur desktop, display:flex sur ≤640px ou landscape.
+          ─────────────────────────────────────────────────────────────────── */}
+      {!tvMode && showControls && panelKind === null && (
+        <div className={styles.mobileCenterControls} onClick={(e) => e.stopPropagation()}>
+
+          {/* Slider luminosité — gauche */}
+          <div
+            className={styles.mobileSideBar}
+            onPointerDown={handleBrightnessPointer}
+            onPointerMove={handleBrightnessPointer}
+          >
+            <span className={styles.mobileSideBarIcon}><IconSun size={18} /></span>
+            <div ref={brightnessTrackRef} className={styles.mobileSideBarTrack}>
+              <div className={styles.mobileSideBarFill} style={{ height: `${brightness * 100}%` }} />
+              <div className={styles.mobileSideBarThumb} style={{ bottom: `calc(${brightness * 100}% - 9px)` }} />
+            </div>
+          </div>
+
+          {/* Groupe lecture central */}
+          <div className={styles.mobileCenterPlayGroup}>
+            {!isLive && (
+              <button
+                className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
+                onClick={() => player.seek(player.currentTime - 10)}
+                title={t('player.back10')}
+              >
+                <IconBack10 size={30} />
+              </button>
+            )}
+            <button
+              className={`${styles.controlBtn} ${styles.mobileCenterPlayBtn}`}
+              onClick={player.toggle}
+              title={t('player.playPause')}
+            >
+              {isPlaying ? <IconPause size={30} /> : <IconPlay size={30} />}
+            </button>
+            {!isLive && (
+              <button
+                className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
+                onClick={() => player.seek(player.currentTime + 10)}
+                title={t('player.fwd10')}
+              >
+                <IconFwd10 size={30} />
+              </button>
+            )}
+          </div>
+
+          {/* Slider volume — droite */}
+          <div
+            className={styles.mobileSideBar}
+            onPointerDown={handleVolumePointer}
+            onPointerMove={handleVolumePointer}
+          >
+            <span className={styles.mobileSideBarIcon}><VolumeIcon size={18} /></span>
+            <div ref={volumeTrackRef} className={styles.mobileSideBarTrack}>
+              <div className={styles.mobileSideBarFill} style={{ height: `${(player.isMuted ? 0 : player.volume) * 100}%` }} />
+              <div className={styles.mobileSideBarThumb} style={{ bottom: `calc(${(player.isMuted ? 0 : player.volume) * 100}% - 9px)` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bouton × retour — mobile uniquement, visible quand overlay affiché */}
+      {!tvMode && onBack && showControls && (
+        <button
+          className={styles.mobileBackBtn}
+          onClick={onBack}
+          aria-label={t('common.back')}
+        >
+          <IconClose size={18} />
+        </button>
       )}
 
       {/* Flash double-tap seek (mobile/touch, VOD uniquement) */}
