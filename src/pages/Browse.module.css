@@ -120,6 +120,11 @@
 .gridChannel > *,
 .gridPoster > * {
   content-visibility: auto;
+  /* ⚠ min-width: 0 obligatoire : le titre des cartes est en `white-space:
+     nowrap` → sans ça la largeur min-content de l'item (titre entier) déborde
+     la colonne `1fr` → cartes « zoomées » + scroll horizontal. Indispensable
+     surtout pour les posters Films/Séries (titres longs). */
+  min-width: 0;
 }
 .gridChannel > * { contain-intrinsic-size: auto 240px; }
 .gridPoster  > * { contain-intrinsic-size: auto 360px; }
@@ -373,28 +378,62 @@
   .search { font-size: 14px; }
   .searchBadge { font-size: 11px; padding: 3px 9px; }
 
-  /* Films / Séries : 2 par ligne (garde-fou §IV-20) → posters larges et
-     tactiles, lisibles au pouce, plutôt qu'une grille desktop rétrécie. */
-  .gridPoster { grid-template-columns: repeat(2, 1fr); }
-  .gridLoading { grid-template-columns: repeat(2, 1fr); }
-  /* Chaînes : 2 par ligne strict, adapte la taille à l'écran */
-  .gridChannel { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 18px 14px; }
+  /* Films / Séries : 3 posters par ligne en vue catégorie complète (choix
+     utilisateur). `minmax(0, 1fr)` (et non `1fr`) : colonnes qui peuvent
+     rétrécir sous la largeur min-content des titres `nowrap` → pas de
+     débordement horizontal. */
+  .gridPoster { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gridLoading { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Chaînes : 2 par ligne strict (cartes 16:9 larges) */
+  .gridChannel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { gap: 18px 12px; }
 
   /* Rails : cartes plus petites + en-têtes compacts (peek de la carte suivante). */
   .posterCell { width: 140px; }
   .shelfRail { gap: 12px; }
   .shelfHeader { margin-bottom: 12px; }
   .seeAllLabel { font-size: 12px; }
-  .catHeader { gap: 10px; margin-bottom: 18px; }
-  .catTitle { font-size: 22px; }
-  .backBtn { width: 38px; height: 38px; }
+
+  /* En-tête catégorie : barre fixe centrée, reste visible pendant le scroll
+     (retour + nom de catégorie toujours accessibles, même tout en bas).
+     z-index 45 → au-dessus de la chrome shell (brand/profil/recherche en z-40)
+     qu'elle recouvre proprement sur cette sous-vue. */
+  .catHeader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 45;
+    margin: 0;
+    height: var(--topnav-h);
+    padding: var(--safe-top) 56px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 10, 0.9);
+    backdrop-filter: saturate(150%) blur(16px);
+    border-bottom: 1px solid var(--line);
+  }
+  .catTitle {
+    font-size: 17px;
+    text-align: center;
+    max-width: 100%;
+  }
+  .backBtn {
+    position: absolute;
+    left: var(--pad-edge);
+    top: var(--safe-top);
+    bottom: 0;
+    margin: auto 0;
+    width: 38px;
+    height: 38px;
+  }
 }
 
 @media (max-width: 380px) {
-  .gridPoster { grid-template-columns: repeat(2, 1fr); }
-  .gridLoading { grid-template-columns: repeat(2, 1fr); }
-  .gridChannel { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 14px 12px; }
+  .gridPoster { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gridLoading { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gridChannel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { gap: 14px 10px; }
   .posterCell { width: 124px; }
 }

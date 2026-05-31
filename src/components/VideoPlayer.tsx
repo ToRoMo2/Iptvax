@@ -19,6 +19,7 @@ import {
 import { useI18n } from '../contexts/I18nContext';
 import type { Episode } from '../types/xtream.types';
 import type { TmdbEpisodeStills } from '../types/tmdb.types';
+import type { EpgRow } from '../utils/epg';
 import styles from './VideoPlayer.module.css';
 
 interface Props {
@@ -41,6 +42,9 @@ interface Props {
   onPrevChannel?: () => void;
   onNextChannel?: () => void;
   channelPosition?: string;
+  // Programme EPG de la chaîne live courante (affiché en bande basse de
+  // l'overlay). Vide / absent → aucune bande. Strictement additif.
+  liveEpg?: EpgRow[];
   // Reprise de lecture : position + pistes du dernier arrêt (non-live).
   resume?: { time: number; audio?: number; subtitle?: number };
   // Sauvegarde périodique de la progression (position + pistes).
@@ -131,6 +135,7 @@ export function VideoPlayer({
   onPrevChannel,
   onNextChannel,
   channelPosition,
+  liveEpg,
   resume,
   onPersist,
   episodesBySeason,
@@ -1423,6 +1428,30 @@ export function VideoPlayer({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Bande EPG live — pleine largeur en bas de l'overlay. Programme par
+              créneau horaire, le programme en cours mis en avant. */}
+          {isLive && panelKind === null && liveEpg && liveEpg.length > 0 && (
+            <div className={styles.epgStrip}>
+              {liveEpg.map((p) => (
+                <div
+                  key={p.key}
+                  className={`${styles.epgCell} ${p.playing ? styles.epgCellNow : ''}`}
+                >
+                  <span className={styles.epgCellTime}>
+                    {p.playing && <span className={styles.epgCellDot} />}
+                    {p.time}
+                  </span>
+                  <span className={styles.epgCellTitle}>{p.title}</span>
+                  {p.playing && (
+                    <div className={styles.epgCellBar}>
+                      <div className={styles.epgCellBarFill} style={{ width: `${p.progress}%` }} />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

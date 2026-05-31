@@ -132,6 +132,40 @@ export function versionLabel(raw: string, fallback: string): string {
   return parts.length ? parts.join(' · ') : fallback;
 }
 
+/**
+ * Étiquette de qualité orientée chaîne Live (préserve la nomenclature IPTV
+ * familière : 4K / FHD / HD / SD / HEVC / HDR plutôt que les résolutions
+ * brutes). Retourne `fallback` si aucun tag qualité n'est détecté.
+ */
+const CHANNEL_QUALITY_LABEL: Record<string, string> = {
+  '4k': '4K', uhd: '4K', '2160p': '4K', '2160': '4K',
+  fhd: 'FHD', '1080p': 'FHD', '1080': 'FHD',
+  hd: 'HD', '720p': 'HD', '720': 'HD',
+  sd: 'SD', '480p': 'SD', '360p': 'SD',
+  hevc: 'HEVC', h265: 'HEVC', x265: 'HEVC',
+  hdr: 'HDR', hdr10: 'HDR', dv: 'DV',
+};
+
+// Rang décroissant pour trier les qualités d'une même chaîne (meilleure en
+// premier → devient la variante `primary`).
+const QUALITY_RANK: Record<string, number> = {
+  '4K': 6, FHD: 5, HD: 4, HEVC: 3, HDR: 5, DV: 5, SD: 2,
+};
+
+export function qualityLabel(raw: string, fallback: string): string {
+  const tokens = stripDecorations(raw).split(/\s+/).filter(Boolean);
+  for (const tok of tokens) {
+    const norm = tok.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+    if (CHANNEL_QUALITY_LABEL[norm]) return CHANNEL_QUALITY_LABEL[norm];
+  }
+  return fallback;
+}
+
+/** Score qualité d'une chaîne (sert à choisir la meilleure variante + trier). */
+export function qualityRank(raw: string): number {
+  return QUALITY_RANK[qualityLabel(raw, '')] ?? 1;
+}
+
 export interface TitleGroup<T> {
   /** Clé de regroupement (titre canonique + année). */
   key: string;

@@ -10,6 +10,7 @@ import { useI18n } from '../contexts/I18nContext';
 import type { Episode, PlayerState, SeriesInfo } from '../types/xtream.types';
 import type { TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear } from '../utils/catalog';
+import { buildEpgRows, type EpgRow } from '../utils/epg';
 import styles from './Player.module.css';
 
 export function Player() {
@@ -80,6 +81,27 @@ export function Player() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [navigate]);
+
+  // ── EPG de la chaîne live courante (affiché dans l'overlay du lecteur) ─────
+  // Strictement additif : un serveur sans EPG renvoie une liste vide → aucune
+  // bande n'apparaît. Re-fetch au changement de chaîne (prev/next → liveIndex).
+  const liveStreamId =
+    isLive && channels && typeof channelIndex === 'number'
+      ? channels[channelIndex]?.stream_id
+      : undefined;
+  const [liveEpg, setLiveEpg] = useState<EpgRow[]>([]);
+  useEffect(() => {
+    if (!credentials || !isLive || liveStreamId == null) {
+      setLiveEpg([]);
+      return;
+    }
+    let cancelled = false;
+    xtreamService
+      .getShortEpg(credentials, liveStreamId, 12)
+      .then((r) => { if (!cancelled) setLiveEpg(buildEpgRows(r.epg_listings ?? [])); })
+      .catch(() => { if (!cancelled) setLiveEpg([]); });
+    return () => { cancelled = true; };
+  }, [credentials, isLive, liveStreamId]);
 
   // ── Reprise de lecture ────────────────────────────────────────────────────
   const historyId = state?.historyId;
@@ -237,6 +259,7 @@ export function Player() {
           channelPosition={
             hasChannelNav ? `${channelIndex! + 1} / ${channels!.length}` : undefined
           }
+          liveEpg={liveEpg}
           resume={resume}
           onPersist={handlePersist}
           // Panneau « Épisodes » : props transmises uniquement si seriesContext

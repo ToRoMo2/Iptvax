@@ -24,6 +24,12 @@ interface LocationState {
   variants?: VodStream[];
 }
 
+function ChevDown() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m6 9 6 6 6-6" /></svg>
+  );
+}
+
 export function MovieDetail() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -41,6 +47,8 @@ export function MovieDetail() {
   const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
   const [loading, setLoading] = useState(!passed);
   const [error, setError] = useState<string | null>(null);
+  // Accordéon « À propos » (mobile uniquement — desktop l'ignore via CSS).
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Deep-link / refresh : pas d'état de navigation → on retrouve le film par id.
   useEffect(() => {
@@ -186,18 +194,28 @@ export function MovieDetail() {
         {!loading && !error && movie && (
           <div className={styles.grid}>
             <div>
-              <div className={styles.cat}>
-                <span className={styles.catDot} />
-                {t('detail.film')}
-              </div>
-              <h1 className={styles.title}>{displayTitle}</h1>
+              <div className={styles.headRow}>
+                {(() => {
+                  const posterUrl = safeImgUrl(tmdb?.poster ?? movie.stream_icon);
+                  return posterUrl ? (
+                    <img className={styles.posterThumb} src={posterUrl} alt={displayTitle} loading="lazy" decoding="async" />
+                  ) : null;
+                })()}
+                <div className={styles.headInfo}>
+                  <div className={styles.cat}>
+                    <span className={styles.catDot} />
+                    {t('detail.film')}
+                  </div>
+                  <h1 className={styles.title}>{displayTitle}</h1>
 
-              <div className={styles.meta}>
-                {year && <span>{year}</span>}
-                {year && genre && <span className={styles.metaSep} />}
-                {genre && <span>{genre}</span>}
-                {rating && <span className={styles.metaSep} />}
-                {rating && <span>★ {rating}</span>}
+                  <div className={styles.meta}>
+                    {year && <span>{year}</span>}
+                    {year && genre && <span className={styles.metaSep} />}
+                    {genre && <span>{genre}</span>}
+                    {rating && <span className={styles.metaSep} />}
+                    {rating && <span>★ {rating}</span>}
+                  </div>
+                </div>
               </div>
 
               <div className={styles.actions}>
@@ -286,7 +304,16 @@ export function MovieDetail() {
             </div>
 
             <aside className={styles.side}>
-              <h4 className={styles.sideTitle}>{t('detail.about')}</h4>
+              <button
+                type="button"
+                className={`${styles.sideHead} ${aboutOpen ? styles.sideHeadOpen : ''}`}
+                onClick={() => setAboutOpen((o) => !o)}
+                aria-expanded={aboutOpen}
+              >
+                <h4 className={styles.sideTitle}>{t('detail.about')}</h4>
+                <span className={styles.sideChev}><ChevDown /></span>
+              </button>
+              <div className={`${styles.sideBody} ${aboutOpen ? styles.sideBodyOpen : ''}`}>
               {genre && (
                 <div className={styles.factRow}>
                   <span className={styles.factKey}>{t('detail.genre')}</span>
@@ -320,6 +347,7 @@ export function MovieDetail() {
               <div className={styles.factRow}>
                 <span className={styles.factKey}>{t('detail.format')}</span>
                 <span className={styles.factVal}>{(selected ?? movie).container_extension?.toUpperCase() || '—'}</span>
+              </div>
               </div>
             </aside>
           </div>

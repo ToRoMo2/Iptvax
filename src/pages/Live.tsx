@@ -1,41 +1,84 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
-import { CategoryBar } from '../components/CategoryBar';
-import { ChannelPreview } from '../components/ChannelPreview';
+import { ScrollRail } from '../components/ScrollRail';
 import { useProgressiveList } from '../hooks/useProgressiveList';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 import { safeImgUrl } from '../utils/image';
 import { channelCode } from '../utils/channel';
-import type { LiveCategory, LiveStream, EpgListing } from '../types/xtream.types';
-import type { PlayerState } from '../types/xtream.types';
+import { groupByTitle, qualityLabel, qualityRank, type TitleGroup } from '../utils/catalog';
+import type { LiveCategory, LiveStream, PlayerState } from '../types/xtream.types';
 import styles from './Browse.module.css';
 import live from './Live.module.css';
 
 const MIN_SEARCH_LEN = 3;
 const RESULT_LIMIT = 80;
+// Nombre de cartes affichées dans un rail avant la carte « Voir tout ».
+const RAIL_PREVIEW = 12;
 
-// `title`/`description` EPG sont encodés en base64 (UTF-8) côté serveur Xtream.
-function decodeB64(s: string): string {
-  if (!s) return '';
-  try {
-    const bin = atob(s);
-    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-    return new TextDecoder('utf-8').decode(bytes).trim();
-  } catch {
-    return s;
-  }
+type LiveGroup = TitleGroup<LiveStream>;
+
+// ── Icônes inline ───────────────────────────────────────────────────────────
+function ChevronRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="m9 18 6-6-6-6" /></svg>
+  );
+}
+function GridIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="26" height="26"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
+  );
+}
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="m15 18-6-6 6-6" /></svg>
+  );
+}
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z" /></svg>
+  );
 }
 
-// "2026-05-16 19:00:00" → "19:00" (heure de programmation telle quelle).
-function epgTime(raw: string): string {
-  const m = /(\d{1,2}):(\d{2})/.exec(raw ?? '');
-  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '';
+// ── Rangée « rail » (en-tête + scroll horizontal) ───────────────────────────
+function Shelf({
+  title,
+  count,
+  seeAllLabel,
+  onSeeAll,
+  children,
+}: {
+  title: string;
+  count?: number;
+  seeAllLabel?: string;
+  onSeeAll?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className={styles.shelf}>
+      <div className={styles.shelfHeader}>
+        <div className={styles.shelfTitleGroup}>
+          <h2 className={styles.shelfTitle}>{title}</h2>
+          {count != null && count > 0 && (
+            <>
+              <span className={styles.shelfDivider} aria-hidden="true" />
+              <span className={styles.shelfCount}>{count}</span>
+            </>
+          )}
+        </div>
+        {onSeeAll && seeAllLabel && (
+          <button className={styles.shelfSeeAll} onClick={onSeeAll}>
+            {seeAllLabel} <ChevronRight />
+          </button>
+        )}
+      </div>
+      <ScrollRail railClassName={styles.shelfRail}>{children}</ScrollRail>
+    </section>
+  );
 }
 
 export function Live() {
@@ -43,198 +86,205 @@ export function Live() {
   const { isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
-  // Mobile : le panneau latéral est masqué, l'aperçu monte INLINE dans la carte
-  // sélectionnée (gain de place + UX native). Synchronisé avec le breakpoint CSS.
-  const isMobile = useMediaQuery('(max-width: 640px)');
+  const [searchParams] = useSearchParams();
+  // Mode « catégorie complète » : /live?cat=<id> → grille de cette catégorie.
+  const activeCat = searchParams.get('cat');
 
   const [categories, setCategories] = useState<LiveCategory[]>([]);
-  const [streams, setStreams] = useState<LiveStream[]>([]);
-  const [selectedCat, setSelectedCat] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
-  const [loadingCats, setLoadingCats] = useState(true);
-  const [loadingStreams, setLoadingStreams] = useState(false);
+  // Catalogue COMPLET chargé une seule fois → bucketé par catégorie côté client
+  // (chaque LiveStream porte son category_id). Une seule requête sert les rails,
+  // la grille d'une catégorie ET la recherche globale (même schéma que Movies).
+  const [allStreams, setAllStreams] = useState<LiveStream[] | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Chaîne sélectionnée (panneau latéral + aperçu). Cliquer une 2ᵉ fois la même
-  // chaîne ouvre le lecteur plein écran.
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [epg, setEpg] = useState<EpgListing[]>([]);
-  const [epgLoading, setEpgLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
 
-  // Global search — préchargé au montage pour une recherche instantanée
-  const [allStreams, setAllStreams] = useState<LiveStream[] | null>(null);
-  const [loadingAll, setLoadingAll] = useState(false);
-  const allLoadedRef = useRef(false);
+  // Bottom-sheet « choix de qualité » d'une chaîne regroupant ≥ 2 variantes.
+  const [sheet, setSheet] = useState<{ group: LiveGroup; list: LiveGroup[] } | null>(null);
 
+  // ── Chargement catégories + catalogue complet ──────────────────────────────
   useEffect(() => {
     if (!credentials) return;
-    setLoadingCats(true);
-    xtreamService
-      .getLiveCategories(credentials)
-      .then((cats) => {
+    setLoading(true);
+    Promise.all([
+      xtreamService.getLiveCategories(credentials),
+      xtreamService.getLiveStreams(credentials),
+    ])
+      .then(([cats, all]) => {
         setCategories(cats);
-        if (cats.length > 0) setSelectedCat(cats[0].category_id);
+        setAllStreams(all);
       })
       .catch((e: Error) => setError(e.message))
-      .finally(() => setLoadingCats(false));
+      .finally(() => setLoading(false));
   }, [credentials]);
 
-  useEffect(() => {
-    if (!credentials || !selectedCat) return;
-    setLoadingStreams(true);
-    setStreams([]);
-    xtreamService
-      .getLiveStreams(credentials, selectedCat)
-      .then(setStreams)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoadingStreams(false));
-  }, [credentials, selectedCat]);
-
-  useEffect(() => {
-    if (!credentials || allLoadedRef.current) return;
-    allLoadedRef.current = true;
-    setLoadingAll(true);
-    xtreamService
-      .getLiveStreams(credentials)
-      .then((all) => { setAllStreams(all); })
-      .catch(() => { allLoadedRef.current = false; })
-      .finally(() => setLoadingAll(false));
-  }, [credentials]);
-
+  // ── Debounce recherche ─────────────────────────────────────────────────────
   useEffect(() => {
     const id = setTimeout(() => setQuery(search.trim()), 200);
     return () => clearTimeout(id);
   }, [search]);
 
-  // Changer de catégorie ou de recherche → la chaîne sélectionnée n'est plus
-  // pertinente : on referme le panneau.
-  useEffect(() => {
-    setSelectedId(null);
-  }, [selectedCat, query]);
-
   const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
-  const filtered = useMemo(() => {
-    if (!isGlobalSearch) return streams;
+  // ── Catalogue dédupliqué (count + base recherche). Le rang qualité choisit la
+  // meilleure variante comme `primary` et trie les variantes (meilleure d'abord). ──
+  const allGroups = useMemo(
+    () => groupByTitle(allStreams ?? [], (s) => s.name, (s) => qualityRank(s.name)),
+    [allStreams],
+  );
+
+  // ── Rails par catégorie : bucket par category_id puis groupage par titre ────
+  const rails = useMemo(() => {
     if (!allStreams) return [];
-    const q = query.toLowerCase();
-    const out: LiveStream[] = [];
+    const byCat = new Map<string, LiveStream[]>();
     for (const s of allStreams) {
-      if (s.name.toLowerCase().includes(q)) {
-        out.push(s);
+      const arr = byCat.get(s.category_id);
+      if (arr) arr.push(s);
+      else byCat.set(s.category_id, [s]);
+    }
+    return categories
+      .map((c) => {
+        const bucket = byCat.get(c.category_id) ?? [];
+        const groups = groupByTitle(bucket, (s) => s.name, (s) => qualityRank(s.name));
+        return { id: c.category_id, name: c.category_name, groups };
+      })
+      .filter((r) => r.groups.length > 0);
+  }, [allStreams, categories]);
+
+  // ── Résultats de recherche (filtre sur le catalogue dédupliqué) ────────────
+  const searchGroups = useMemo(() => {
+    if (!isGlobalSearch) return [];
+    const q = query.toLowerCase();
+    const out: LiveGroup[] = [];
+    for (const g of allGroups) {
+      if (g.title.toLowerCase().includes(q) || g.primary.name.toLowerCase().includes(q)) {
+        out.push(g);
         if (out.length >= RESULT_LIMIT) break;
       }
     }
     return out;
-  }, [streams, allStreams, query, isGlobalSearch]);
+  }, [allGroups, query, isGlobalSearch]);
 
-  const selectedStream = useMemo(
-    () => filtered.find((s) => s.stream_id === selectedId) ?? null,
-    [filtered, selectedId],
+  // ── Items d'une catégorie (mode ?cat=) ─────────────────────────────────────
+  const catRail = useMemo(
+    () => (activeCat ? rails.find((r) => r.id === activeCat) : undefined),
+    [rails, activeCat],
+  );
+  const catName = useMemo(
+    () => categories.find((c) => c.category_id === activeCat)?.category_name ?? '',
+    [categories, activeCat],
   );
 
-  // Rendu progressif de la grille uniquement (cf. useProgressiveList).
-  // `filtered` reste la source pour le panneau, l'index prev/next, le compteur.
-  const visibleStreams = useProgressiveList(filtered);
+  // Rendu progressif des grilles (catégorie complète / recherche).
+  const gridSource = activeCat ? (catRail?.groups ?? []) : searchGroups;
+  const visibleGrid = useProgressiveList(gridSource);
 
-  // EPG court de la chaîne sélectionnée. Strictement additif : un serveur sans
-  // EPG renvoie une liste vide → l'UI retombe sur le nom de chaîne.
-  useEffect(() => {
-    if (!credentials || selectedId == null) {
-      setEpg([]);
-      return;
-    }
-    let cancelled = false;
-    setEpgLoading(true);
-    xtreamService
-      .getShortEpg(credentials, selectedId, 12)
-      .then((r) => { if (!cancelled) setEpg(r.epg_listings ?? []); })
-      .catch(() => { if (!cancelled) setEpg([]); })
-      .finally(() => { if (!cancelled) setEpgLoading(false); });
-    return () => { cancelled = true; };
-  }, [credentials, selectedId]);
-
-  const goFullscreen = (stream: LiveStream) => {
+  // ── Lecture ──────────────────────────────────────────────────────────────
+  // `listGroups` = liste ordonnée de la zone tapée (rail ou grille) → snapshot
+  // prev/next dans le lecteur (un item = une chaîne, sa meilleure qualité).
+  const playVariant = (g: LiveGroup, variant: LiveStream, listGroups: LiveGroup[]) => {
     if (!credentials) return;
-    // Snapshot de la liste actuellement visible (catégorie ou recherche)
-    // pour permettre le switch prev/next depuis le lecteur.
-    const liveChannels = filtered.map((s) => ({
-      stream_id: s.stream_id,
-      name: s.name,
-      stream_icon: s.stream_icon,
+    const liveChannels = listGroups.map((gr) => ({
+      stream_id: gr.primary.stream_id,
+      name: gr.title || gr.primary.name,
+      stream_icon: gr.primary.stream_icon,
     }));
-    const liveIndex = filtered.findIndex((s) => s.stream_id === stream.stream_id);
+    const idx = listGroups.findIndex((gr) => gr.key === g.key);
     const state: PlayerState = {
-      url: xtreamService.getLiveStreamUrl(credentials, stream.stream_id),
-      // Fallback : MPEG-TS continu si le serveur ne sert pas le live en HLS
-      fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, stream.stream_id),
-      title: stream.name,
+      url: xtreamService.getLiveStreamUrl(credentials, variant.stream_id),
+      fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, variant.stream_id),
+      title: g.title || variant.name,
       type: 'live',
-      poster: stream.stream_icon,
+      poster: g.primary.stream_icon,
       liveChannels,
-      liveIndex,
+      liveIndex: idx < 0 ? 0 : idx,
     };
     navigate('/player', { state });
   };
 
-  // 1ᵉʳ clic sur une chaîne → sélection (panneau + aperçu).
-  // Clic sur la chaîne déjà sélectionnée → lecteur plein écran.
-  const handleCardClick = (stream: LiveStream) => {
-    if (selectedId === stream.stream_id) goFullscreen(stream);
-    else setSelectedId(stream.stream_id);
+  // Chaîne à variante unique → plein écran direct. Chaîne regroupée → sheet.
+  const handleGroupClick = (g: LiveGroup, listGroups: LiveGroup[]) => {
+    if (g.variants.length > 1) setSheet({ group: g, list: listGroups });
+    else playVariant(g, g.primary, listGroups);
   };
 
-  const catName = isGlobalSearch
-    ? t('live.globalSearch')
-    : categories.find((c) => c.category_id === selectedCat)?.category_name ??
-      t('live.allCategories');
+  const groupBadge = (g: LiveGroup): string | undefined => {
+    if (g.variants.length < 2) return undefined;
+    const top = qualityLabel(g.primary.name, '');
+    return top ? `${top} +${g.variants.length - 1}` : tc('live.qualityCountOne', 'live.qualityCountOther', g.variants.length);
+  };
 
-  // Certains panels Xtream renvoient chaque programme en double (même créneau,
-  // l'un marqué `now_playing`). On dédoublonne par horaire de début, on décode
-  // les champs base64 et on calcule l'état « en cours » UNE fois par fetch
-  // (sinon ~3 décodages base64 par ligne à chaque rendu du parent).
-  const epgRows = useMemo(() => {
-    const nowSec = Date.now() / 1000;
-    const byStart = new Map<string, EpgListing>();
-    for (const p of epg) {
-      const key = p.start_timestamp || p.start || p.id;
-      const existing = byStart.get(key);
-      if (!existing || (p.now_playing === 1 && existing.now_playing !== 1)) {
-        byStart.set(key, p);
-      }
-    }
-    return Array.from(byStart.values())
-      .sort((a, b) => Number(a.start_timestamp) - Number(b.start_timestamp))
-      .map((p) => {
-        const s = Number(p.start_timestamp);
-        const e = Number(p.stop_timestamp);
-        const playing =
-          p.now_playing === 1 ||
-          (Number.isFinite(s) && Number.isFinite(e) && nowSec >= s && nowSec < e);
-        const progress =
-          Number.isFinite(s) && Number.isFinite(e) && e > s
-            ? Math.min(100, Math.max(0, ((nowSec - s) / (e - s)) * 100))
-            : 0;
-        return {
-          key: p.id || `${p.start_timestamp}-${p.start}`,
-          time: epgTime(p.start),
-          title: decodeB64(p.title),
-          desc: decodeB64(p.description),
-          playing,
-          progress,
-        };
-      });
-  }, [epg]);
+  const renderCard = (g: LiveGroup, listGroups: LiveGroup[], railCard: boolean) => {
+    const card = (
+      <MediaCard
+        key={g.primary.stream_id}
+        title={g.title || g.primary.name}
+        image={g.primary.stream_icon}
+        variant="channel"
+        isLive
+        isFavorite={isFavorite('live', String(g.primary.stream_id))}
+        badge={groupBadge(g)}
+        onClick={() => handleGroupClick(g, listGroups)}
+        onFavorite={() =>
+          toggleFavorite({
+            type: 'live',
+            id: String(g.primary.stream_id),
+            name: g.title || g.primary.name,
+            image: g.primary.stream_icon ?? '',
+          })
+        }
+      />
+    );
+    return railCard ? (
+      <div key={g.primary.stream_id} className={live.channelCell}>{card}</div>
+    ) : (
+      card
+    );
+  };
 
-  const showStreamSkeleton =
-    (loadingStreams && !isGlobalSearch) || (isGlobalSearch && !allStreams);
+  // ── Mode CATÉGORIE COMPLÈTE (?cat=) ─────────────────────────────────────────
+  if (activeCat) {
+    return (
+      <div className={styles.page}>
+        <header className={styles.catHeader}>
+          <button className={styles.backBtn} onClick={() => navigate('/live')} aria-label={t('common.backWord')}>
+            <BackIcon />
+          </button>
+          <h1 className={styles.catTitle}>{catName || t('live.title')}</h1>
+        </header>
 
-  const selectedIcon = selectedStream ? safeImgUrl(selectedStream.stream_icon) : undefined;
-  const nowProgram = selectedStream
-    ? epgRows.find((r) => r.playing) ?? epgRows[0] ?? null
-    : null;
+        {error && <div className={styles.error}>⚠ {error}</div>}
 
+        {loading ? (
+          <div className={`${styles.grid} ${styles.gridChannel}`}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className={`${styles.skeleton} ${styles.skeletonChannel}`} />
+            ))}
+          </div>
+        ) : (
+          <div className={`${styles.grid} ${styles.gridChannel}`}>
+            {visibleGrid.map((g) => renderCard(g, gridSource, false))}
+          </div>
+        )}
+
+        {!loading && gridSource.length === 0 && !error && (
+          <p className={styles.empty}>{t('live.none')}</p>
+        )}
+
+        {sheet && (
+          <QualitySheet
+            group={sheet.group}
+            onClose={() => setSheet(null)}
+            onPick={(variant) => { playVariant(sheet.group, variant, sheet.list); setSheet(null); }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Mode OVERVIEW (rails) + recherche globale ───────────────────────────────
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -242,8 +292,8 @@ export function Live() {
           <h1 className={styles.title}>{t('live.title')}</h1>
           <p className={styles.pageSub}>
             {isGlobalSearch
-              ? tc('live.globalResultsOne', 'live.globalResultsOther', filtered.length)
-              : tc('live.channelsOne', 'live.channelsOther', filtered.length, { cat: catName })}
+              ? tc('live.globalResultsOne', 'live.globalResultsOther', searchGroups.length)
+              : tc('live.countOne', 'live.countOther', allGroups.length)}
           </p>
         </div>
         <RemoteSearch
@@ -259,162 +309,107 @@ export function Live() {
         )}
         {isGlobalSearch && (
           <span className={styles.searchBadge}>
-            {loadingAll
-              ? t('common.loadingShort')
-              : tc('live.badgeOne', 'live.badgeOther', filtered.length, {
-                  count: `${filtered.length}${filtered.length >= RESULT_LIMIT ? '+' : ''}`,
-                })}
+            {tc('live.badgeOne', 'live.badgeOther', searchGroups.length, {
+              count: `${searchGroups.length}${searchGroups.length >= RESULT_LIMIT ? '+' : ''}`,
+            })}
           </span>
         )}
       </header>
 
       {error && <div className={styles.error}>⚠ {error}</div>}
 
-      {!isGlobalSearch && (
-        loadingCats ? (
-          <div className={styles.catSkeleton} />
-        ) : (
-          <CategoryBar
-            categories={categories.map((c) => ({ id: c.category_id, name: c.category_name }))}
-            selected={selectedCat}
-            onSelect={(id) => setSelectedCat(id)}
-          />
-        )
-      )}
-
-      <div className={live.layout}>
-        <div className={live.main}>
-          {showStreamSkeleton ? (
-            <div className={styles.gridLoading}>
-              {Array.from({ length: 18 }).map((_, i) => (
-                <div key={i} className={`${styles.skeleton} ${styles.skeletonChannel}`} />
-              ))}
-            </div>
-          ) : (
-            <div className={`${styles.grid} ${styles.gridChannel}`}>
-              {visibleStreams.map((stream) => {
-                const isSelected = selectedId === stream.stream_id;
-                // Mobile : la carte sélectionnée monte le lecteur inline (et le
-                // panneau latéral disparaît) → pas de double-affichage.
-                const inlinePreview = isMobile && isSelected && credentials ? (
-                  <ChannelPreview
-                    key={stream.stream_id}
-                    url={xtreamService.getLiveStreamUrl(credentials, stream.stream_id)}
-                    fallbackUrl={xtreamService.getLiveStreamTsUrl(credentials, stream.stream_id)}
-                    poster={stream.stream_icon}
-                    title={stream.name}
-                    onExpand={() => goFullscreen(stream)}
-                  />
-                ) : null;
-                return (
-                  <MediaCard
-                    key={stream.stream_id}
-                    title={stream.name}
-                    image={stream.stream_icon}
-                    variant="channel"
-                    isLive
-                    selected={isSelected}
-                    isFavorite={isFavorite('live', String(stream.stream_id))}
-                    onClick={() => handleCardClick(stream)}
-                    onFavorite={() =>
-                      toggleFavorite({
-                        type: 'live',
-                        id: String(stream.stream_id),
-                        name: stream.name,
-                        image: stream.stream_icon ?? '',
-                      })
-                    }
-                    inlinePreview={inlinePreview}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {!loadingStreams && !loadingAll && filtered.length === 0 && !error && (
+      {isGlobalSearch ? (
+        <div className={`${styles.grid} ${styles.gridChannel}`}>
+          {visibleGrid.map((g) => renderCard(g, searchGroups, false))}
+          {searchGroups.length === 0 && !loading && (
             <p className={styles.empty}>{t('live.none')}</p>
           )}
         </div>
-
-        {selectedStream && credentials && (
-          <aside className={live.panel}>
-            <div className={live.panelHead}>
-              <div className={live.panelLogo}>
-                {selectedIcon ? (
-                  <img src={selectedIcon} alt={selectedStream.name} />
-                ) : (
-                  <span className={live.panelCode}>
-                    <span className={live.panelStripe} />
-                    {channelCode(selectedStream.name)}
-                  </span>
-                )}
-              </div>
-              <div className={live.panelTitleBox}>
-                <span className={live.panelChannel} title={selectedStream.name}>
-                  {selectedStream.name}
-                </span>
-                <span className={live.panelLiveTag}>
-                  <span className={live.panelLiveDot} />
-                  {t('live.onAir')}
-                </span>
-              </div>
-            </div>
-
-            <ChannelPreview
-              key={selectedStream.stream_id}
-              url={xtreamService.getLiveStreamUrl(credentials, selectedStream.stream_id)}
-              fallbackUrl={xtreamService.getLiveStreamTsUrl(credentials, selectedStream.stream_id)}
-              poster={selectedStream.stream_icon}
-              title={selectedStream.name}
-              onExpand={() => goFullscreen(selectedStream)}
-            />
-
-            {nowProgram && (
-              <div className={live.nowBlock}>
-                <span className={live.nowLabel}>{t('live.now')}</span>
-                <span className={live.nowTitle}>{nowProgram.title || selectedStream.name}</span>
-                {nowProgram.desc && <p className={live.nowDesc}>{nowProgram.desc}</p>}
-              </div>
-            )}
-
-            <div className={live.epgHead}>{t('live.schedule')}</div>
-            {epgLoading ? (
-              <div className={live.epgSkeleton}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className={live.epgSkelRow} />
-                ))}
-              </div>
-            ) : epgRows.length === 0 ? (
-              <p className={live.epgEmpty}>{t('live.noProgram')}</p>
-            ) : (
-              <ul className={live.epgList}>
-                {epgRows.map((r) => (
-                  <li
-                    key={r.key}
-                    className={`${live.epgItem} ${r.playing ? live.epgItemNow : ''}`}
+      ) : loading ? (
+        <div className={`${styles.grid} ${styles.gridChannel}`}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className={`${styles.skeleton} ${styles.skeletonChannel}`} />
+          ))}
+        </div>
+      ) : (
+        <div className={styles.shelves}>
+          {rails.map((r) => (
+            <Shelf
+              key={r.id}
+              title={r.name}
+              count={r.groups.length}
+              seeAllLabel={t('common.seeAll')}
+              onSeeAll={() => navigate(`/live?cat=${encodeURIComponent(r.id)}`)}
+            >
+              {r.groups.slice(0, RAIL_PREVIEW).map((g) => renderCard(g, r.groups, true))}
+              {r.groups.length > RAIL_PREVIEW && (
+                <div className={live.channelCell}>
+                  <button
+                    type="button"
+                    className={live.seeAllChannel}
+                    onClick={() => navigate(`/live?cat=${encodeURIComponent(r.id)}`)}
                   >
-                    <span className={live.epgTime}>{r.time}</span>
-                    <div className={live.epgBody}>
-                      <span className={live.epgTitle}>
-                        {r.playing && <span className={live.epgNowDot} />}
-                        {r.title}
-                      </span>
-                      {r.desc && <span className={live.epgDesc}>{r.desc}</span>}
-                      {r.playing && (
-                        <div className={live.epgProgress}>
-                          <div
-                            className={live.epgProgressFill}
-                            style={{ width: `${r.progress}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </aside>
-        )}
+                    <span className={styles.seeAllIcon}><GridIcon /></span>
+                    <span className={live.seeAllChannelLabel}>{t('common.seeAll')}</span>
+                  </button>
+                </div>
+              )}
+            </Shelf>
+          ))}
+          {rails.length === 0 && <p className={styles.empty}>{t('live.none')}</p>}
+        </div>
+      )}
+
+      {sheet && (
+        <QualitySheet
+          group={sheet.group}
+          onClose={() => setSheet(null)}
+          onPick={(variant) => { playVariant(sheet.group, variant, sheet.list); setSheet(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Bottom-sheet : choix de la qualité d'une chaîne regroupée ────────────────
+function QualitySheet({
+  group,
+  onClose,
+  onPick,
+}: {
+  group: LiveGroup;
+  onClose: () => void;
+  onPick: (variant: LiveStream) => void;
+}) {
+  const { t } = useI18n();
+  const logo = safeImgUrl(group.primary.stream_icon);
+  return (
+    <div className={live.sheetBackdrop} onClick={onClose} role="presentation">
+      <div className={live.sheet} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className={live.sheetHead}>
+          <div className={live.sheetLogo}>
+            {logo ? <img src={logo} alt={group.title} /> : <span className={live.sheetCode}>{channelCode(group.title || group.primary.name)}</span>}
+          </div>
+          <div className={live.sheetTitleBox}>
+            <span className={live.sheetTitle}>{group.title || group.primary.name}</span>
+            <span className={live.sheetSub}>{t('live.qualityTitle')}</span>
+          </div>
+        </div>
+        <div className={live.sheetList}>
+          {group.variants.map((v, i) => (
+            <button
+              key={v.stream_id}
+              type="button"
+              className={live.qualityRow}
+              onClick={() => onPick(v)}
+            >
+              <span className={live.qualityName}>
+                {qualityLabel(v.name, t('detail.source', { n: i + 1 }))}
+              </span>
+              <span className={live.qualityPlay}><PlayIcon /></span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -102,6 +102,21 @@
   align-items: start;
 }
 
+/* Rangée tête (poster + infos) — sur desktop la vignette poster est masquée et
+   le conteneur ne change rien au flux (block). Sur mobile elle s'active en flex
+   (cf. media query) → bandeau 16:9 en haut + poster·titre côte à côte. */
+.headRow {
+  display: block;
+}
+
+.headInfo {
+  min-width: 0;
+}
+
+.posterThumb {
+  display: none;
+}
+
 .cat {
   font-size: 12px;
   font-weight: 600;
@@ -307,6 +322,38 @@
   margin: 0 0 14px;
 }
 
+/* En-tête « À propos » — bouton plein largeur. Sur desktop il se comporte comme
+   le titre d'avant (chevron masqué, corps toujours visible, pas de curseur). Sur
+   mobile il devient un accordéon repliable (cf. media query §IV-23). */
+.sideHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.sideChev {
+  display: none;
+  color: var(--t-3);
+  flex-shrink: 0;
+  transition: transform var(--d-micro) var(--ease);
+}
+
+.sideHeadOpen .sideChev {
+  transform: rotate(180deg);
+}
+
+.sideBody {
+  display: block;
+}
+
 .factRow {
   display: grid;
   grid-template-columns: 96px 1fr;
@@ -500,29 +547,65 @@
 }
 
 @media (max-width: 640px) {
+  /* Bandeau paysage 16:9 plein largeur en haut (image TMDB nette, plus de crop
+     portrait). Le poster + titre s'affichent juste en dessous (cf. .headRow). */
   .hero {
     height: auto;
     min-height: 0;
-    aspect-ratio: 3 / 4;
-    max-height: 540px;
-    margin: var(--topnav-h) auto 0;
-    border-radius: 8px;
+    aspect-ratio: 16 / 9;
+    max-height: none;
+    /* Remonté tout en haut, juste sous la barre de statut (heure/batterie).
+       Le header flottant (logo/profil) passe par-dessus le haut du bandeau. */
+    margin: var(--safe-top) auto 0;
+    border-radius: 0 0 12px 12px;
+    width: 100%;
   }
-  .overlayBottom { height: 70%; }
+  .overlayBottom { height: 60%; }
   .back {
-    top: calc(var(--topnav-h) + 8px);
+    /* Sous les capsules flottantes du header (logo top-left), sur le bandeau. */
+    top: calc(var(--safe-top) + 56px);
     left: var(--pad-edge);
     height: 32px;
     padding: 0 12px;
     font-size: 12px;
   }
-  .body { margin-top: -88px; padding: 0 var(--pad-edge) 56px; }
-  .title { font-size: 30px; margin-bottom: 12px; }
-  .cat { font-size: 11px; margin-bottom: 14px; }
-  .meta { gap: 10px; font-size: 13px; }
+  /* Léger chevauchement : le poster mord sur le bas du bandeau (style Netflix). */
+  .body { margin-top: -34px; padding: 0 var(--pad-edge) 56px; }
+
+  /* Poster + titre/boutons côte à côte sous le bandeau. */
+  .headRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .headInfo { flex: 1; min-width: 0; padding-bottom: 2px; }
+  .posterThumb {
+    display: block;
+    width: 100px;
+    flex-shrink: 0;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #0a0a0a;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+
+  .title { font-size: 22px; margin-bottom: 6px; line-height: 1.08; }
+  .cat { font-size: 11px; margin-bottom: 8px; }
+  .meta { gap: 10px; font-size: 13px; margin-bottom: 0; }
   .synopsis { font-size: 14px; margin-bottom: 24px; }
   .actions { gap: 10px; margin: 18px 0 24px; }
   .iconBtn { width: 42px; height: 42px; }
+
+  /* Accordéon « À propos » : replié par défaut (§IV-23). */
+  .side { border-top: 0; padding-top: 0; }
+  .sideHead { cursor: pointer; padding: 14px 0; border-top: 1px solid var(--line); }
+  .sideTitle { margin: 0; }
+  .sideChev { display: flex; }
+  .sideBody { display: none; padding-bottom: 8px; }
+  .sideBodyOpen { display: block; }
 
   .castAvatar, .castAvatarPh { width: 48px; height: 48px; }
   .castName { font-size: 13px; }
@@ -541,7 +624,8 @@
 }
 
 @media (max-width: 420px) {
-  .title { font-size: 24px; }
+  .title { font-size: 19px; }
+  .posterThumb { width: 84px; }
   .epThumb, .epThumbPlaceholder { width: 80px; height: 46px; }
   .versionBtns, .seasons { gap: 6px; }
   .versionBtn, .seasonBtn { padding: 6px 12px; font-size: 11px; }

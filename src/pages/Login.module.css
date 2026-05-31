@@ -214,8 +214,10 @@
    ==================================================================== */
 @media (max-width: 640px) {
   .login { padding: 24px 16px; align-items: start; }
-  .login { padding-top: 88px; }
-  .brand { top: 18px; left: 18px; font-size: 12px; gap: 8px; }
+  /* + var(--safe-top) : dégage la barre de statut (heure/batterie) sur natif
+     Android edge-to-edge — sinon le header passe sous l'heure/la batterie. */
+  .login { padding-top: calc(96px + var(--safe-top)); }
+  .brand { top: calc(16px + var(--safe-top)); left: 18px; font-size: 12px; gap: 8px; }
   .brandMark { width: 12px; height: 12px; }
   .card { padding: 28px 22px; border-radius: 14px; }
   .title { font-size: 24px; }

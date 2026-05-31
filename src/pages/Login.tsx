@@ -62,7 +62,7 @@ export function Login({ redirectTo }: LoginProps = {}) {
   return (
     <div className={styles.login}>
       <div className={styles.brand}>
-        <span className={styles.brandMark} />
+        <AppLogo size={28} />
         IPTVAX
       </div>
 
