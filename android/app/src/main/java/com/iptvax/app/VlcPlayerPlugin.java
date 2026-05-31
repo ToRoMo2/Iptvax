@@ -146,6 +146,31 @@ public class VlcPlayerPlugin extends Plugin {
         return subScale != engScale || subColor != engColor || subBgOpacity != engBgOpacity;
     }
 
+    // ── Helpers internes ─────────────────────────────────────────────────────
+
+    /**
+     * Met à jour FLAG_KEEP_SCREEN_ON selon l'état réel du lecteur.
+     * Appelable depuis n'importe quel thread (libVLC ou UI).
+     *
+     * Posé sur Playing, retiré sur Paused/Stopped : l'écran reste allumé
+     * uniquement pendant la lecture active (libVLC ne déclenche pas le
+     * détecteur de média Android → sans ce flag, Android endort l'écran
+     * après le timeout d'inactivité normal).
+     */
+    private void updateKeepScreenOn() {
+        if (getActivity() == null) return;
+        final boolean keepOn = mediaPlayer != null && mediaPlayer.isPlaying();
+        getActivity().runOnUiThread(() -> {
+            if (getActivity() == null) return;
+            Window w = getActivity().getWindow();
+            if (keepOn) {
+                w.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                w.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        });
+    }
+
     // ── Méthodes exposées au JS ───────────────────────────────────────────────
 
     /**
@@ -370,6 +395,8 @@ public class VlcPlayerPlugin extends Plugin {
                 break;
             case MediaPlayer.Event.Playing:
                 hasPlayed = true;
+                // (a) Garde l'écran allumé tant que la lecture est active.
+                updateKeepScreenOn();
                 // Après un reload de restyle : réapplique les pistes choisies.
                 if (restoreTracksPending && mediaPlayer != null) {
                     restoreTracksPending = false;
@@ -380,9 +407,13 @@ public class VlcPlayerPlugin extends Plugin {
                 emitTracks();
                 break;
             case MediaPlayer.Event.Paused:
+                // (a) Lecture suspendue → autorise la mise en veille.
+                updateKeepScreenOn();
                 emitState("paused", null);
                 break;
             case MediaPlayer.Event.Stopped:
+                // (a) Lecteur arrêté → autorise la mise en veille.
+                updateKeepScreenOn();
                 emitState("idle", null);
                 break;
             case MediaPlayer.Event.EndReached:
@@ -458,10 +489,16 @@ public class VlcPlayerPlugin extends Plugin {
     }
 
     /**
-     * Mise en arrière-plan (écran éteint, retour accueil, app switcher) : on met
-     * la lecture en pause pour couper le son et figer la vidéo. libVLC émet
-     * l'évènement Paused → l'UI React affiche le bouton lecture. L'utilisateur
-     * reprend manuellement au retour (pas de reprise auto).
+     * Mise en arrière-plan (écran éteint, retour accueil, app switcher).
+     *
+     * Deux actions critiques dans cet ordre :
+     * 1. Pause libVLC → coupe le son, fige la vidéo (Paused émis vers l'UI React).
+     * 2. Détachement des vues AVANT que la Surface soit détruite par Android.
+     *    Sans ce détachement propre, libVLC conserve une référence à la Surface
+     *    morte ; au retour, l'audio reprend mais la vidéo reste noire (bug b).
+     *
+     * L'utilisateur reprend manuellement (pas de reprise auto — handleOnResume
+     * ré-attache la surface et affiche la frame figée, sans relancer la lecture).
      */
     @Override
     protected void handleOnPause() {
@@ -469,6 +506,48 @@ public class VlcPlayerPlugin extends Plugin {
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             mediaPlayer.pause();
         }
+        // (b) Détache proprement libVLC de la Surface avant qu'Android la détruise.
+        if (mediaPlayer != null && viewsAttached) {
+            mediaPlayer.detachViews();
+            viewsAttached = false;
+        }
+        // (a) En arrière-plan, la mise en veille est autorisée.
+        if (getActivity() != null) {
+            getActivity().getWindow().clearFlags(
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
+    /**
+     * Retour au premier plan / réveil de l'écran.
+     *
+     * Android a créé une nouvelle Surface pour la VLCVideoLayout pendant
+     * l'absence → il faut ré-attacher libVLC à cette nouvelle Surface.
+     * Sans ça, la vidéo reste noire (la Surface précédente était détruite).
+     *
+     * Un seek à la position courante force libVLC à décoder et afficher
+     * la frame correspondante, même en état paused (sinon plan noir).
+     * L'audio redémarre uniquement si l'utilisateur appuie sur « Lecture »
+     * (pas de reprise auto).
+     */
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        if (mediaPlayer == null || videoLayout == null || currentUrl == null) return;
+        // (b) Ré-attache à la nouvelle Surface recréée par Android.
+        if (!viewsAttached) {
+            mediaPlayer.attachViews(videoLayout, null, true, false);
+            viewsAttached = true;
+            // Force le rendu d'une frame à la position courante :
+            // libVLC en état paused après un reattach ne déclenche pas
+            // automatiquement le pipeline de rendu vidéo → plan noir sans ça.
+            long pos = mediaPlayer.getTime();
+            if (pos >= 0) {
+                mediaPlayer.setTime(pos);
+            }
+        }
+        // (a) Si la lecture a repris (cas futur ou edge case de timing),
+        // le flag Playing remettra FLAG_KEEP_SCREEN_ON via updateKeepScreenOn().
     }
 
     @Override
