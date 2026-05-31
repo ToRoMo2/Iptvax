@@ -13,8 +13,11 @@ import {
   IconAudio, IconSubtitles, IconQuality, IconCheck, IconBack, IconClose,
   IconVolumeMute, IconVolumeLow, IconVolumeHigh,
   IconFullscreenEnter, IconFullscreenExit, IconSettings, IconAlert,
+  IconEpisodes,
 } from './PlayerIcons';
 import { useI18n } from '../contexts/I18nContext';
+import type { Episode } from '../types/xtream.types';
+import type { TmdbEpisodeStills } from '../types/tmdb.types';
 import styles from './VideoPlayer.module.css';
 
 interface Props {
@@ -41,6 +44,16 @@ interface Props {
   resume?: { time: number; audio?: number; subtitle?: number };
   // Sauvegarde périodique de la progression (position + pistes).
   onPersist?: (p: { position: number; duration: number; audio: number; subtitle: number }) => void;
+  // ── Panneau « Épisodes » (séries uniquement, chantier 3) ─────────────────
+  // Si `episodesBySeason` est fourni ET non vide, un bouton « Épisodes »
+  // apparaît dans la rangée et ouvre un panneau inline avec sélecteur de
+  // saison + grille horizontale d'épisodes (vignettes TMDB en Premium).
+  episodesBySeason?: Record<string, Episode[]>;
+  currentSeason?: number;
+  currentEpisodeNum?: number;
+  stillsBySeason?: Record<number, TmdbEpisodeStills>;
+  onLoadSeasonStills?: (season: number) => void;
+  onPlayEpisode?: (ep: Episode) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -106,6 +119,12 @@ export function VideoPlayer({
   channelPosition,
   resume,
   onPersist,
+  episodesBySeason,
+  currentSeason,
+  currentEpisodeNum,
+  stillsBySeason,
+  onLoadSeasonStills,
+  onPlayEpisode,
 }: Props) {
   const { t } = useI18n();
   // Sur TV (Android TV / Tizen / webOS), l'overlay est piloté à la télécommande
@@ -135,10 +154,20 @@ export function VideoPlayer({
   // Panneau inline qui REMPLACE la rangée de contrôles (pattern TvPlayerOverlay).
   // null = contrôles classiques affichés ; sinon le panneau prend la place et
   // le lecteur est mis en pause automatiquement (cf. pausedByPanelRef).
-  const [panelKind, setPanelKind] = useState<'audio' | 'subtitles' | 'quality' | null>(null);
+  const [panelKind, setPanelKind] = useState<'audio' | 'subtitles' | 'quality' | 'episodes' | null>(null);
   // Vue active dans le panneau sous-titres : 'tracks' (pistes + bouton
   // Personnaliser) ou 'customize' (aperçu live + chips Taille/Couleur/Fond).
   const [subView, setSubView] = useState<'tracks' | 'customize'>('tracks');
+  // Saison affichée dans le panneau Épisodes (init = saison courante).
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const epGridRef = useRef<HTMLDivElement>(null);
+  // Navigation clavier interne au panel Épisodes (flèches + Enter). Distincte
+  // du focus DOM brut pour pouvoir initialiser sur l'épisode courant à
+  // l'ouverture et basculer saison↔épisode au clavier.
+  const [epFocus, setEpFocus] = useState<{ section: 'season' | 'episode'; index: number } | null>(null);
+  const epFocusRef = useRef(epFocus); epFocusRef.current = epFocus;
+  const epSeasonChipsRef = useRef<Array<HTMLButtonElement | null>>([]);
+  const epCardsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Trace si NOUS avons mis le lecteur en pause à l'ouverture du panneau (pour
   // éviter d'auto-reprendre une vidéo que l'utilisateur avait pausée lui-même).
@@ -159,9 +188,10 @@ export function VideoPlayer({
   // Alias pour le onClick du wrapper (clic en dehors des contrôles) : ferme tout.
   const closeAllMenus = closePanel;
 
-  // Ouvre un panneau (audio / sous-titres / qualité). Si le même panneau est
-  // déjà ouvert dans sa vue de base, ferme. Sinon bascule + met en pause.
-  const openPanel = useCallback((kind: 'audio' | 'subtitles' | 'quality') => {
+  // Ouvre un panneau (audio / sous-titres / qualité / épisodes). Si le même
+  // panneau est déjà ouvert dans sa vue de base, ferme. Sinon bascule + met
+  // en pause auto (cf. pausedByPanelRef).
+  const openPanel = useCallback((kind: 'audio' | 'subtitles' | 'quality' | 'episodes') => {
     if (panelKind === kind && (kind !== 'subtitles' || subView === 'tracks')) {
       closePanel();
       return;
@@ -172,7 +202,30 @@ export function VideoPlayer({
     }
     setPanelKind(kind);
     if (kind === 'subtitles') setSubView('tracks');
-  }, [panelKind, subView, player, closePanel]);
+    if (kind === 'episodes') {
+      const init = currentSeason ?? null;
+      setSelectedSeason(init);
+      if (init != null) onLoadSeasonStills?.(init);
+    }
+  }, [panelKind, subView, player, closePanel, currentSeason, onLoadSeasonStills]);
+
+  // Sélecteur de saison dans le panneau Épisodes : charge les stills + reset
+  // le scroll-into-view (l'effet ci-dessous le déclenche au changement).
+  const handleSelectSeason = useCallback((season: number) => {
+    setSelectedSeason(season);
+    onLoadSeasonStills?.(season);
+  }, [onLoadSeasonStills]);
+
+  // Scroll-into-view sur l'épisode courant à l'ouverture / changement de saison.
+  // L'autre saison n'a pas d'épisode courant → fallback scrollLeft=0.
+  useEffect(() => {
+    if (panelKind !== 'episodes' || selectedSeason == null) return;
+    const grid = epGridRef.current;
+    if (!grid) return;
+    const cur = grid.querySelector('[data-current="true"]') as HTMLElement | null;
+    if (cur) cur.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+    else grid.scrollLeft = 0;
+  }, [panelKind, selectedSeason, episodesBySeason, stillsBySeason]);
 
   // Sous-titres : préférences visuelles persistées dans localStorage
   const initialPrefs = loadSubPrefs();
@@ -284,6 +337,76 @@ export function VideoPlayer({
         closePanel();
         return;
       }
+      // Quand un panneau est ouvert, les raccourcis du player (seek/volume/
+      // play-pause/etc) sont gelés pour ne pas piloter la vidéo. Le panel
+      // « Épisodes » dispose en plus de sa propre navigation D-pad/clavier
+      // (focus DOM réel sur les `<button>` saison/épisode).
+      if (panelKind !== null) {
+        if (panelKind === 'episodes') {
+          const isLeft = e.key === 'ArrowLeft';
+          const isRight = e.key === 'ArrowRight';
+          const isUp = e.key === 'ArrowUp';
+          const isDown = e.key === 'ArrowDown';
+          const isEnter = e.key === 'Enter';
+          if (!(isLeft || isRight || isUp || isDown || isEnter)) return;
+          e.preventDefault();
+          const seasons = epSeasonsRef.current;
+          const eps = epEpisodesRef.current;
+          if (isLeft || isRight) {
+            setEpFocus((cur) => {
+              if (!cur) return cur;
+              const max = cur.section === 'season' ? seasons.length - 1 : eps.length - 1;
+              if (max < 0) return cur;
+              const next = Math.max(0, Math.min(max, cur.index + (isRight ? 1 : -1)));
+              return { ...cur, index: next };
+            });
+          } else if (isUp) {
+            // Saisons au-dessus → y aller si dispo, sinon ferme le panel.
+            const cur = epFocusRef.current;
+            if (cur?.section === 'episode' && seasons.length > 1) {
+              const idx = seasons.indexOf(epDisplaySeasonRef.current ?? -1);
+              setEpFocus({ section: 'season', index: idx >= 0 ? idx : 0 });
+            } else {
+              closePanel();
+            }
+          } else if (isDown) {
+            // Depuis saisons : descendre aux épisodes (focus = épisode courant).
+            // Depuis épisodes : ferme.
+            const cur = epFocusRef.current;
+            if (cur?.section === 'season') {
+              const idx = eps.findIndex(
+                (ep) => ep.season === currentSeasonRef.current && ep.episode_num === currentEpisodeNumRef.current,
+              );
+              setEpFocus({ section: 'episode', index: idx >= 0 ? idx : 0 });
+            } else {
+              closePanel();
+            }
+          } else if (isEnter) {
+            const cur = epFocusRef.current;
+            if (!cur) return;
+            if (cur.section === 'season') {
+              const s = seasons[cur.index];
+              if (s != null) handleSelectSeasonRef.current(s);
+            } else {
+              const ep = eps[cur.index];
+              if (ep) { onPlayEpisodeRef.current?.(ep); closePanel(); }
+            }
+          }
+          return;
+        }
+        // Autres panels (audio/CC/qualité) : flèches / play / fullscreen / mute
+        // sont absorbées en silence. Tab + Click natifs continuent de fonctionner.
+        const trap = [
+          'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+          ' ', 'k', 'K', 'f', 'F', 'm', 'M', 'g', 'G', 'h', 'H',
+        ];
+        if (trap.includes(e.key)) { e.preventDefault(); return; }
+        // Enter : sur un BUTTON, on laisse le clic natif jouer ; sinon ignore.
+        if (e.key === 'Enter') {
+          if ((e.target as HTMLElement).tagName !== 'BUTTON') e.preventDefault();
+          return;
+        }
+      }
       switch (e.key) {
         case ' ':
         case 'k':
@@ -365,6 +488,54 @@ export function VideoPlayer({
     : IconVolumeHigh;
 
   const showControls = controlsVisible || !isPlaying || hasError;
+
+  // Saisons disponibles + épisodes de la saison sélectionnée (panneau Épisodes).
+  // `episodesBySeason` est un Record<string, Episode[]> (clés numériques str).
+  const epSeasons: number[] = episodesBySeason
+    ? Object.keys(episodesBySeason).map(Number).filter((n) => !Number.isNaN(n)).sort((a, b) => a - b)
+    : [];
+  const epDisplaySeason = selectedSeason ?? currentSeason ?? epSeasons[0];
+  const epEpisodes: Episode[] = (epSeasons.length > 0 && episodesBySeason && epDisplaySeason != null)
+    ? (episodesBySeason[String(epDisplaySeason)] ?? [])
+    : [];
+  // Le bouton est visible dès que Player.tsx nous donne `onPlayEpisode` (i.e.
+  // dès qu'on est sur un épisode avec `seriesContext` posé), même si la liste
+  // n'est pas encore arrivée — sinon il pop tardivement et l'utilisateur ne le
+  // voit jamais s'il ouvre l'overlay avant la fin du fetch.
+  const epHasButton = !!onPlayEpisode && !isLive;
+  const epLoading = epHasButton && epSeasons.length === 0;
+  // Refs synchrones : permettent au keyboard handler global de lire la liste
+  // courante sans se réinstaller à chaque render.
+  const epSeasonsRef = useRef(epSeasons); epSeasonsRef.current = epSeasons;
+  const epEpisodesRef = useRef(epEpisodes); epEpisodesRef.current = epEpisodes;
+  const epDisplaySeasonRef = useRef(epDisplaySeason); epDisplaySeasonRef.current = epDisplaySeason;
+  const currentSeasonRef = useRef(currentSeason); currentSeasonRef.current = currentSeason;
+  const currentEpisodeNumRef = useRef(currentEpisodeNum); currentEpisodeNumRef.current = currentEpisodeNum;
+  const onPlayEpisodeRef = useRef(onPlayEpisode); onPlayEpisodeRef.current = onPlayEpisode;
+  const handleSelectSeasonRef = useRef(handleSelectSeason); handleSelectSeasonRef.current = handleSelectSeason;
+
+  // Init epFocus sur l'épisode courant à l'ouverture du panel ; reset au close.
+  useEffect(() => {
+    if (panelKind !== 'episodes') {
+      setEpFocus(null);
+      return;
+    }
+    const list = epEpisodesRef.current;
+    const idx = list.findIndex(
+      (ep) => ep.season === currentSeasonRef.current && ep.episode_num === currentEpisodeNumRef.current,
+    );
+    setEpFocus({ section: 'episode', index: idx >= 0 ? idx : 0 });
+  }, [panelKind, epDisplaySeason]);
+
+  // Sync focus DOM réel + scroll-into-view à chaque déplacement.
+  useEffect(() => {
+    if (!epFocus || panelKind !== 'episodes') return;
+    const arr = epFocus.section === 'season' ? epSeasonChipsRef.current : epCardsRef.current;
+    const el = arr[epFocus.index];
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+  }, [epFocus, panelKind]);
 
   const subSizeClass = subSize === 'sm' ? styles.subSm
     : subSize === 'lg' ? styles.subLg
@@ -499,6 +670,12 @@ export function VideoPlayer({
           onSubSize={setSubSize}
           onSubColor={setSubColor}
           onSubBg={setSubBg}
+          episodesBySeason={episodesBySeason}
+          currentSeason={currentSeason}
+          currentEpisodeNum={currentEpisodeNum}
+          stillsBySeason={stillsBySeason}
+          onLoadSeasonStills={onLoadSeasonStills}
+          onPlayEpisode={onPlayEpisode}
         />
       )}
 
@@ -673,6 +850,23 @@ export function VideoPlayer({
                     {player.currentLevel === -1
                       ? 'AUTO'
                       : (player.levels[player.currentLevel]?.label ?? 'Q')}
+                  </span>
+                </button>
+              )}
+
+              {/* Épisodes (séries uniquement — props posées par Player.tsx
+                  quand state.seriesContext existe). */}
+              {epHasButton && (
+                <button
+                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup}`}
+                  onClick={(e) => { e.stopPropagation(); openPanel('episodes'); }}
+                  title={t('player.episodes')}
+                >
+                  <IconEpisodes size={18} />
+                  <span className={styles.controlBtnLabel}>
+                    {currentSeason != null && currentEpisodeNum != null
+                      ? `S${currentSeason}·É${currentEpisodeNum}`
+                      : 'EP'}
                   </span>
                 </button>
               )}
@@ -860,6 +1054,83 @@ export function VideoPlayer({
                     </div>
                   </div>
                 </>
+              )}
+
+              {/* Épisodes : sélecteur de saison (si >1) + grille horizontale
+                  d'épisodes (vignettes 16:9 Premium, num+titre+durée).
+                  L'épisode courant a [data-current=true] → auto-scroll center.
+                  Refs `epSeasonChipsRef`/`epCardsRef` : focus DOM réel piloté
+                  par le handler clavier (cf. effets epFocus ci-dessus). */}
+              {panelKind === 'episodes' && epLoading && (
+                <div className={styles.epPanelLoading}>
+                  <AppLogo spin size={28} />
+                  <span>{t('player.episodesLoading')}</span>
+                </div>
+              )}
+              {panelKind === 'episodes' && !epLoading && (
+                <div className={styles.epPanel}>
+                  {epSeasons.length > 1 && (
+                    <div className={styles.epSeasonBar}>
+                      {epSeasons.map((s, i) => (
+                        <button
+                          key={s}
+                          ref={(el) => { epSeasonChipsRef.current[i] = el; }}
+                          className={`${styles.epSeasonChip} ${epDisplaySeason === s ? styles.epSeasonChipActive : ''}`}
+                          onClick={() => handleSelectSeason(s)}
+                        >
+                          {t('detail.seasonN', { n: s })}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div ref={epGridRef} className={styles.epGrid}>
+                    {epEpisodes.map((ep, i) => {
+                      const isCurrent =
+                        currentSeason === ep.season && currentEpisodeNum === ep.episode_num;
+                      const thumb =
+                        safeImgUrl(ep.info.movie_image) ||
+                        safeImgUrl(stillsBySeason?.[ep.season]?.[ep.episode_num]);
+                      return (
+                        <button
+                          key={ep.id}
+                          ref={(el) => { epCardsRef.current[i] = el; }}
+                          data-current={isCurrent ? 'true' : undefined}
+                          className={`${styles.epCard} ${isCurrent ? styles.epCardActive : ''}`}
+                          onClick={() => { onPlayEpisode?.(ep); closePanel(); }}
+                          title={ep.title || t('detail.episodeN', { n: ep.episode_num })}
+                        >
+                          <div className={styles.epThumb}>
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            ) : (
+                              <span className={styles.epThumbNum}>{ep.episode_num}</span>
+                            )}
+                            {isCurrent && (
+                              <span className={styles.epCurrentBadge}>{t('player.nowPlaying')}</span>
+                            )}
+                          </div>
+                          <div className={styles.epLabel}>
+                            <span className={styles.epNum}>
+                              {t('detail.episodeN', { n: ep.episode_num })}
+                            </span>
+                            <span className={styles.epTitle}>
+                              {ep.title || t('detail.episodeN', { n: ep.episode_num })}
+                            </span>
+                            {ep.info.duration && (
+                              <span className={styles.epDuration}>{ep.info.duration}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           )}

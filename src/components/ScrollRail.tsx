@@ -25,9 +25,13 @@ interface Props {
 
 export function ScrollRail({ children, railClassName }: Props) {
   const { t } = useI18n();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
+  // Fade-up à l'entrée dans le viewport. Disconnect après le 1er hit pour
+  // ne pas re-déclencher au re-scroll (et garder un coût IO nul après mount).
+  const [visible, setVisible] = useState(false);
 
   const sync = useCallback(() => {
     const el = ref.current;
@@ -49,6 +53,25 @@ export function ScrollRail({ children, railClassName }: Props) {
     };
   }, [sync]);
 
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   const scroll = (dir: 1 | -1) => {
     const el = ref.current;
     if (!el) return;
@@ -56,7 +79,7 @@ export function ScrollRail({ children, railClassName }: Props) {
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div ref={wrapperRef} className={`${styles.wrapper} ${visible ? styles.wrapperVisible : ''}`}>
       <button
         className={`${styles.arrow} ${styles.arrowLeft} ${canLeft ? styles.arrowVisible : ''}`}
         onClick={() => scroll(-1)}
@@ -66,7 +89,7 @@ export function ScrollRail({ children, railClassName }: Props) {
         <ChevLeft />
       </button>
 
-      <div ref={ref} className={railClassName}>
+      <div ref={ref} className={`${styles.rail} ${railClassName ?? ''}`}>
         {children}
       </div>
 

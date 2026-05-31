@@ -224,6 +224,9 @@ const es: typeof frDict = {
     auto: 'Auto',
     quality: 'Calidad',
     fullscreen: 'Pantalla completa (F)',
+    episodes: 'Episodios',
+    nowPlaying: 'Reproduciendo',
+    episodesLoading: 'Cargando episodios…',
   },
   search: {
     title: 'Buscar',

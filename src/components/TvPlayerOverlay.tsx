@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import type { WebPlayerController } from '../hooks/usePlayer';
 import {
   IconPlay, IconPause, IconBack10, IconFwd10, IconPrev, IconNext,
-  IconAudio, IconSubtitles, IconQuality, IconCheck,
+  IconAudio, IconSubtitles, IconQuality, IconCheck, IconEpisodes,
 } from './PlayerIcons';
+import { safeImgUrl } from '../utils/image';
+import type { Episode } from '../types/xtream.types';
+import type { TmdbEpisodeStills } from '../types/tmdb.types';
 import s from './TvPlayerOverlay.module.css';
 
 /**
@@ -34,8 +37,8 @@ export type SubBg = 'none' | 'semi' | 'solid';
 export type SubColor = 'white' | 'yellow' | 'cyan' | 'green';
 
 type TvMode = 'idle' | 'controls' | 'scrub' | 'panel';
-type CtrlId = 'prev' | 'back10' | 'playpause' | 'fwd10' | 'next' | 'audio' | 'subtitles' | 'quality';
-type PanelKind = 'audio' | 'subtitles' | 'quality';
+type CtrlId = 'prev' | 'back10' | 'playpause' | 'fwd10' | 'next' | 'audio' | 'subtitles' | 'quality' | 'episodes';
+type PanelKind = 'audio' | 'subtitles' | 'quality' | 'episodes';
 
 interface PanelItem {
   key: string;
@@ -63,6 +66,13 @@ interface Props {
   onSubSize: (s: SubSize) => void;
   onSubColor: (c: SubColor) => void;
   onSubBg: (b: SubBg) => void;
+  // ── Panneau « Épisodes » (chantier 3) — voir VideoPlayer.tsx ──────────
+  episodesBySeason?: Record<string, Episode[]>;
+  currentSeason?: number;
+  currentEpisodeNum?: number;
+  stillsBySeason?: Record<number, TmdbEpisodeStills>;
+  onLoadSeasonStills?: (season: number) => void;
+  onPlayEpisode?: (ep: Episode) => void;
 }
 
 const SIZE_OPTS: { v: SubSize; label: string }[] = [
@@ -91,6 +101,16 @@ function isChipKey(key: string): boolean {
   return key.startsWith('sz-') || key.startsWith('co-') || key.startsWith('bg-');
 }
 
+// Carte épisode du panneau « Épisodes » (vignette + label).
+function isEpCardKey(key: string): boolean {
+  return key.startsWith('ep-') && !key.startsWith('ep-s-');
+}
+
+// Chip de sélection de saison.
+function isEpSeasonKey(key: string): boolean {
+  return key.startsWith('ep-s-');
+}
+
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds <= 0) return '0:00';
   const h = Math.floor(seconds / 3600);
@@ -107,18 +127,37 @@ function clamp(v: number, lo: number, hi: number): number {
 export function TvPlayerOverlay({
   player, title, isLive, channelPosition, onPrevChannel, onNextChannel,
   subSize, subColor, subBg, onSubSize, onSubColor, onSubBg,
+  episodesBySeason, currentSeason, currentEpisodeNum,
+  stillsBySeason, onLoadSeasonStills, onPlayEpisode,
 }: Props) {
   const [mode, setMode] = useState<TvMode>('idle');
   const [panelKind, setPanelKind] = useState<PanelKind>('audio');
   // Sous-vue du panneau sous-titres : `tracks` (liste pistes + bouton
   // Personnaliser) ou `customize` (aperçu live + taille/couleur/fond).
   const [subView, setSubView] = useState<'tracks' | 'customize'>('tracks');
+  // Saison affichée dans le panneau Épisodes (init = currentSeason à
+  // l'ouverture). Sert AUSSI au rendu visuel des cartes épisodes.
+  const [tvSelectedSeason, setTvSelectedSeason] = useState<number | null>(null);
   const [focusSection, setFocusSection] = useState(0);
   const [focusIndex, setFocusIndex] = useState(0);
   const [scrubPos, setScrubPos] = useState(0);
   const [activityTick, setActivityTick] = useState(0);
 
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Saisons disponibles dans `episodesBySeason` (clés numériques triées).
+  const epSeasons: number[] = useMemo(() => {
+    if (!episodesBySeason) return [];
+    return Object.keys(episodesBySeason)
+      .map(Number)
+      .filter((n) => !Number.isNaN(n))
+      .sort((a, b) => a - b);
+  }, [episodesBySeason]);
+  // Le bouton est visible dès que Player.tsx nous donne `onPlayEpisode` (i.e.
+  // dès qu'on est sur un épisode avec `seriesContext` posé), même si la liste
+  // n'est pas encore arrivée — sinon il pop tardivement sur TV (fetch lent) et
+  // l'utilisateur ne le voit jamais s'il ouvre l'overlay avant la fin.
+  const epHasButton = !!onPlayEpisode && !isLive;
 
   const controls = useMemo<CtrlId[]>(() => {
     const list: CtrlId[] = [];
@@ -132,8 +171,9 @@ export function TvPlayerOverlay({
     if (player.audioTracks.length > 0) list.push('audio');
     if (player.subtitleTracks.length > 0) list.push('subtitles');
     if (player.levels.length > 1) list.push('quality');
+    if (epHasButton) list.push('episodes');
     return list;
-  }, [isLive, onPrevChannel, onNextChannel, player.audioTracks.length, player.subtitleTracks.length, player.levels.length]);
+  }, [isLive, onPrevChannel, onNextChannel, player.audioTracks.length, player.subtitleTracks.length, player.levels.length, epHasButton]);
 
   // ── Refs synchronisées (lues dans le handler clavier installé une fois) ────
   const playerRef = useRef(player); playerRef.current = player;
@@ -156,6 +196,19 @@ export function TvPlayerOverlay({
   const onSubSizeRef = useRef(onSubSize); onSubSizeRef.current = onSubSize;
   const onSubColorRef = useRef(onSubColor); onSubColorRef.current = onSubColor;
   const onSubBgRef = useRef(onSubBg); onSubBgRef.current = onSubBg;
+  // Épisodes — refs lues par le handler clavier installé une fois.
+  const episodesBySeasonRef = useRef(episodesBySeason); episodesBySeasonRef.current = episodesBySeason;
+  const epSeasonsRef = useRef(epSeasons); epSeasonsRef.current = epSeasons;
+  const currentSeasonRef = useRef(currentSeason); currentSeasonRef.current = currentSeason;
+  const currentEpisodeNumRef = useRef(currentEpisodeNum); currentEpisodeNumRef.current = currentEpisodeNum;
+  const stillsBySeasonRef = useRef(stillsBySeason); stillsBySeasonRef.current = stillsBySeason;
+  const onLoadSeasonStillsRef = useRef(onLoadSeasonStills); onLoadSeasonStillsRef.current = onLoadSeasonStills;
+  const onPlayEpisodeRef = useRef(onPlayEpisode); onPlayEpisodeRef.current = onPlayEpisode;
+  const tvSelectedSeasonRef = useRef(tvSelectedSeason); tvSelectedSeasonRef.current = tvSelectedSeason;
+  // Setter combiné state + ref (analogue à setFocus/setView).
+  const setSelSeason = useCallback((sea: number | null) => {
+    tvSelectedSeasonRef.current = sea; setTvSelectedSeason(sea);
+  }, []);
 
   // Helpers de mutation (ref + state synchrones) utilisés par buildSections
   // (bouton Personnaliser) et le Back handler.
@@ -194,6 +247,72 @@ export function TvPlayerOverlay({
           run: () => playerRef.current.setLevel(l.index), stay: false,
         }))],
       }];
+    }
+    if (kind === 'episodes') {
+      const map = episodesBySeasonRef.current;
+      const seasons = epSeasonsRef.current;
+      // Fetch encore en cours côté Player → on retourne une section "vide"
+      // qui sert de marqueur (le rendu affichera un état chargement). Le
+      // handler clavier détecte items.length === 0 → seul Back ferme le panel.
+      if (!map || seasons.length === 0) {
+        return [{ title: 'Épisodes', items: [] }];
+      }
+      const sel = tvSelectedSeasonRef.current ?? currentSeasonRef.current ?? seasons[0];
+      const epList: Episode[] = map[String(sel)] ?? [];
+      const stillsForSeason = (sel != null ? stillsBySeasonRef.current?.[sel] : undefined) ?? {};
+      const seasonSection: PanelSection = {
+        title: 'Saison',
+        items: seasons.map((sn) => ({
+          key: `ep-s-${sn}`,
+          label: `S${sn}`,
+          active: sel === sn,
+          run: () => {
+            setSelSeason(sn);
+            onLoadSeasonStillsRef.current?.(sn);
+            // Repositionne le focus sur le 1er épisode de la nouvelle saison.
+            const targetSec = seasons.length > 1 ? 1 : 0;
+            setFocus(targetSec, 0);
+          },
+          stay: true,
+        })),
+      };
+      const episodeSection: PanelSection = {
+        title: 'Épisodes',
+        items: epList.map((ep) => {
+          const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stillsForSeason[ep.episode_num]);
+          const isCurrent =
+            currentSeasonRef.current === ep.season && currentEpisodeNumRef.current === ep.episode_num;
+          return {
+            key: `ep-${ep.id}`,
+            label: (
+              <span className={s.epCardInner}>
+                <span className={s.epCardThumb}>
+                  {thumb ? (
+                    <img
+                      src={thumb}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <span className={s.epCardNum}>{ep.episode_num}</span>
+                  )}
+                  {isCurrent && <span className={s.epCardBadge}>EN COURS</span>}
+                </span>
+                <span className={s.epCardMeta}>
+                  <span className={s.epCardEpNum}>É{ep.episode_num}</span>
+                  <span className={s.epCardTitle}>{ep.title || `Épisode ${ep.episode_num}`}</span>
+                </span>
+              </span>
+            ),
+            active: isCurrent,
+            run: () => onPlayEpisodeRef.current?.(ep),
+            stay: false,
+          };
+        }),
+      };
+      return seasons.length > 1 ? [seasonSection, episodeSection] : [episodeSection];
     }
     // Sous-titres : 2 sous-vues.
     if (subViewRef.current === 'tracks') {
@@ -271,7 +390,7 @@ export function TvPlayerOverlay({
         })),
       },
     ];
-  }, [setFocus, setView]);
+  }, [setFocus, setView, setSelSeason]);
 
   const sections = mode === 'panel' ? buildSections(panelKind) : [];
 
@@ -341,11 +460,30 @@ export function TvPlayerOverlay({
         subViewRef.current = 'tracks';
         setSubView('tracks');
       }
+      // Init de la saison sélectionnée + charge ses stills (la saison courante
+      // peut déjà avoir été chargée par Player, le 2e appel est idempotent).
+      if (kind === 'episodes') {
+        const init = currentSeasonRef.current ?? epSeasonsRef.current[0] ?? null;
+        tvSelectedSeasonRef.current = init;
+        setTvSelectedSeason(init);
+        if (init != null) onLoadSeasonStillsRef.current?.(init);
+      }
       goMode('panel');
       const secs = buildSections(kind);
-      const activeIdx = secs[0]?.items.findIndex((it) => it.active) ?? 0;
-      goSection(0);
-      goIndex(activeIdx >= 0 ? activeIdx : 0);
+      // Pour les épisodes : focus directement sur l'épisode courant (la
+      // section des saisons existe au-dessus, accessible via Haut).
+      if (kind === 'episodes') {
+        const hasSeasonRow = epSeasonsRef.current.length > 1;
+        const epSec = hasSeasonRow ? 1 : 0;
+        const epItems = secs[epSec]?.items ?? [];
+        const idx = epItems.findIndex((it) => it.active);
+        goSection(epSec);
+        goIndex(idx >= 0 ? idx : 0);
+      } else {
+        const activeIdx = secs[0]?.items.findIndex((it) => it.active) ?? 0;
+        goSection(0);
+        goIndex(activeIdx >= 0 ? activeIdx : 0);
+      }
     };
     const resumeFromPanel = () => {
       resumeIfWePaused();
@@ -362,6 +500,7 @@ export function TvPlayerOverlay({
         case 'audio': openPanel('audio'); break;
         case 'subtitles': openPanel('subtitles'); break;
         case 'quality': openPanel('quality'); break;
+        case 'episodes': openPanel('episodes'); break;
       }
     };
 
@@ -575,6 +714,7 @@ export function TvPlayerOverlay({
       case 'audio': return <IconAudio size={24} />;
       case 'subtitles': return <IconSubtitles size={24} />;
       case 'quality': return <IconQuality size={24} />;
+      case 'episodes': return <IconEpisodes size={24} />;
     }
   };
 
@@ -614,26 +754,35 @@ export function TvPlayerOverlay({
           </div>
         )}
 
-        {mode === 'panel' ? (
+        {mode === 'panel' && panelKind === 'episodes' && (sections[0]?.items.length ?? 0) === 0 ? (
+          <div className={s.epPanelLoading}>
+            <span className={s.epLoadingDot} />
+            Chargement des épisodes…
+          </div>
+        ) : mode === 'panel' ? (
           <div
             ref={panelRef}
             className={`${s.panel} ${panelKind === 'subtitles' && subView === 'customize' ? s.panelHoriz : ''}`}
           >
             {sections.map((sec, si) => (
-              <div className={s.panelSection} key={sec.title}>
+              <div className={`${s.panelSection} ${panelKind === 'episodes' && isEpCardKey(sec.items[0]?.key ?? '') ? s.epPanelSection : ''}`} key={sec.title}>
                 <div className={s.panelTitle}>{sec.title}</div>
-                <div className={s.panelItems}>
-                  {sec.items.map((it, ii) => (
-                    <div
-                      key={it.key}
-                      data-sec={si}
-                      data-idx={ii}
-                      className={`${s.panelItem} ${isChipKey(it.key) ? s.panelItemChip : ''} ${si === focusSection && ii === focusIndex ? s.itemFocused : ''} ${it.active ? s.itemActive : ''}`}
-                    >
-                      {it.active && <IconCheck size={15} className={s.itemCheck} />}
-                      {it.label}
-                    </div>
-                  ))}
+                <div className={`${s.panelItems} ${panelKind === 'episodes' && isEpCardKey(sec.items[0]?.key ?? '') ? s.epRow : ''}`}>
+                  {sec.items.map((it, ii) => {
+                    const epCard = isEpCardKey(it.key);
+                    const epSeason = isEpSeasonKey(it.key);
+                    return (
+                      <div
+                        key={it.key}
+                        data-sec={si}
+                        data-idx={ii}
+                        className={`${s.panelItem} ${isChipKey(it.key) ? s.panelItemChip : ''} ${epSeason ? s.panelItemEpSeason : ''} ${epCard ? s.panelItemEpCard : ''} ${si === focusSection && ii === focusIndex ? s.itemFocused : ''} ${it.active ? s.itemActive : ''}`}
+                      >
+                        {it.active && !epCard && <IconCheck size={15} className={s.itemCheck} />}
+                        {it.label}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}

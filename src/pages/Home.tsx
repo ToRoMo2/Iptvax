@@ -639,7 +639,9 @@ export function Home() {
                   className={`${styles.heroDot} ${i === heroIdx ? styles.heroDotActive : ''}`}
                   onClick={() => goToSlide(i)}
                   aria-label={t('home.slideN', { n: i + 1 })}
-                />
+                >
+                  {i === heroIdx && <span className={styles.heroDotProgress} />}
+                </button>
               ))}
             </div>
           )}
@@ -653,7 +655,11 @@ export function Home() {
         {history.length > 0 && (
           <div className={styles.row}>
             <div className={styles.rowHeader}>
-              <span className={styles.rowTitle}>{t('home.resume')}</span>
+              <div className={styles.rowTitleGroup}>
+                <span className={styles.rowTitle}>{t('home.resume')}</span>
+                <span className={styles.rowDivider} aria-hidden="true" />
+                <span className={styles.rowCount}>{history.length}</span>
+              </div>
               <button
                 className={`${styles.rowSeeAll} ${clearConfirm ? styles.clearConfirmActive : ''}`}
                 onClick={clearConfirm ? handleClearAll : handleClearConfirmRequest}
@@ -717,7 +723,15 @@ export function Home() {
         {/* Live Now */}
         <div className={styles.row}>
           <div className={styles.rowHeader}>
-            <span className={styles.rowTitle}>{t('home.liveNow')}</span>
+            <div className={styles.rowTitleGroup}>
+              <span className={styles.rowTitle}>{t('home.liveNow')}</span>
+              {liveStreams.length > 0 && (
+                <>
+                  <span className={styles.rowDivider} aria-hidden="true" />
+                  <span className={styles.rowCount}>{liveStreams.length}</span>
+                </>
+              )}
+            </div>
             <button className={styles.rowSeeAll} onClick={() => navigate('/live')}>
               {t('common.seeAll')} <ChevronRight />
             </button>
@@ -803,7 +817,15 @@ export function Home() {
         {/* Top Films */}
         <div className={styles.row}>
           <div className={styles.rowHeader}>
-            <span className={styles.rowTitle}>{t('home.popularMovies')}</span>
+            <div className={styles.rowTitleGroup}>
+              <span className={styles.rowTitle}>{t('home.popularMovies')}</span>
+              {movies.length > 0 && (
+                <>
+                  <span className={styles.rowDivider} aria-hidden="true" />
+                  <span className={styles.rowCount}>{movies.length}</span>
+                </>
+              )}
+            </div>
             <button className={styles.rowSeeAll} onClick={() => navigate('/movies')}>
               {t('common.seeAll')} <ChevronRight />
             </button>
@@ -838,7 +860,15 @@ export function Home() {
         {/* Séries tendances */}
         <div className={styles.row}>
           <div className={styles.rowHeader}>
-            <span className={styles.rowTitle}>{t('home.trendingSeries')}</span>
+            <div className={styles.rowTitleGroup}>
+              <span className={styles.rowTitle}>{t('home.trendingSeries')}</span>
+              {series.length > 0 && (
+                <>
+                  <span className={styles.rowDivider} aria-hidden="true" />
+                  <span className={styles.rowCount}>{series.length}</span>
+                </>
+              )}
+            </div>
             <button className={styles.rowSeeAll} onClick={() => navigate('/series')}>
               {t('common.seeAll')} <ChevronRight />
             </button>

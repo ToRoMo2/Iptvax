@@ -224,6 +224,9 @@ const en: typeof frDict = {
     auto: 'Auto',
     quality: 'Quality',
     fullscreen: 'Fullscreen (F)',
+    episodes: 'Episodes',
+    nowPlaying: 'Now playing',
+    episodesLoading: 'Loading episodes…',
   },
   search: {
     title: 'Search',

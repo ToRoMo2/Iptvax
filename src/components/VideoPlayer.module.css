@@ -715,6 +715,181 @@
 }
 
 /* ====================================================================
+   Panneau Épisodes (chantier 3) — sélecteur saison + grille horizontale
+   d'épisodes (vignettes TMDB Premium, 16:9). L'épisode courant porte
+   data-current=true → auto scroll-into-view + halo accent.
+   ==================================================================== */
+.epPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  pointer-events: all;
+}
+
+/* État chargement quand le panel s'ouvre avant que la liste d'épisodes n'arrive. */
+.epPanelLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--t-2);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  pointer-events: all;
+}
+
+.epSeasonBar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 8px;
+}
+.epSeasonBar::-webkit-scrollbar { display: none; }
+
+.epSeasonChip {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--r-pill);
+  color: var(--t-2);
+  cursor: pointer;
+  transition: background var(--d-micro) var(--ease), color var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease);
+}
+.epSeasonChip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--t-1);
+}
+.epSeasonChipActive {
+  background: var(--accent-faint);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.epSeasonChip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 18px var(--accent-glow);
+}
+
+.epGrid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 12px;
+  padding: 4px 12px;
+  scrollbar-width: none;
+}
+.epGrid::-webkit-scrollbar { display: none; }
+
+.epCard {
+  flex: 0 0 220px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  scroll-snap-align: start;
+  transition: transform var(--d-micro) var(--ease);
+}
+.epCard:hover { transform: translateY(-2px); }
+.epCard:focus { outline: none; }
+.epCard:focus-visible .epThumb {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--accent-glow);
+}
+
+.epThumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--r-ui);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+  transition: box-shadow var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
+}
+.epThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.epThumbNum {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.32);
+  letter-spacing: -0.02em;
+}
+
+.epCardActive .epThumb {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--accent-glow);
+}
+
+.epCurrentBadge {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--accent);
+  padding: 3px 7px;
+  border-radius: var(--r-ui);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.epLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+  min-width: 0;
+}
+
+.epNum {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-3);
+}
+
+.epTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epDuration {
+  font-size: 11px;
+  color: var(--t-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ====================================================================
    Responsive — Tablette portrait (641px – 900px)
    Marges réduites, capsule top compacte. Layout flat conservé.
    ==================================================================== */
@@ -869,6 +1044,15 @@
     gap: 16px;
   }
   .inlinePanelHoriz .inlinePanelHeader { margin-bottom: 0; }
+
+  /* ── Panneau Épisodes mobile : cartes plus petites, swipe natif ── */
+  .epPanel { gap: 12px; }
+  .epGrid { gap: 10px; padding: 4px 10px; }
+  .epCard { flex: 0 0 168px; width: 168px; }
+  .epTitle { font-size: 12px; }
+  .epNum { font-size: 9px; }
+  .epDuration { font-size: 10px; }
+  .epSeasonChip { padding: 8px 14px; font-size: 12px; }
 }
 
 /* ====================================================================

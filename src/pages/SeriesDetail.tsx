@@ -127,6 +127,16 @@ export function SeriesDetail() {
       poster: landscape,
       description: episode.info.plot,
       historyId,
+      // Contexte pour le panneau « Épisodes » du lecteur — Player re-fetch
+      // la SeriesInfo + stills TMDB à partir de seriesId. tmdbId propagé si
+      // déjà résolu ici (chemin rapide pour les stills).
+      seriesContext: {
+        seriesId,
+        title: displayTitle,
+        currentSeason: episode.season,
+        currentEpisodeNum: episode.episode_num,
+        tmdbId: tmdb?.tmdbId,
+      },
     };
     addToHistory({
       id: historyId,

@@ -171,6 +171,25 @@ export interface LiveChannelRef {
   stream_icon?: string;
 }
 
+// Contexte série pour le panneau « Épisodes » du lecteur. Posé par
+// SeriesDetail au moment du play (`handlePlayEpisode`) — Player re-fetch la
+// SeriesInfo et les stills TMDB pour la saison courante. On ne stocke ici que
+// le strict minimum (pas la liste d'épisodes) pour que la persistance
+// historique reste légère et que le panneau survive à un replay depuis
+// « Reprendre » sans re-passer par la fiche série.
+export interface SeriesContext {
+  seriesId: number;
+  // Titre nettoyé (pour reconstruire le `title` du nouveau PlayerState quand
+  // l'utilisateur sélectionne un autre épisode depuis le panneau).
+  title?: string;
+  currentSeason: number;
+  currentEpisodeNum: number;
+  // ID TMDB déjà résolu par la fiche série (chemin rapide pour les stills).
+  // Absent quand l'épisode est rejoué depuis l'historique « Reprendre » →
+  // Player retombe sur enrichSeries(cleanTitle, year).
+  tmdbId?: number;
+}
+
 export interface PlayerState {
   url: string;
   fallbackUrl?: string; // URL avec extension originale si m3u8 échoue
@@ -185,4 +204,6 @@ export interface PlayerState {
   // + index courant, pour permettre prev/next depuis le player.
   liveChannels?: LiveChannelRef[];
   liveIndex?: number;
+  // Épisode uniquement : déclenche le panneau « Épisodes » dans le lecteur.
+  seriesContext?: SeriesContext;
 }

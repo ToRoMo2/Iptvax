@@ -71,6 +71,18 @@
   z-index: 1;
 }
 
+/* Ken Burns subtil : le backdrop du slide actif zoome lentement de
+   scale(1) → scale(1.06) sur 9 s (légèrement plus long que le timer 7 s
+   pour ne pas avoir de retour brutal visible avant la transition d'opacity). */
+.heroSlide.heroSlideActive .heroBg {
+  animation: hero-ken 9s ease-out forwards;
+}
+
+@keyframes hero-ken {
+  from { transform: scale(1); }
+  to   { transform: scale(1.06); }
+}
+
 .heroOverlayBottom {
   position: absolute;
   left: 0;
@@ -241,29 +253,87 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Horizontal rail indicator — bottom right */
+/* Entrée staggered du contenu au changement de slide : eyebrow → title →
+   meta → desc → actions arrivent en fade-up séquentiel. `backwards` pour
+   appliquer l'état initial AVANT le délai (sinon flash à l'image 0). */
+.heroSlide.heroSlideActive .heroEyebrow,
+.heroSlide.heroSlideActive .heroTitle,
+.heroSlide.heroSlideActive .heroMeta,
+.heroSlide.heroSlideActive .heroDesc,
+.heroSlide.heroSlideActive .heroActions {
+  animation: hero-rise 0.55s var(--ease) backwards;
+}
+.heroSlide.heroSlideActive .heroEyebrow { animation-delay: 0ms; }
+.heroSlide.heroSlideActive .heroTitle   { animation-delay: 80ms; }
+.heroSlide.heroSlideActive .heroMeta    { animation-delay: 160ms; }
+.heroSlide.heroSlideActive .heroDesc    { animation-delay: 240ms; }
+.heroSlide.heroSlideActive .heroActions { animation-delay: 320ms; }
+
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Garde accessibilité : pas d'animations si l'utilisateur le demande.
+   La barre du dot actif retombe sur scaleX(1) (état par défaut) → barre
+   pleine blanche statique ; le Ken Burns et le stagger sont annulés. */
+@media (prefers-reduced-motion: reduce) {
+  .heroDotProgress,
+  .heroSlide.heroSlideActive .heroBg,
+  .heroSlide.heroSlideActive .heroEyebrow,
+  .heroSlide.heroSlideActive .heroTitle,
+  .heroSlide.heroSlideActive .heroMeta,
+  .heroSlide.heroSlideActive .heroDesc,
+  .heroSlide.heroSlideActive .heroActions {
+    animation: none;
+  }
+}
+
+/* Horizontal rail indicator — bottom right.
+   Dot inactif = barre fine translucide ; dot actif = barre allongée avec
+   un span enfant `.heroDotProgress` qui se remplit de 0 → 100 % sur 7 s
+   (synchro avec le timer auto-advance JS). React monte/démonte le span
+   au changement de heroIdx → restart d'animation garanti sans key. */
 .heroDots {
   position: absolute;
   right: 44px;
   bottom: 44px;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   z-index: 2;
 }
 
 .heroDot {
+  position: relative;
   width: 18px;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.2);
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
   border: none;
   cursor: pointer;
   padding: 0;
-  transition: background var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
+  overflow: hidden;
+  transition: width var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
 }
 
 .heroDotActive {
+  width: 36px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.heroDotProgress {
+  position: absolute;
+  inset: 0;
+  display: block;
   background: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+  transform-origin: left center;
+  animation: hero-progress 7s linear forwards;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+}
+
+@keyframes hero-progress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 /* ── Pastille reco sur le hero (coin haut-droit) ─────────────────────────
@@ -372,6 +442,13 @@
   margin-bottom: 24px;
 }
 
+.rowTitleGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
 .rowTitle {
   font-size: 20px;
   font-weight: 600;
@@ -379,6 +456,26 @@
   text-transform: uppercase;
   color: var(--t-3);
   margin: 0;
+}
+
+/* Divider fin + compteur d'items à côté du titre de rail.
+   Masqués sur ≤640px (densité mobile, l'utilisateur voit déjà le rail). */
+.rowDivider {
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: var(--line);
+  transform: translateY(-4px);
+  flex-shrink: 0;
+}
+
+.rowCount {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--t-3);
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
 .rowSeeAll {
@@ -543,13 +640,17 @@
   transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
 }
 
+/* Hover desktop / focus clavier : ring fin neutre + halo accent doux + ombre
+   portée. Plus discret que le ring blanc 2px d'origine (trop dur sur fond
+   OLED). Le focus télécommande (`.cardFocused`) conserve son ring accent
+   franc pour rester lisible à 3 m. */
 .card:hover,
 .card:focus-visible {
-  transform: scale(1.06);
+  transform: scale(1.04);
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.92),
-    0 0 32px rgba(0, 0, 0, 0.8),
-    0 0 24px rgba(255, 255, 255, 0.06);
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 20px 40px -16px rgba(0, 0, 0, 0.8),
+    0 0 32px var(--accent-glow);
   z-index: 5;
 }
 
@@ -888,7 +989,8 @@
   .heroContent { left: 28px; right: 28px; bottom: 28px; }
   .heroTitle { font-size: 38px; }
   .heroDesc { font-size: 14px; -webkit-line-clamp: 3; }
-  .heroDots { right: 28px; bottom: 28px; }
+  .heroDots { right: 28px; bottom: 28px; gap: 5px; }
+  .heroDotActive { width: 32px; }
   .heroNavPrev { left: 12px; }
   .heroNavNext { right: 12px; }
   .heroSkeleton {
@@ -957,8 +1059,9 @@
     flex: 1 1 auto;
     min-width: 0;
   }
-  .heroDots { right: 18px; bottom: 12px; gap: 3px; }
+  .heroDots { right: 18px; bottom: 12px; gap: 4px; }
   .heroDot { width: 14px; }
+  .heroDotActive { width: 28px; }
   .heroNav { width: 32px; height: 32px; }
   .heroNavPrev { left: 8px; }
   .heroNavNext { right: 8px; }
@@ -967,6 +1070,8 @@
   .rowHeader { margin-bottom: 14px; }
   .rowTitle { font-size: 14px; letter-spacing: 0.06em; }
   .rowSeeAll { font-size: 11px; }
+  /* Densité mobile : divider + count masqués (le rail parle déjà de lui-même). */
+  .rowDivider, .rowCount { display: none; }
   .rowRail { gap: 10px; padding: 20px var(--pad-edge); margin: -20px 0; }
 
   .cardWide { width: 200px; }

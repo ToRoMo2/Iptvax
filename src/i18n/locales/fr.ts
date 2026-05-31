@@ -226,6 +226,9 @@ const fr = {
     auto: 'Auto',
     quality: 'Qualité',
     fullscreen: 'Plein écran (F)',
+    episodes: 'Épisodes',
+    nowPlaying: 'En cours',
+    episodesLoading: 'Chargement des épisodes…',
   },
   search: {
     title: 'Recherche',
