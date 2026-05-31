@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="%BASE_URL%logo.png" />
     <link rel="apple-touch-icon" href="%BASE_URL%logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover : sur Android 15 (targetSdk 35) le WebView est forcé
+         edge-to-edge (dessine SOUS la barre de statut). Sans cover, env(safe-area-
+         inset-*) reste à 0 → le header de l'app passe sous l'heure/batterie. Avec
+         cover, --safe-top/--safe-bottom reflètent les barres système. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
     <title>Iptvax — Votre IPTV moderne, multi-plateforme</title>
     <meta name="description" content="Iptvax : un client IPTV moderne pour téléphone, ordinateur et TV. Compatible Xtream Codes, sans publicité, avec favoris et historique synchronisés." />

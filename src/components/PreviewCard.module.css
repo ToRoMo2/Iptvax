@@ -289,15 +289,17 @@
 }
 
 @media (max-width: 640px) {
-  .info { padding: 6px 2px 0; }
-  .cardTitle { font-size: 11px; line-height: 1.25; }
-  .cardMeta { font-size: 10px; margin-top: 2px; }
-  .phName { font-size: 11px; }
-  .fav { opacity: 1; width: 24px; height: 24px; font-size: 11px; top: 6px; right: 6px; }
+  /* Grille 2 colonnes (§IV-20) → cartes larges : on remonte la taille du texte
+     et de l'étoile favori (zone tactile) par rapport à l'ancienne grille 3 col. */
+  .info { padding: 10px 4px 0; }
+  .cardTitle { font-size: 13px; line-height: 1.3; }
+  .cardMeta { font-size: 11px; margin-top: 3px; }
+  .phName { font-size: 14px; }
+  .fav { opacity: 1; width: 30px; height: 30px; font-size: 13px; top: 8px; right: 8px; }
   .cellFocused .card, .card:focus-visible { transform: none; }
 }
 
 @media (max-width: 380px) {
-  .cardTitle { font-size: 10px; }
-  .cardMeta { font-size: 9px; }
+  .cardTitle { font-size: 12px; }
+  .cardMeta { font-size: 10px; }
 }

@@ -201,17 +201,18 @@
   .search { font-size: 14px; }
   .searchBadge { font-size: 11px; padding: 3px 9px; }
 
-  /* Films / Séries : 3 par ligne — pattern Netflix mobile, posters lisibles */
-  .gridPoster { grid-template-columns: repeat(3, 1fr); }
-  .gridLoading { grid-template-columns: repeat(3, 1fr); }
+  /* Films / Séries : 2 par ligne (garde-fou §IV-20) → posters larges et
+     tactiles, lisibles au pouce, plutôt qu'une grille desktop rétrécie. */
+  .gridPoster { grid-template-columns: repeat(2, 1fr); }
+  .gridLoading { grid-template-columns: repeat(2, 1fr); }
   /* Chaînes : 2 par ligne strict, adapte la taille à l'écran */
   .gridChannel { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 14px 10px; }
+  .grid { gap: 18px 14px; }
 }
 
 @media (max-width: 380px) {
-  .gridPoster { grid-template-columns: repeat(3, 1fr); }
-  .gridLoading { grid-template-columns: repeat(3, 1fr); }
+  .gridPoster { grid-template-columns: repeat(2, 1fr); }
+  .gridLoading { grid-template-columns: repeat(2, 1fr); }
   .gridChannel { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 12px 8px; }
+  .grid { gap: 14px 12px; }
 }

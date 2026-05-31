@@ -1026,18 +1026,22 @@
   .recoBadgeDesc { font-size: 12px; }
   .recoBadgeCta { font-size: 11px; margin-left: auto; }
 
+  /* Hero portrait 3/4 MAIS capé à 52vh : sur un téléphone, un 3/4 plein largeur
+     remplit quasi tout l'écran (≈480px sur 360px de large) et masque les rails.
+     Le cap vh garantit que le premier rail dépasse toujours (pattern Netflix
+     mobile : le hero « peek » la rangée du dessous). */
   .hero {
     height: auto;
     min-height: 0;
     aspect-ratio: 3 / 4;
-    max-height: 640px;
+    max-height: 52vh;
     margin: calc(var(--topnav-h) + 8px) auto 24px;
     width: calc(100% - var(--pad-edge) * 2);
     border-radius: 10px;
   }
   .heroSkeleton {
     height: auto; min-height: 0;
-    aspect-ratio: 3 / 4; max-height: 640px;
+    aspect-ratio: 3 / 4; max-height: 52vh;
     margin: calc(var(--topnav-h) + 8px) auto 24px;
     width: calc(100% - var(--pad-edge) * 2);
     border-radius: 10px;

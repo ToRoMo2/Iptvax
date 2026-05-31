@@ -6,7 +6,9 @@
 /* ---- Brand — fixed left ------------------------------------------- */
 .brand-fixed {
   position: fixed;
-  top: 18px;
+  /* + var(--safe-top) : dégage la barre de statut sur natif Android edge-to-edge
+     (env=0 sur web → top: 18px inchangé). */
+  top: calc(18px + var(--safe-top));
   left: 28px;
   z-index: 40;
   display: flex;
@@ -33,7 +35,7 @@
 /* ---- Navbar capsule (centered) ------------------------------------ */
 .topnav {
   position: fixed;
-  top: 18px;
+  top: calc(18px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
@@ -187,7 +189,7 @@
 /* ---- Profil — fixed right ---------------------------------------- */
 .profile-fixed {
   position: fixed;
-  top: 18px;
+  top: calc(18px + var(--safe-top));
   right: 28px;
   z-index: 40;
   display: flex;
@@ -319,12 +321,26 @@
   /* ── Cacher la capsule top sur mobile ─────────────────────────────── */
   .topnav { display: none; }
 
-  /* ── Brand + profil restent en haut, profil un peu plus à gauche pour
-        laisser place au bouton recherche. ────────────────────────────── */
-  .brand-fixed { top: 12px; left: 12px; gap: 6px; height: 40px; }
+  /* ── Brand : capsule glass solide (cohérente avec recherche/profil) plutôt
+        qu'un logo flottant nu. Posée sous la barre de statut via --safe-top. ── */
+  .brand-fixed {
+    top: calc(12px + var(--safe-top));
+    left: 12px;
+    gap: 0;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(8, 8, 8, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: saturate(160%) blur(24px);
+    -webkit-backdrop-filter: saturate(160%) blur(24px);
+  }
   .brand-fixed .brand-name { display: none; }
 
-  .profile-fixed { top: 12px; right: 12px; height: 40px; }
+  .profile-fixed { top: calc(12px + var(--safe-top)); right: 12px; height: 40px; }
   .profile-fixed .profile { padding: 3px 4px; }
   .profile-fixed .profile .avatar-btn { width: 30px; height: 30px; }
   .profile-fixed .profile:hover .who,
@@ -335,7 +351,7 @@
     display: grid;
     place-items: center;
     position: fixed;
-    top: 12px;
+    top: calc(12px + var(--safe-top));
     right: 64px;
     z-index: 40;
     width: 38px;
@@ -419,14 +435,14 @@
    Tablette portrait (641px – 900px) : capsule top conservée, juste compactée
    ==================================================================== */
 @media (max-width: 900px) and (min-width: 641px) {
-  .brand-fixed { top: 14px; left: 16px; height: 44px; gap: 8px; }
+  .brand-fixed { top: calc(14px + var(--safe-top)); left: 16px; height: 44px; gap: 8px; }
   .brand-fixed .brand-name { font-size: 11px; letter-spacing: 0.18em; }
 
-  .profile-fixed { top: 14px; right: 16px; height: 44px; }
+  .profile-fixed { top: calc(14px + var(--safe-top)); right: 16px; height: 44px; }
   .profile-fixed .profile { padding: 3px 4px; }
   .profile-fixed .profile .avatar-btn { width: 28px; height: 28px; }
 
-  .topnav { top: 14px; height: 44px; padding: 3px 5px; }
+  .topnav { top: calc(14px + var(--safe-top)); height: 44px; padding: 3px 5px; }
   .topnav .link { height: 36px; padding: 0 9px; }
   .topnav .link .ic,
   .topnav .link .ic svg { width: 17px; height: 17px; }

@@ -13,6 +13,10 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  /* Le défilement horizontal des catégories ne doit pas « déborder » sur la page
+     (sensation de scroll X parasite sur mobile) ni déclencher le swipe-back. */
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
   flex: 1;
@@ -100,19 +104,20 @@
 
 @media (max-width: 640px) {
   .outer { padding: 0 0 16px; }
-  .rail { gap: 6px; }
-  /* Pills compactes avec ellipsis sur les très longs libellés
-     (« FR| A l'affiche HD », etc.) — sinon ils prennent tout l'écran */
+  .rail { gap: 8px; }
+  /* Pills à hauteur tactile (≈38px, zone de tap confortable au pouce ≥ Material/
+     HIG) avec ellipsis sur les très longs libellés (« FR| A l'affiche HD »…)
+     pour ne pas qu'un nom prenne tout l'écran. */
   .pill {
-    height: 30px;
-    padding: 0 12px;
-    font-size: 12px;
-    max-width: 160px;
+    height: 38px;
+    padding: 0 16px;
+    font-size: 13px;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     display: inline-block;
-    line-height: 28px;
+    line-height: 36px;
   }
   .arrow { display: none; }
 }

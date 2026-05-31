@@ -273,7 +273,9 @@ button:focus-visible,
   :root {
     --pad-edge: 28px;
     --row-gap: 44px;
-    --topnav-h: 76px;
+    /* + --safe-top : sur natif Android edge-to-edge, le contenu des pages doit
+       dégager la barre de statut (env=0 sur web → aucun impact). */
+    --topnav-h: calc(76px + var(--safe-top));
   }
   html, body, #root { font-size: 15px; }
 }
@@ -282,7 +284,7 @@ button:focus-visible,
   :root {
     --pad-edge: 16px;
     --row-gap: 32px;
-    --topnav-h: 72px;
+    --topnav-h: calc(72px + var(--safe-top));
     /* Hauteur réservée pour la bottom nav fixe (mobile uniquement) */
     --bottomnav-h: calc(64px + var(--safe-bottom));
   }
