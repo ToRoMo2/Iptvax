@@ -55,6 +55,19 @@ public class VlcPlayerPlugin extends Plugin {
     private int previousOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
     private boolean orientationForced = false;
 
+    // ── Style des sous-titres (rendus par libVLC, pas l'overlay React) ──────────
+    private String currentUrl = null;
+    private int subScale = 100;          // sub-text-scale (%)
+    private long subColor = 0xFFFFFF;    // freetype-color (RGB)
+    private int subBgOpacity = 0;        // freetype-background-opacity (0-255)
+    // Marge fixe pour remonter les sous-titres au-dessus de la barre de contrôles.
+    // ⚠ Valeur à ajuster sur device : le sens/échelle de sub-margin dépend du vout.
+    private static final int SUB_MARGIN = 60;
+    // Après un reload (changement de style), on réapplique les pistes choisies.
+    private boolean restoreTracksPending = false;
+    private int pendingAudioId = -999;
+    private int pendingSpuId = -999;
+
     // ── Cycle de vie du moteur ────────────────────────────────────────────────
 
     private void ensurePlayer() {
@@ -85,6 +98,33 @@ public class VlcPlayerPlugin extends Plugin {
 
     // ── Méthodes exposées au JS ───────────────────────────────────────────────
 
+    /**
+     * Construit un Media avec les options de style des sous-titres (et,
+     * optionnellement, une position de départ pour un reload sans coupure).
+     */
+    private Media buildMedia(String url, long startTimeMs) {
+        Media media = new Media(libVLC, Uri.parse(url));
+        media.setHWDecoderEnabled(true, false);
+        media.addOption(":sub-text-scale=" + subScale);
+        media.addOption(":freetype-color=" + subColor);
+        media.addOption(":freetype-background-opacity=" + subBgOpacity);
+        media.addOption(":freetype-background-color=0");
+        media.addOption(":sub-margin=" + SUB_MARGIN);
+        if (startTimeMs > 0) {
+            media.addOption(":start-time=" + (startTimeMs / 1000.0));
+        }
+        return media;
+    }
+
+    /** Lit les options de style depuis l'appel JS (si présentes). */
+    private void readSubStyle(PluginCall call) {
+        JSObject style = call.getObject("subStyle");
+        if (style == null) return;
+        subScale = style.optInt("scale", subScale);
+        subColor = style.optLong("color", subColor);
+        subBgOpacity = style.optInt("bgOpacity", subBgOpacity);
+    }
+
     @PluginMethod
     public void load(final PluginCall call) {
         final String url = call.getString("url");
@@ -92,11 +132,14 @@ public class VlcPlayerPlugin extends Plugin {
             call.reject("url manquante");
             return;
         }
+        readSubStyle(call);
         getActivity().runOnUiThread(() -> {
             try {
                 Log.d(TAG, "load: " + url);
                 ensurePlayer();
                 hasPlayed = false;
+                currentUrl = url;
+                restoreTracksPending = false;
 
                 // Force le paysage le temps de la lecture (restauré dans stop()).
                 if (!orientationForced) {
@@ -122,8 +165,7 @@ public class VlcPlayerPlugin extends Plugin {
                 videoLayout.setVisibility(View.VISIBLE);
 
                 mediaPlayer.stop();
-                Media media = new Media(libVLC, Uri.parse(url));
-                media.setHWDecoderEnabled(true, false);
+                Media media = buildMedia(url, 0);
                 mediaPlayer.setMedia(media);
                 media.release();
                 mediaPlayer.play();
@@ -240,6 +282,26 @@ public class VlcPlayerPlugin extends Plugin {
         });
     }
 
+    @PluginMethod
+    public void setSubtitleStyle(final PluginCall call) {
+        readSubStyle(call);
+        getActivity().runOnUiThread(() -> {
+            if (mediaPlayer == null || currentUrl == null) { call.resolve(); return; }
+            // libVLC 3.x ne restyle pas à chaud → recharge le média au même
+            // point avec les nouvelles options, en préservant les pistes.
+            long time = mediaPlayer.getTime();
+            pendingAudioId = mediaPlayer.getAudioTrack();
+            pendingSpuId = mediaPlayer.getSpuTrack();
+            restoreTracksPending = true;
+            mediaPlayer.stop();
+            Media media = buildMedia(currentUrl, time);
+            mediaPlayer.setMedia(media);
+            media.release();
+            mediaPlayer.play();
+            call.resolve();
+        });
+    }
+
     // ── Évènements libVLC → JS ────────────────────────────────────────────────
 
     private void onVlcEvent(MediaPlayer.Event event) {
@@ -256,6 +318,12 @@ public class VlcPlayerPlugin extends Plugin {
                 break;
             case MediaPlayer.Event.Playing:
                 hasPlayed = true;
+                // Après un reload de restyle : réapplique les pistes choisies.
+                if (restoreTracksPending && mediaPlayer != null) {
+                    restoreTracksPending = false;
+                    if (pendingAudioId != -999) mediaPlayer.setAudioTrack(pendingAudioId);
+                    if (pendingSpuId != -999) mediaPlayer.setSpuTrack(pendingSpuId);
+                }
                 emitState("playing", null);
                 emitTracks();
                 break;
@@ -335,6 +403,20 @@ public class VlcPlayerPlugin extends Plugin {
             }
         }
         return array;
+    }
+
+    /**
+     * Mise en arrière-plan (écran éteint, retour accueil, app switcher) : on met
+     * la lecture en pause pour couper le son et figer la vidéo. libVLC émet
+     * l'évènement Paused → l'UI React affiche le bouton lecture. L'utilisateur
+     * reprend manuellement au retour (pas de reprise auto).
+     */
+    @Override
+    protected void handleOnPause() {
+        super.handleOnPause();
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+        }
     }
 
     @Override

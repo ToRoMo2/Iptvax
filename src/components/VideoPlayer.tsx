@@ -110,6 +110,15 @@ const SUB_BG_CSS: Record<SubBg, string> = {
 const SUB_OUTLINE = '-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 6px rgba(0,0,0,0.55)';
 const SUB_SOFT_SHADOW = '0 1px 3px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.6)';
 
+// ── Mapping prefs → options libVLC (sous-titres rendus NATIVEMENT sur Android).
+// libVLC ne rend pas l'overlay React ; on lui passe le style via media options
+// (sub-text-scale en %, freetype-color en RGB entier, background-opacity 0-255).
+const NATIVE_SUB_SCALE: Record<SubSize, number> = { sm: 70, md: 100, lg: 145, xl: 195 };
+const NATIVE_SUB_COLOR: Record<SubColor, number> = {
+  white: 0xffffff, yellow: 0xffe066, cyan: 0x00d4ff, green: 0x7eff7e,
+};
+const NATIVE_SUB_BG_OPACITY: Record<SubBg, number> = { none: 0, semi: 160, solid: 235 };
+
 export function VideoPlayer({
   url,
   title,
@@ -147,9 +156,22 @@ export function VideoPlayer({
   // - webOS (LG TV)       → <video> HTML5 + hls.js / Media Pipeline luna://
   // - Tizen (Samsung TV)  → AVPlay derrière la WebView (surface transparente)
   // - web (et Electron, Option B) → ffmpeg via /api/* (path historique)
+  // Sous-titres : préférences visuelles persistées dans localStorage. Déclarées
+  // AVANT le hook player pour pouvoir passer le style aux sous-titres natifs
+  // (libVLC les rend lui-même sur Android → media options au chargement).
+  const initialPrefs = loadSubPrefs();
+  const [subSize, setSubSize] = useState<SubSize>(initialPrefs.size);
+  const [subBg, setSubBg] = useState<SubBg>(initialPrefs.bg);
+  const [subColor, setSubColor] = useState<SubColor>(initialPrefs.color);
+  const nativeSubStyle = {
+    scale: NATIVE_SUB_SCALE[subSize],
+    color: NATIVE_SUB_COLOR[subColor],
+    bgOpacity: NATIVE_SUB_BG_OPACITY[subBg],
+  };
+
   /* eslint-disable react-hooks/rules-of-hooks */
   const player: WebPlayerController = isCapacitor
-    ? useNativePlayer(url, mediaUrl)
+    ? useNativePlayer(url, mediaUrl, nativeSubStyle)
     : isWebOS
       ? useWebOSPlayer(url, mediaUrl)
       : isTizen
@@ -253,11 +275,6 @@ export function VideoPlayer({
     else grid.scrollLeft = 0;
   }, [panelKind, selectedSeason, episodesBySeason, stillsBySeason]);
 
-  // Sous-titres : préférences visuelles persistées dans localStorage
-  const initialPrefs = loadSubPrefs();
-  const [subSize, setSubSize] = useState<SubSize>(initialPrefs.size);
-  const [subBg, setSubBg] = useState<SubBg>(initialPrefs.bg);
-  const [subColor, setSubColor] = useState<SubColor>(initialPrefs.color);
   const subtitleText = player.subtitleText;
 
   // Sauvegarde automatique des préférences à chaque changement

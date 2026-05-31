@@ -6,6 +6,7 @@ import {
   type VlcStateEvent,
   type VlcTimeEvent,
   type VlcTracksEvent,
+  type VlcSubtitleStyle,
 } from '../native/vlcPlayer';
 import type { PluginListenerHandle } from '@capacitor/core';
 
@@ -26,9 +27,16 @@ import type { PluginListenerHandle } from '@capacitor/core';
  * `usePlayer` ; `videoRef` n'est rattaché à aucun élément en natif (la vidéo
  * vit dans une surface native), `wrapperRef` reste utilisé par le conteneur.
  */
-export function useNativePlayer(url: string | null, _mediaUrl?: string | null): WebPlayerController {
+export function useNativePlayer(
+  url: string | null,
+  _mediaUrl?: string | null,
+  subStyle?: VlcSubtitleStyle,
+): WebPlayerController {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Style courant lu au chargement sans relancer l'effet de load.
+  const subStyleRef = useRef(subStyle);
+  subStyleRef.current = subStyle;
 
   const [status, setStatus] = useState<PlayerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +141,7 @@ export function useNativePlayer(url: string | null, _mediaUrl?: string | null): 
     setCurrentSubtitle(-1);
     audioIdsRef.current = [];
     subIdsRef.current = [];
-    VlcPlayer.load({ url }).catch((e) => {
+    VlcPlayer.load({ url, subStyle: subStyleRef.current }).catch((e) => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Échec du chargement');
     });
@@ -143,6 +151,19 @@ export function useNativePlayer(url: string | null, _mediaUrl?: string | null): 
   useEffect(() => {
     return () => { VlcPlayer.stop().catch(() => {}); };
   }, []);
+
+  // ── Restyle des sous-titres à chaud ───────────────────────────────────────
+  // libVLC 3.x ne peut pas restyler en cours de lecture → setSubtitleStyle
+  // recharge le média à la position courante (pistes préservées côté natif).
+  // On saute le 1er run (le style est déjà passé au load initial).
+  const subStyleFirstRun = useRef(true);
+  useEffect(() => {
+    if (subStyleFirstRun.current) { subStyleFirstRun.current = false; return; }
+    if (!subStyle) return;
+    if (statusRef.current !== 'playing' && statusRef.current !== 'paused') return;
+    VlcPlayer.setSubtitleStyle(subStyle).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subStyle?.scale, subStyle?.color, subStyle?.bgOpacity]);
 
   // ── Contrôles ─────────────────────────────────────────────────────────────
   const toggle = useCallback(() => {
@@ -204,7 +225,7 @@ export function useNativePlayer(url: string | null, _mediaUrl?: string | null): 
     if (!u) return;
     setStatus('loading');
     setError(null);
-    VlcPlayer.load({ url: u }).catch((e) => {
+    VlcPlayer.load({ url: u, subStyle: subStyleRef.current }).catch((e) => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Échec du chargement');
     });
