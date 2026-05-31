@@ -1,8 +1,7 @@
 package com.iptvax.app;
 
-import android.content.ContentObserver;
+import android.database.ContentObserver;
 import android.media.AudioManager;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
