@@ -33,3 +33,6 @@ release
 *.keystore
 *.jks
 key.properties
+
+# Réglages LOCAUX Claude Code (peuvent contenir des commandes avec secrets)
+.claude/settings.local.json
