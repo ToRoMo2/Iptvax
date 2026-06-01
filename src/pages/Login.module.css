@@ -129,6 +129,24 @@
 .socialBtn:active {
   transform: translateY(1px);
 }
+.socialBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.socialBtn:disabled:hover {
+  background: var(--bg-1);
+  border-color: var(--line);
+}
+/* Badge « À venir » sur un bouton social désactivé. */
+.soon {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--t-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
 .socialBtn:focus-visible {
   outline: none;
   border-color: var(--accent);
@@ -181,6 +199,37 @@
               background var(--d-micro) var(--ease);
 }
 .field input::placeholder { color: var(--t-4); }
+
+/* ── Champ mot de passe avec œil afficher/masquer ─────────────────────────── */
+.pwdWrap {
+  position: relative;
+}
+/* Place pour le bouton œil → l'input ne passe pas sous l'icône. */
+.pwdWrap input {
+  padding-right: 48px;
+}
+.pwdToggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--t-3);
+  cursor: pointer;
+  transition: color var(--d-micro) var(--ease);
+}
+.pwdToggle:hover { color: var(--t-1); }
+.pwdToggle:focus-visible {
+  outline: none;
+  color: var(--accent);
+}
 .field:focus-within .fieldLabel { color: var(--accent); }
 /* Même langage visuel que la barre de recherche : bordure accent + halo cyan. */
 .field input:focus {
