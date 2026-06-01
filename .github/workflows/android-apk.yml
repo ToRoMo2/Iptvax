@@ -1,0 +1,92 @@
+# Build automatique d'un APK Android (debug) à chaque push sur `main`,
+# et publication dans une GitHub Release "android-latest" téléchargeable
+# directement depuis le navigateur du téléphone (sans PC, sans Android Studio).
+#
+# But : permettre de continuer à debugger l'app Android à distance.
+#   1. Claude / toi pousse du code sur `main` (ou déclenche manuellement).
+#   2. Ce workflow build l'APK dans le cloud (Node + JDK + Android SDK).
+#   3. L'APK atterrit dans la Release "android-latest" (lien direct stable).
+#   4. Sur le téléphone : ouvrir la Release → télécharger l'APK → installer.
+#
+# ── Secrets à configurer (Settings → Secrets and variables → Actions) ──
+# Ces variables VITE_* sont INLINÉES dans le bundle au build (cf. CLAUDE.md §X) :
+#   - VITE_SUPABASE_URL       : URL du projet Supabase
+#   - VITE_SUPABASE_ANON_KEY  : clé anon Supabase
+#   - VITE_TMDB_API_KEY       : clé TMDB v3 (facultatif — vide = dégradation gracieuse)
+#   - VITE_WEB_URL            : URL publique de la vitrine (https://iptvax.com),
+#                               OBLIGATOIRE pour les builds natifs (appairage TV, retour Premium)
+# Sans ces secrets, le build passe mais l'app native ne pourra pas joindre Supabase.
+#
+# APK DEBUG : signé avec la clé debug auto-générée par Gradle (pas besoin du
+# keystore release). Installable sur le téléphone après avoir autorisé les
+# "sources inconnues" pour le navigateur. Suffisant pour du debug visuel.
+
+name: Build Android APK (debug)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Annule un build APK en cours si un nouveau push arrive (économise les minutes CI).
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      # Nécessaire pour créer/mettre à jour la Release "android-latest".
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle (Capacitor runtime)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_TMDB_API_KEY: ${{ secrets.VITE_TMDB_API_KEY }}
+          VITE_WEB_URL: ${{ secrets.VITE_WEB_URL }}
+        run: npm run build:capacitor
+
+      - name: Capacitor sync (Android)
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: android
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk iptvax-debug.apk
+
+      - name: Publish to GitHub Release (android-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Android APK (debug — dernier build)
+          body: |
+            APK debug reconstruit automatiquement depuis `main`.
+            Commit : ${{ github.sha }}
+            Build : ${{ github.run_number }} — ${{ github.event.head_commit.message }}
+          prerelease: true
+          files: iptvax-debug.apk
