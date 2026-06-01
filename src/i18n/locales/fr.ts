@@ -235,6 +235,9 @@ const fr = {
     episodes: 'Épisodes',
     nowPlaying: 'En cours',
     episodesLoading: 'Chargement des épisodes…',
+    channelsTab: 'Chaînes',
+    programTab: 'Programme',
+    chooseChannelQuality: 'Choisir la qualité',
   },
   search: {
     title: 'Recherche',

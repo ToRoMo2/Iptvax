@@ -259,12 +259,22 @@
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  overflow-y: visible;
+  /* ⚠ NE PAS mettre `overflow-y: visible` : avec `overflow-x: auto`, la spec CSS
+     le recalcule en `auto` → le rail devient AUSSI un conteneur de scroll
+     vertical. Les posters (aspect-ratio 2/3 + titre de hauteur variable)
+     débordent d'un sous-pixel → un mini scroll vertical capte le swipe
+     descendant fait sur un poster et bloque le scroll de page. `hidden`
+     supprime ce conteneur vertical : le rail ne défile qu'à l'horizontale et
+     les gestes verticaux remontent à la page. (NE PAS utiliser `touch-action:
+     pan-x` : il désactive le pan vertical sur toute la zone → impossible de
+     scroller la page le doigt posé sur un poster.) Le padding vertical élargi
+     laisse respirer le `scale(1.06)` au survol desktop sans le rogner. */
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
-  padding: 4px var(--pad-edge);
+  padding: 12px var(--pad-edge);
 }
 .shelfRail::-webkit-scrollbar { display: none; }
 /* ⚠ flex-shrink: 0 obligatoire : le titre des cartes est en `nowrap`, donc

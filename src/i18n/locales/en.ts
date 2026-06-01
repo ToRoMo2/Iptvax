@@ -233,6 +233,9 @@ const en: typeof frDict = {
     episodes: 'Episodes',
     nowPlaying: 'Now playing',
     episodesLoading: 'Loading episodes…',
+    channelsTab: 'Channels',
+    programTab: 'Programme',
+    chooseChannelQuality: 'Choose quality',
   },
   search: {
     title: 'Search',

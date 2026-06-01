@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
 import { useNativePlayer } from '../hooks/useNativePlayer';
 import { useWebOSPlayer } from '../hooks/useWebOSPlayer';
@@ -17,9 +17,11 @@ import {
   IconEpisodes, IconSun,
 } from './PlayerIcons';
 import { useI18n } from '../contexts/I18nContext';
-import type { Episode } from '../types/xtream.types';
+import type { Episode, LiveChannelRef } from '../types/xtream.types';
 import type { TmdbEpisodeStills } from '../types/tmdb.types';
 import type { EpgRow } from '../utils/epg';
+import { qualityLabel } from '../utils/catalog';
+import { channelCode } from '../utils/channel';
 import styles from './VideoPlayer.module.css';
 
 interface Props {
@@ -42,6 +44,16 @@ interface Props {
   onPrevChannel?: () => void;
   onNextChannel?: () => void;
   channelPosition?: string;
+  // ── Zapper live (catalogue navigable par catégorie dans l'overlay) ────────
+  // Catalogue complet (catégories + chaînes regroupées par titre avec variantes
+  // de qualité), construit côté Player. Permet un rail de zapping + une rangée
+  // de catégories cliquables. `liveCurrentCategoryId`/`liveCurrentStreamId`
+  // localisent la chaîne en cours (surlignage). `onPlayChannel(catId, index)`
+  // demande la lecture ; le variant optionnel vient du bottom-sheet de qualité.
+  liveCatalog?: { id: string; name: string; channels: LiveChannelRef[] }[];
+  liveCurrentCategoryId?: string;
+  liveCurrentStreamId?: number;
+  onPlayChannel?: (categoryId: string, index: number, variant?: { stream_id: number; name: string }) => void;
   // Programme EPG de la chaîne live courante (affiché en bande basse de
   // l'overlay). Vide / absent → aucune bande. Strictement additif.
   liveEpg?: EpgRow[];
@@ -135,6 +147,10 @@ export function VideoPlayer({
   onPrevChannel,
   onNextChannel,
   channelPosition,
+  liveCatalog,
+  liveCurrentCategoryId,
+  liveCurrentStreamId,
+  onPlayChannel,
   liveEpg,
   resume,
   onPersist,
@@ -200,6 +216,15 @@ export function VideoPlayer({
   // null = contrôles classiques affichés ; sinon le panneau prend la place et
   // le lecteur est mis en pause automatiquement (cf. pausedByPanelRef).
   const [panelKind, setPanelKind] = useState<'audio' | 'subtitles' | 'quality' | 'episodes' | null>(null);
+  // Zapper live : vue de la bande basse ('channels' = liste des chaînes, défaut ;
+  // 'epg' = programme de la chaîne courante). Catégorie sélectionnée dans le
+  // zapper (null = suit la catégorie en cours de lecture). Chaîne dont le
+  // bottom-sheet de qualité est ouvert (null = fermé).
+  const [liveBottomView, setLiveBottomView] = useState<'channels' | 'epg'>('channels');
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [qualityPick, setQualityPick] = useState<{ catId: string; index: number } | null>(null);
+  const channelRailRef = useRef<HTMLDivElement>(null);
+  const catTabsRef = useRef<HTMLDivElement>(null);
   // Vue active dans le panneau sous-titres : 'tracks' (pistes + bouton
   // Personnaliser) ou 'customize' (aperçu live + chips Taille/Couleur/Fond).
   const [subView, setSubView] = useState<'tracks' | 'customize'>('tracks');
@@ -291,6 +316,52 @@ export function VideoPlayer({
   const isLoading = player.status === 'loading' || player.status === 'buffering';
   const hasError = player.status === 'error';
   const isPlaying = player.status === 'playing';
+
+  // ── Zapper live : bande basse à deux vues (chaînes / programme) ───────────
+  // Le zapper s'affiche dès qu'on a un catalogue navigable + un sélecteur. Le
+  // toggle n'apparaît que si les DEUX vues ont du contenu ; sinon on montre
+  // directement la seule disponible (strictement additif).
+  const hasZapper = !!(isLive && onPlayChannel && liveCatalog && liveCatalog.length > 0);
+  const hasLiveEpg = !!(isLive && liveEpg && liveEpg.length > 0);
+  const liveStripView: 'channels' | 'epg' = hasZapper
+    ? (hasLiveEpg ? liveBottomView : 'channels')
+    : 'epg';
+  // Catégorie active du zapper : choix explicite de l'utilisateur, sinon suit la
+  // catégorie en cours de lecture, sinon la première du catalogue.
+  const activeCatId = selectedCatId ?? liveCurrentCategoryId ?? liveCatalog?.[0]?.id;
+  const activeCat = liveCatalog?.find((c) => c.id === activeCatId);
+  const railChannels = useMemo(() => activeCat?.channels ?? [], [activeCat]);
+
+  // Tap sur une chaîne du zapper : sélecteur de qualité si ≥ 2 variantes,
+  // sinon lecture directe de la meilleure qualité (primary).
+  const handleChannelTap = useCallback(
+    (index: number) => {
+      if (!activeCatId || !onPlayChannel) return;
+      const ch = railChannels[index];
+      if (!ch) return;
+      if (ch.variants && ch.variants.length > 1) setQualityPick({ catId: activeCatId, index });
+      else onPlayChannel(activeCatId, index);
+    },
+    [activeCatId, railChannels, onPlayChannel],
+  );
+
+  // Centre la chaîne courante (ou le début) dans le rail à l'ouverture / au
+  // changement de catégorie ou de chaîne.
+  useEffect(() => {
+    if (!hasZapper || liveStripView !== 'channels' || !controlsVisible) return;
+    const rail = channelRailRef.current;
+    if (!rail) return;
+    const cur = rail.querySelector('[data-current="true"]') as HTMLElement | null;
+    if (cur) cur.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+    else rail.scrollLeft = 0;
+  }, [hasZapper, liveStripView, activeCatId, liveCurrentStreamId, controlsVisible]);
+
+  // Centre la catégorie active dans la rangée d'onglets à l'ouverture.
+  useEffect(() => {
+    if (!hasZapper || liveStripView !== 'channels' || !controlsVisible) return;
+    const cur = catTabsRef.current?.querySelector('[data-active="true"]') as HTMLElement | null;
+    cur?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+  }, [hasZapper, liveStripView, activeCatId, controlsVisible]);
 
   // Basculement automatique sur le fallback dès qu'une erreur fatale survient
   // (ex : serveur ne supporte pas HLS pour ce contenu → passe au fichier direct)
@@ -440,6 +511,22 @@ export function VideoPlayer({
       }, 320);
     }
   }, [panelKind, closePanel, isLive, player, resetHideTimer]);
+
+  // Tap sur une zone VIDE de l'overlay (fond du dégradé, bande basse, EPG…) →
+  // masque l'overlay, comme un tap sur la surface vidéo. Indispensable quand la
+  // bande basse (zapper + catégories) est haute : elle recouvre la zone que
+  // l'utilisateur touche pour fermer, et seul `resetHideTimer` se déclenchait.
+  // Les contrôles interactifs (boutons / inputs / sheet) stoppent déjà la
+  // propagation ou sont filtrés par `closest(...)` → seuls les fonds remontent.
+  const handleOverlayBackgroundClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = e.target as HTMLElement;
+    if (el.closest('button, input, [role="dialog"]')) return;
+    if (controlsVisibleRef.current) {
+      setControlsVisible(false);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    }
+  }, []);
 
   // Marque qu'un toucher vient d'avoir lieu (n'importe où dans le lecteur —
   // les events touch bubblent jusqu'au wrapper). Sert à NEUTRALISER les events
@@ -873,7 +960,7 @@ export function VideoPlayer({
           CSS : display:none sur desktop, display:flex sur ≤640px ou landscape.
           ─────────────────────────────────────────────────────────────────── */}
       {!tvMode && showControls && panelKind === null && (
-        <div className={styles.mobileCenterControls} onClick={(e) => e.stopPropagation()} onTouchStart={resetHideTimer}>
+        <div className={`${styles.mobileCenterControls} ${isLive ? styles.mobileCenterControlsLive : ''}`} onClick={(e) => e.stopPropagation()} onTouchStart={resetHideTimer}>
 
           {/* Slider luminosité — gauche */}
           <div
@@ -977,7 +1064,7 @@ export function VideoPlayer({
 
       {/* Overlay contrôles souris/tactile — masqué sur TV. */}
       {!tvMode && (
-      <div className={styles.controls} onClick={(e) => e.stopPropagation()} onTouchStart={resetHideTimer}>
+      <div className={styles.controls} onClick={handleOverlayBackgroundClick} onTouchStart={resetHideTimer}>
 
         {/* Barre du haut */}
         <div className={styles.topBar}>
@@ -1431,32 +1518,145 @@ export function VideoPlayer({
             </div>
           )}
 
-          {/* Bande EPG live — pleine largeur en bas de l'overlay. Programme par
-              créneau horaire, le programme en cours mis en avant. */}
-          {isLive && panelKind === null && liveEpg && liveEpg.length > 0 && (
-            <div className={styles.epgStrip}>
-              {liveEpg.map((p) => (
-                <div
-                  key={p.key}
-                  className={`${styles.epgCell} ${p.playing ? styles.epgCellNow : ''}`}
-                >
-                  <span className={styles.epgCellTime}>
-                    {p.playing && <span className={styles.epgCellDot} />}
-                    {p.time}
-                  </span>
-                  <span className={styles.epgCellTitle}>{p.title}</span>
-                  {p.playing && (
-                    <div className={styles.epgCellBar}>
-                      <div className={styles.epgCellBarFill} style={{ width: `${p.progress}%` }} />
+          {/* Bande basse live — zapper (chaînes) OU programme (EPG) de la chaîne
+              courante. Toggle visible uniquement si les deux vues ont du contenu.
+              Strictement additif : sans liste navigable ni EPG → rien. */}
+          {isLive && panelKind === null && (hasZapper || hasLiveEpg) && (
+            <div className={styles.liveStrip}>
+              {hasZapper && hasLiveEpg && (
+                <div className={styles.liveStripTabs}>
+                  <button
+                    className={`${styles.liveTab} ${liveStripView === 'channels' ? styles.liveTabOn : ''}`}
+                    onClick={(e) => { e.stopPropagation(); setLiveBottomView('channels'); }}
+                  >
+                    {t('player.channelsTab')}
+                  </button>
+                  <button
+                    className={`${styles.liveTab} ${liveStripView === 'epg' ? styles.liveTabOn : ''}`}
+                    onClick={(e) => { e.stopPropagation(); setLiveBottomView('epg'); }}
+                  >
+                    {t('player.programTab')}
+                  </button>
+                </div>
+              )}
+
+              {/* Zapper — rangée de catégories cliquables + rail de chaînes. */}
+              {liveStripView === 'channels' && hasZapper && (
+                <>
+                  {liveCatalog!.length > 1 && (
+                    <div className={styles.catTabs} ref={catTabsRef}>
+                      {liveCatalog!.map((c) => {
+                        const active = c.id === activeCatId;
+                        return (
+                          <button
+                            key={c.id}
+                            data-active={active || undefined}
+                            className={`${styles.catTab} ${active ? styles.catTabOn : ''}`}
+                            onClick={(e) => { e.stopPropagation(); setSelectedCatId(c.id); }}
+                          >
+                            {c.name}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
+                  <div className={styles.channelRail} ref={channelRailRef}>
+                    {railChannels.map((ch, i) => {
+                      const logo = safeImgUrl(ch.stream_icon);
+                      const current = ch.stream_id === liveCurrentStreamId;
+                      return (
+                        <button
+                          key={`${ch.stream_id}-${i}`}
+                          data-current={current || undefined}
+                          className={`${styles.channelCell} ${current ? styles.channelCellNow : ''}`}
+                          onClick={(e) => { e.stopPropagation(); handleChannelTap(i); }}
+                          title={ch.name}
+                        >
+                          <span className={styles.channelLogo}>
+                            {logo
+                              ? <img src={logo} alt="" loading="lazy" />
+                              : <span className={styles.channelCode}>{channelCode(ch.name)}</span>}
+                          </span>
+                          <span className={styles.channelName}>{ch.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Programme EPG de la chaîne courante, par créneau horaire. */}
+              {liveStripView === 'epg' && hasLiveEpg && (
+                <div className={styles.epgStrip}>
+                  {liveEpg!.map((p) => (
+                    <div
+                      key={p.key}
+                      className={`${styles.epgCell} ${p.playing ? styles.epgCellNow : ''}`}
+                    >
+                      <span className={styles.epgCellTime}>
+                        {p.playing && <span className={styles.epgCellDot} />}
+                        {p.time}
+                      </span>
+                      <span className={styles.epgCellTitle}>{p.title}</span>
+                      {p.playing && (
+                        <div className={styles.epgCellBar}>
+                          <div className={styles.epgCellBarFill} style={{ width: `${p.progress}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
       </div>
       )}
+
+      {/* Bottom-sheet « choix de qualité » d'une chaîne du zapper (≥ 2 variantes).
+          Rendu au niveau racine (hors `.controls`) pour survivre à l'auto-masquage
+          des contrôles. Picker → onPlayChannel(catId, index, variant) → navigation. */}
+      {!tvMode && qualityPick && (() => {
+        const ch = liveCatalog?.find((c) => c.id === qualityPick.catId)?.channels[qualityPick.index];
+        if (!ch?.variants) return null;
+        return (
+          <div
+            className={styles.qSheetBackdrop}
+            onClick={(e) => { e.stopPropagation(); setQualityPick(null); }}
+            role="presentation"
+          >
+            <div
+              className={styles.qSheet}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className={styles.qSheetHead}>
+                <span className={styles.qSheetTitle}>{ch.name}</span>
+                <span className={styles.qSheetSub}>{t('player.chooseChannelQuality')}</span>
+              </div>
+              <div className={styles.qSheetList}>
+                {ch.variants.map((v, i) => (
+                  <button
+                    key={v.stream_id}
+                    className={styles.qSheetRow}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPlayChannel?.(qualityPick.catId, qualityPick.index, v);
+                      setQualityPick(null);
+                    }}
+                  >
+                    <span className={styles.qSheetRowLabel}>
+                      {qualityLabel(v.name, t('detail.source', { n: i + 1 }))}
+                    </span>
+                    <IconPlay size={15} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
