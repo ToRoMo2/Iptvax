@@ -23,6 +23,11 @@ interface SupabaseAuthContextValue {
   signInWithApple: (redirectTo?: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
+  /** Valide le code OTP à 6 chiffres reçu par email après l'inscription.
+   *  Succès → session ouverte (`onAuthStateChange` prend le relais). */
+  verifyEmailOtp: (email: string, token: string) => Promise<void>;
+  /** Renvoie l'email de confirmation (code OTP) pour une inscription en attente. */
+  resendSignupEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   authError: string | null;
 }
@@ -38,6 +43,28 @@ const NATIVE_OAUTH_REDIRECT = 'com.iptvax.app://auth-callback';
 // Protocole custom Electron — enregistré au niveau OS par `electron/main.cjs`
 // (`app.setAsDefaultProtocolClient`). Même rôle que le deep link Android.
 const ELECTRON_OAUTH_REDIRECT = 'iptvax://auth-callback';
+
+// Supabase Auth renvoie ses messages d'erreur en anglais. On traduit les cas
+// fréquents du flux email/OTP en FR (interface française, §I) ; tout message
+// non répertorié est renvoyé tel quel (filet, jamais bloquant).
+function translateAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('already registered') || m.includes('already been registered') || m.includes('user already'))
+    return 'Cette adresse email est déjà utilisée.';
+  if (m.includes('invalid login credentials'))
+    return 'Email ou mot de passe incorrect.';
+  if (m.includes('token has expired') || m.includes('otp_expired') || m.includes('expired'))
+    return 'Ce code a expiré. Renvoyez-en un nouveau.';
+  if (m.includes('invalid') && m.includes('token'))
+    return 'Code invalide. Vérifiez les 6 chiffres reçus par email.';
+  if (m.includes('email not confirmed'))
+    return "Votre email n'est pas encore confirmé.";
+  if (m.includes('rate limit') || m.includes('too many') || m.includes('for security purposes'))
+    return 'Trop de tentatives. Patientez un instant avant de réessayer.';
+  if (m.includes('password') && m.includes('6'))
+    return 'Le mot de passe doit contenir au moins 6 caractères.';
+  return message;
+}
 
 // Lance l'OAuth en mode natif : Supabase renvoie l'URL d'autorisation (flux
 // PKCE, sans redirection navigateur automatique) qu'on ouvre dans un onglet
@@ -182,16 +209,37 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
       throw error;
     }
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
     setAuthError(null);
+    // Pas d'`emailRedirectTo` : la confirmation se fait par CODE OTP à 6 chiffres
+    // (template Supabase « Confirm signup » → `{{ .Token }}`), pas par lien.
+    // Avantage : flux identique web + APK, aucun deep-link de retour à câbler.
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
+      throw error;
+    }
+  }, []);
+
+  const verifyEmailOtp = useCallback(async (email: string, token: string) => {
+    setAuthError(null);
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) {
+      setAuthError(translateAuthError(error.message));
+      throw error;
+    }
+  }, []);
+
+  const resendSignupEmail = useCallback(async (email: string) => {
+    setAuthError(null);
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) {
+      setAuthError(translateAuthError(error.message));
       throw error;
     }
   }, []);
@@ -201,8 +249,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, signOut, authError }),
-    [user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, signOut, authError],
+    () => ({ user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, verifyEmailOtp, resendSignupEmail, signOut, authError }),
+    [user, loading, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, verifyEmailOtp, resendSignupEmail, signOut, authError],
   );
 
   return (

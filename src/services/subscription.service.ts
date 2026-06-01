@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import { isNative } from '../lib/platform';
+import { WEB_URL } from '../config/vitrine';
 import type { Subscription, SubscriptionStatus, PlanInterval } from '../types/subscription.types';
 
 interface SubscriptionRow {
@@ -54,7 +56,10 @@ export const subscriptionService = {
       },
       body: JSON.stringify({
         plan,
-        returnUrl: `${window.location.origin}/premium`,
+        // En natif, `window.location.origin` vaut `https://localhost` (non
+        // joignable depuis l'onglet Stripe externe) → on renvoie vers la vraie
+        // page publique de la vitrine. Sur web/Electron : origin courant.
+        returnUrl: `${isNative ? WEB_URL : window.location.origin}/premium`,
       }),
       signal: AbortSignal.timeout(15000),
     });

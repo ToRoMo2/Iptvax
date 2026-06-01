@@ -124,16 +124,19 @@ export function TopNav() {
 
       {/* ── Search button — mobile only (en haut à droite, à côté du profil)
             Sur desktop il vit dans la capsule .topnav ; sur mobile la capsule
-            est masquée par CSS donc on rend un bouton autonome ici. ──── */}
-      <button
-        type="button"
-        className="search-fixed-mobile"
-        title={t('nav.search')}
-        aria-label={t('nav.search')}
-        onClick={() => navigate('/search')}
-      >
-        <Ic.search />
-      </button>
+            est masquée par CSS donc on rend un bouton autonome ici.
+            Masqué sur /premium (page d'abonnement, recherche hors sujet). ── */}
+      {location.pathname !== '/premium' && (
+        <button
+          type="button"
+          className="search-fixed-mobile"
+          title={t('nav.search')}
+          aria-label={t('nav.search')}
+          onClick={() => navigate('/search')}
+        >
+          <Ic.search />
+        </button>
+      )}
 
       {/* ── Capsule navbar — centrée, liens uniquement (desktop / tablette) */}
       <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { AppLogo } from '../components/AppLogo';
@@ -6,19 +6,98 @@ import styles from './Login.module.css';
 
 type Mode = 'signin' | 'signup' | 'confirm';
 
+const RESEND_COOLDOWN = 30; // secondes avant de pouvoir renvoyer l'email
+
 interface LoginProps {
   /** Retour OAuth web personnalisé (défaut = origin). Utilisé par `/tv-link`. */
   redirectTo?: string;
+  /** Masque le logo de marque intégré à la page (évite le doublon quand un
+   *  header marketing l'affiche déjà — route `/login` de la vitrine web). */
+  hideBrand?: boolean;
 }
 
-export function Login({ redirectTo }: LoginProps = {}) {
-  const { signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, authError } = useSupabaseAuth();
+interface PasswordInputProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+  show: boolean;
+  onToggle: () => void;
+  toggleLabel: string;
+}
+
+// Champ mot de passe avec bouton « œil » afficher/masquer. Local à cette page
+// (3 usages : connexion, inscription, confirmation) — pas d'abstraction partagée
+// (doctrine CLAUDE.md §IV-23). `tabIndex={-1}` sur l'œil : on ne casse pas l'ordre
+// de tabulation du formulaire (Entrée valide, Tab passe au champ suivant).
+function PasswordInput({ id, label, value, onChange, autoComplete, show, onToggle, toggleLabel }: PasswordInputProps) {
+  return (
+    <div className={styles.field}>
+      <label className={styles.fieldLabel} htmlFor={id}>{label}</label>
+      <div className={styles.pwdWrap}>
+        <input
+          id={id}
+          type={show ? 'text' : 'password'}
+          placeholder="••••••••"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required
+          minLength={6}
+          autoComplete={autoComplete}
+        />
+        <button
+          type="button"
+          className={styles.pwdToggle}
+          onClick={onToggle}
+          aria-label={toggleLabel}
+          aria-pressed={show}
+          tabIndex={-1}
+        >
+          {show ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20" aria-hidden="true">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+              <path d="M1 1l22 22"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function Login({ redirectTo, hideBrand }: LoginProps = {}) {
+  const {
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    verifyEmailOtp,
+    resendSignupEmail,
+    authError,
+  } = useSupabaseAuth();
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Décompte du cooldown « renvoyer l'email ».
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
 
   const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -28,7 +107,13 @@ export function Login({ redirectTo }: LoginProps = {}) {
       if (mode === 'signin') {
         await signInWithEmail(email, password);
       } else {
+        if (password !== confirmPwd) {
+          setFormError(t('login.passwordMismatch'));
+          return;
+        }
         await signUpWithEmail(email, password);
+        setOtp('');
+        setCooldown(RESEND_COOLDOWN);
         setMode('confirm');
       }
     } catch (err) {
@@ -38,22 +123,98 @@ export function Login({ redirectTo }: LoginProps = {}) {
     }
   };
 
+  const handleVerify = async (e: FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setLoading(true);
+    try {
+      await verifyEmailOtp(email, otp.trim());
+      // Succès : `onAuthStateChange` connecte → ce composant est démonté.
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t('login.genericError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    setFormError(null);
+    setCooldown(RESEND_COOLDOWN);
+    try {
+      await resendSignupEmail(email);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t('login.genericError'));
+    }
+  };
+
   const error = formError ?? authError;
 
   if (mode === 'confirm') {
     return (
       <div className={styles.login}>
-        <div className={styles.brand}>
-          <AppLogo size={28} />
-          IPTVAX
-        </div>
+        {!hideBrand && (
+          <div className={styles.brand}>
+            <AppLogo size={28} />
+            IPTVAX
+          </div>
+        )}
         <div className={styles.card}>
           <div className={styles.eyebrow}>{t('login.signupSuccess')}</div>
           <h1 className={styles.title}>{t('login.verifyEmail')}</h1>
           <p className={styles.sub}>{t('login.confirmSent', { email })}</p>
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setMode('signin')}>
-            {t('login.backToLogin')}
-          </button>
+
+          <form onSubmit={handleVerify}>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="login-otp">{t('login.otpLabel')}</label>
+              <input
+                id="login-otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                placeholder={t('login.otpPlaceholder')}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                required
+                autoFocus
+              />
+            </div>
+
+            {error && (
+              <div className={styles.error}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+                </svg>
+                {error}
+              </div>
+            )}
+
+            <button
+              className={`btn btn-primary ${styles.submit}`}
+              type="submit"
+              disabled={loading || otp.length < 6}
+            >
+              {loading ? (
+                <><AppLogo spin size={18} />{t('login.verifyLoading')}</>
+              ) : (
+                t('login.verifyBtn')
+              )}
+            </button>
+          </form>
+
+          <div className={styles.toggle}>
+            <button type="button" onClick={() => void handleResend()} disabled={cooldown > 0}>
+              {cooldown > 0 ? t('login.resendCooldown', { s: cooldown }) : t('login.resend')}
+            </button>
+          </div>
+
+          <div className={styles.toggle}>
+            <button type="button" onClick={() => { setMode('signin'); setFormError(null); }}>
+              {t('login.backToLogin')}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -61,10 +222,12 @@ export function Login({ redirectTo }: LoginProps = {}) {
 
   return (
     <div className={styles.login}>
-      <div className={styles.brand}>
-        <AppLogo size={28} />
-        IPTVAX
-      </div>
+      {!hideBrand && (
+        <div className={styles.brand}>
+          <AppLogo size={28} />
+          IPTVAX
+        </div>
+      )}
 
       <div className={styles.card}>
         <div className={styles.eyebrow}>{t('login.account')}</div>
@@ -85,11 +248,13 @@ export function Login({ redirectTo }: LoginProps = {}) {
             {t('login.continueGoogle')}
           </button>
 
-          <button className={styles.socialBtn} onClick={() => void signInWithApple(redirectTo)} type="button">
+          {/* Apple OAuth non encore implémenté → bouton désactivé, badge « À venir ». */}
+          <button className={styles.socialBtn} type="button" disabled aria-disabled="true">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.39.07 2.35.74 3.15.8 1.19-.24 2.33-.93 3.6-.84 1.54.12 2.7.72 3.44 1.84-3.17 1.9-2.42 5.77.51 6.93-.6 1.48-1.38 2.95-2.7 4.15M12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25"/>
             </svg>
             {t('login.continueApple')}
+            <span className={styles.soon}>{t('login.comingSoon')}</span>
           </button>
         </div>
 
@@ -112,19 +277,29 @@ export function Login({ redirectTo }: LoginProps = {}) {
             />
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor="login-password">{t('login.passwordLabel')}</label>
-            <input
-              id="login-password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+          <PasswordInput
+            id="login-password"
+            label={t('login.passwordLabel')}
+            value={password}
+            onChange={setPassword}
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            show={showPwd}
+            onToggle={() => setShowPwd((s) => !s)}
+            toggleLabel={showPwd ? t('login.hidePassword') : t('login.showPassword')}
+          />
+
+          {mode === 'signup' && (
+            <PasswordInput
+              id="login-password-confirm"
+              label={t('login.confirmPasswordLabel')}
+              value={confirmPwd}
+              onChange={setConfirmPwd}
+              autoComplete="new-password"
+              show={showConfirmPwd}
+              onToggle={() => setShowConfirmPwd((s) => !s)}
+              toggleLabel={showConfirmPwd ? t('login.hidePassword') : t('login.showPassword')}
             />
-          </div>
+          )}
 
           {error && (
             <div className={styles.error}>
@@ -151,11 +326,11 @@ export function Login({ redirectTo }: LoginProps = {}) {
         <div className={styles.toggle}>
           {mode === 'signin' ? (
             <>{t('login.noAccount')}{' '}
-              <button onClick={() => { setMode('signup'); setFormError(null); }}>{t('login.signupLink')}</button>
+              <button onClick={() => { setMode('signup'); setFormError(null); setConfirmPwd(''); }}>{t('login.signupLink')}</button>
             </>
           ) : (
             <>{t('login.haveAccount')}{' '}
-              <button onClick={() => { setMode('signin'); setFormError(null); }}>{t('login.signinLink')}</button>
+              <button onClick={() => { setMode('signin'); setFormError(null); setConfirmPwd(''); }}>{t('login.signinLink')}</button>
             </>
           )}
         </div>

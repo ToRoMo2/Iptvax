@@ -231,7 +231,7 @@ function VitrineGate() {
           <Route path="/" element={<HomeVitrine />} />
           <Route path="/downloads" element={<Downloads />} />
           <Route path="/premium" element={<Premium />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login hideBrand />} />
           <Route path="/settings" element={<SettingsVitrine />} />
           <Route path="/mentions-legales" element={<MentionsLegales />} />
           <Route path="/cgv" element={<CGV />} />

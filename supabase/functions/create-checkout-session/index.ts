@@ -80,6 +80,10 @@ Deno.serve(async (req) => {
       success_url: `${base}?status=success`,
       cancel_url: `${base}?status=cancel`,
       allow_promotion_codes: true,
+      // Avec un coupon 100 % (ex. PROCHES100 pour les testeurs), le total devient
+      // 0 € → 'if_required' évite de demander une carte. Pour un abonnement payant
+      // normal, Stripe collecte la carte comme d'habitude.
+      payment_method_collection: 'if_required',
       subscription_data: { metadata: { user_id: user.id } },
     });
 
