@@ -119,7 +119,7 @@ export function TopNav() {
         onClick={() => navigate('/')}
       >
         <AppLogo size={22} />
-        <span className="brand-name">IPTVAX</span>
+        <span className="brand-name">IPTVAX <span style={{fontSize:'10px',opacity:0.6,fontWeight:400}}>fix2</span></span>
       </button>
 
       {/* ── Search button — mobile only (en haut à droite, à côté du profil)

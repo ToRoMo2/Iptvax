@@ -56,12 +56,17 @@ export function RemoteSearch({
   };
 
   return (
-    <div
+    // form + onSubmit preventDefault : filet DOM contre l'action IME "Go"/"Search"
+    // d'Android WebView qui, même sans action= explicite, soumet vers "/" et
+    // déclenche un retour à l'accueil via React Router (e.preventDefault() sur
+    // keydown seul ne suffit pas — l'action IME native peut contourner les events JS).
+    <form
       ref={ref}
       className={`${wrapperClassName} ${focused ? 'rc-focused' : ''}`}
       role="search"
       tabIndex={-1}
       onClick={() => inputRef.current?.focus()}
+      onSubmit={(e) => e.preventDefault()}
     >
       <span className={iconClassName}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="15" height="15">
@@ -96,6 +101,6 @@ export function RemoteSearch({
           </svg>
         </button>
       )}
-    </div>
+    </form>
   );
 }
