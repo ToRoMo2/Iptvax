@@ -46,7 +46,11 @@ export function RemoteSearch({
   const onInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     // Sortir du mode saisie → la navigation flèches reprend (le focus virtuel
     // norigin est toujours sur le conteneur).
+    // e.preventDefault() sur Enter : sans ça, l'action IME "Go"/"Search" de la
+    // WebView Android traite type="search" comme une soumission de formulaire et
+    // navigue vers "/" (accueil), même sans <form> dans le DOM.
     if (e.key === 'Escape' || e.key === 'Enter' || e.key.startsWith('Arrow')) {
+      e.preventDefault();
       inputRef.current?.blur();
     }
   };
@@ -68,7 +72,9 @@ export function RemoteSearch({
       <input
         ref={inputRef}
         className={inputClassName}
-        type="search"
+        type="text"
+        inputMode="search"
+        enterKeyHint="search"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
