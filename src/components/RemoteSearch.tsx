@@ -13,6 +13,8 @@ interface Props {
   wrapperClassName: string;
   iconClassName: string;
   inputClassName: string;
+  /** Classe du bouton « effacer » (optionnelle — affiché seulement si fournie). */
+  clearClassName?: string;
 }
 
 /**
@@ -27,6 +29,7 @@ export function RemoteSearch({
   wrapperClassName,
   iconClassName,
   inputClassName,
+  clearClassName,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { ref, focused } = useFocusable({
@@ -71,6 +74,22 @@ export function RemoteSearch({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onInputKeyDown}
       />
+      {clearClassName && value.length > 0 && (
+        <button
+          type="button"
+          className={clearClassName}
+          aria-label="Effacer la recherche"
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange('');
+            inputRef.current?.focus();
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="14" height="14">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

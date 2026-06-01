@@ -296,6 +296,7 @@ export function Movies() {
           wrapperClassName={styles.searchWrapper}
           iconClassName={styles.searchIcon}
           inputClassName={styles.search}
+          clearClassName={styles.searchClear}
         />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
           <span className={styles.searchBadge}>{t('common.minChars', { n: MIN_SEARCH_LEN })}</span>

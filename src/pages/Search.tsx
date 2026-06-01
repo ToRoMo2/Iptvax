@@ -154,6 +154,7 @@ export function Search() {
           wrapperClassName={browse.searchWrapper}
           iconClassName={browse.searchIcon}
           inputClassName={browse.search}
+          clearClassName={browse.searchClear}
         />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
           <span className={browse.searchBadge}>

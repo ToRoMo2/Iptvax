@@ -43,15 +43,23 @@
   align-items: center;
   gap: 10px;
   height: 40px;
-  padding: 0 14px;
-  background: transparent;
+  padding: 0 8px 0 14px;
+  background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
-  transition: border-color var(--d-micro) var(--ease);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: border-color var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease),
+              background var(--d-micro) var(--ease);
 }
 
-.searchWrapper:focus-within {
-  border-color: var(--line-strong);
+/* Focus souris/tactile (focus-within) ET focus télécommande norigin (rc-focused)
+   → bordure accent + halo cyan subtil (§IV-7 : tokens Aurora uniquement). */
+.searchWrapper:focus-within,
+.searchWrapper:global(.rc-focused) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-faint), 0 0 18px -6px var(--accent-glow);
 }
 
 .searchIcon {
@@ -59,10 +67,16 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  transition: color var(--d-micro) var(--ease);
+}
+.searchWrapper:focus-within .searchIcon,
+.searchWrapper:global(.rc-focused) .searchIcon {
+  color: var(--accent);
 }
 
 .search {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: 0;
   outline: 0;
@@ -73,6 +87,31 @@
 
 .search::placeholder {
   color: var(--t-4);
+}
+/* Masque la croix native du type="search" (on rend la nôtre, .searchClear). */
+.search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.searchClear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--t-3);
+  cursor: pointer;
+  transition: color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.searchClear:hover {
+  color: var(--t-1);
+  background: var(--line);
 }
 
 .searchBadge {
@@ -384,8 +423,10 @@
     margin-bottom: 18px;
   }
   .titleBlock { margin-right: 0; }
-  .searchWrapper { height: 38px; padding: 0 12px; }
-  .search { font-size: 14px; }
+  .searchWrapper { height: 44px; padding: 0 6px 0 14px; }
+  /* >=16px : évite le zoom iOS au focus (§IV-20). */
+  .search { font-size: 16px; }
+  .searchClear { width: 30px; height: 30px; }
   .searchBadge { font-size: 11px; padding: 3px 9px; }
 
   /* Films / Séries : 3 posters par ligne en vue catégorie complète (choix
