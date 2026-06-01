@@ -73,7 +73,10 @@ jobs:
         run: npx cap sync android
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        # Windows ne préserve pas le bit exécutable de gradlew → on le rétablit ici.
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
         working-directory: android
 
       - name: Rename APK
