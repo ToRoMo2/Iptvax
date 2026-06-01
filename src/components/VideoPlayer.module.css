@@ -69,6 +69,14 @@
   pointer-events: none; /* les enfants re-activent */
   z-index: 12;
   gap: 24px;                 /* espacement entre [barre] [play] [barre] */
+  /* Entrée en glissé depuis le bas — cohérent avec la bande basse (qui monte
+     aussi) : tout l'overlay apparaît du même mouvement. */
+  animation: vp-center-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vp-center-in {
+  from { opacity: 0; transform: translateY(-50%) translateY(22px); }
+  to { opacity: 1; transform: translateY(-50%); }
 }
 
 /* Groupe back10 / play / fwd10 */
@@ -408,6 +416,7 @@
   .wrapper.showControls .topBar,
   .wrapper.showControls .bottomSection { transform: none; }
   .subtitleOverlay, .subtitleLoading { transition: none; }
+  .mobileCenterControls { animation: none; }
 }
 
 /* ── Top bar (player-top : crumb + live flag) ── */
@@ -1111,6 +1120,9 @@
     .mobileCenterPlayBtn { min-width: 52px !important; height: 52px !important; }
     .mobileSeekBtn { min-width: 40px !important; height: 40px !important; }
     .mobileCenterControls { gap: 18px; }
+    /* Live : remonte le bloc central au-dessus de la bande basse (plus haute en
+       live à cause du zapper) pour éviter le chevauchement avec les chaînes. */
+    .mobileCenterControlsLive { top: 38%; }
   }
 }
 
@@ -1289,4 +1301,354 @@
   /* Panneau inline plus tassé en paysage (peu de hauteur disponible). */
   .inlinePanel { gap: 8px; }
   .panelItem { padding: 8px 14px; font-size: 13px; }
+  /* Zapper live : rangées compactes en paysage (peu de hauteur). L'EPG, jadis
+     masqué en paysage (§IV-28), reste accessible mais tassé — il est désormais
+     opt-in via le toggle, donc l'afficher sur demande est cohérent. */
+  .liveStrip { gap: 4px; }
+  .catTabs { padding: 0 2px 2px; }
+  .catTab { padding: 4px 10px 6px; font-size: 12px; }
+  .channelCell { width: 88px; height: 66px; padding: 5px 7px; gap: 5px; }
+  .channelLogo { height: 28px; flex-basis: 28px; }
+  .channelName { font-size: 11px; }
+  .epgCell { width: 124px; padding: 6px 8px; }
+  .epgCellTitle { -webkit-line-clamp: 1; font-size: 11px; }
+}
+
+/* ── Bande EPG live (bas de l'overlay) ────────────────────────────────────── */
+.epgStrip {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 4px 2px 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.epgStrip::-webkit-scrollbar { display: none; }
+
+.epgCell {
+  flex: 0 0 auto;
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--r-ui);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.epgCellNow {
+  background: var(--accent-faint);
+  border-color: var(--accent);
+}
+
+.epgCellTime {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t-3);
+  font-variant-numeric: tabular-nums;
+}
+.epgCellNow .epgCellTime { color: var(--accent); }
+
+.epgCellDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.epgCellTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t-2);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.epgCellNow .epgCellTitle { color: var(--t-1); font-weight: 600; }
+
+.epgCellBar {
+  margin-top: 2px;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+.epgCellBarFill {
+  height: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+  border-radius: var(--r-pill);
+}
+
+@media (max-width: 640px) {
+  .epgStrip {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .epgCell { width: 132px; padding: 7px 9px; }
+  .epgCellTitle { font-size: 12px; }
+}
+
+/* ── Bande basse live : conteneur (toggle + rail/EPG) ─────────────────────── */
+.liveStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Toggle « Chaînes / Programme » — segmented control. */
+.liveStripTabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.08);
+}
+.liveTab {
+  padding: 5px 14px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--t-3);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 160ms var(--ease), color 160ms var(--ease);
+}
+.liveTab:hover { color: var(--t-1); }
+.liveTabOn {
+  background: var(--accent);
+  color: #03121a;
+}
+
+/* ── Rangée de catégories (onglets cliquables au-dessus des chaînes) ───────── */
+.catTabs {
+  display: flex;
+  gap: 4px;
+  padding: 2px 2px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.catTabs::-webkit-scrollbar { display: none; }
+.catTab {
+  flex: 0 0 auto;
+  padding: 6px 12px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--t-3);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms var(--ease), border-color 160ms var(--ease);
+}
+.catTab:hover { color: var(--t-1); }
+.catTabOn {
+  color: var(--t-1);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Rail de zapping (chaînes) ────────────────────────────────────────────── */
+.channelRail {
+  display: flex;
+  gap: 10px;
+  padding: 4px 2px 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.channelRail::-webkit-scrollbar { display: none; }
+
+.channelCell {
+  flex: 0 0 auto;
+  /* Dimensions FIXES → toutes les cartes identiques quelle que soit la forme du
+     logo (carré DAZN / large VOO), aucun débordement vertical à scroller. */
+  width: 110px;
+  height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-ui);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--t-2);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.channelCell:hover,
+.channelCell:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--line-strong);
+}
+.channelCellNow {
+  background: var(--accent-faint);
+  border-color: var(--accent);
+}
+
+.channelLogo {
+  width: 100%;
+  /* Boîte logo à hauteur fixe non compressible : le logo est contenu (jamais
+     rogné/débordé) quelle que soit sa forme. flex + overflow = double sécurité. */
+  height: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.channelLogo img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+.channelCode {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--t-3);
+  letter-spacing: 0.04em;
+}
+
+.channelName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t-2);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.channelCellNow .channelName { color: var(--t-1); font-weight: 700; }
+
+/* ── Bottom-sheet « choix de qualité » du zapper ──────────────────────────── */
+.qSheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: vp-sheet-fade 160ms var(--ease);
+}
+.qSheet {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  animation: vp-sheet-pop 200ms var(--ease);
+}
+.qSheetHead {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.qSheetTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qSheetSub {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-3);
+}
+.qSheetList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.qSheetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--r-ui);
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--t-1);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.qSheetRow:hover,
+.qSheetRow:focus-visible {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+}
+.qSheetRow svg { color: var(--accent); flex-shrink: 0; }
+.qSheetRowLabel { font-size: 14px; font-weight: 600; }
+
+@keyframes vp-sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vp-sheet-pop {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes vp-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .qSheetBackdrop { align-items: flex-end; padding: 0; }
+  .qSheet {
+    max-width: none;
+    border-radius: 18px 18px 0 0;
+    border-bottom: 0;
+    padding-bottom: var(--safe-bottom, 0);
+    animation: vp-sheet-up 240ms var(--ease);
+  }
+  .qSheetList { max-height: 60vh; }
+  .qSheetHead { position: relative; padding-top: 22px; }
+  .qSheetHead::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--line-strong);
+  }
 }

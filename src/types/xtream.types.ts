@@ -169,6 +169,12 @@ export interface LiveChannelRef {
   stream_id: number;
   name: string;
   stream_icon?: string;
+  // Variantes de qualité de la chaîne (HEVC/SD/HD/FHD/4K), si > 1. Renseigné
+  // dans le catalogue du zapper construit côté lecteur (Player) → ré-ouvre le
+  // sélecteur de qualité au tap, comme dans la grille Live. Non transporté dans
+  // PlayerState.liveChannels (nav-state minimale, §IV-26). `stream_id` = celui
+  // de la variante (≠ primary).
+  variants?: { stream_id: number; name: string }[];
 }
 
 // Contexte série pour le panneau « Épisodes » du lecteur. Posé par

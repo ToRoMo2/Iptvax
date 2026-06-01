@@ -4,21 +4,31 @@ import styles from './PopularRail.module.css';
 /**
  * Carrousel « Populaires » — rupture visuelle avec les rails de catégorie.
  *
- * Posters plus grands, centrés (scroll-snap center) : l'élément au centre est
- * mis en valeur à `scale(1)`, ses voisins rapetissent progressivement selon
- * leur distance au centre. En scrollant, le suivant grossit pendant que le
- * précédent rapetisse (effet « coverflow » léger).
+ * Posters plus grands, centrés : l'élément au centre est mis en valeur à
+ * `scale(1)`, ses voisins rapetissent progressivement selon leur distance au
+ * centre. En scrollant, le suivant grossit pendant que le précédent rapetisse
+ * (effet « coverflow » léger).
  *
- * Le scaling est piloté en JS (rAF sur le scroll) plutôt qu'en CSS scroll-driven
- * (`animation-timeline`) pour rester robuste sur toutes les WebView natives.
- * Les métriques de position (offsetLeft/Width) sont mesurées une fois puis
- * mises en cache — seul `scrollLeft` est relu à chaque frame (zéro reflow).
+ * ⚠ Défilement **piloté, un item par geste** : le scroll natif (avec
+ * `scroll-snap`) laissait le momentum d'un flick survoler plusieurs posters.
+ * Ici la liste n'est PAS scrollable nativement (`overflow-x: hidden` +
+ * `touch-action: pan-y` pour laisser passer le scroll vertical de page) — chaque
+ * swipe / molette horizontale avance d'**exactement un** item via `scrollTo`,
+ * quelle que soit la force. Le scaling reste piloté en JS (rAF sur l'event
+ * `scroll` émis par le `scrollTo` animé) ; les centres des items sont mesurés
+ * une fois puis mis en cache (zéro reflow par frame).
  */
 export function PopularRail({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   // Centre (px) de chaque item, mesuré une fois, relu sans forcer de reflow.
   const centersRef = useRef<number[]>([]);
+  // Verrou anti-rafale : une « bouffée » de molette = un seul pas.
+  const wheelLockRef = useRef(false);
+  // Suivi du geste tactile/souris en cours.
+  const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  // Ignore le click de fin de swipe (sinon la carte sous le doigt s'ouvre).
+  const suppressClickRef = useRef(false);
 
   const apply = useCallback(() => {
     const el = ref.current;
@@ -56,6 +66,84 @@ export function PopularRail({ children }: { children: ReactNode }) {
     rafRef.current = requestAnimationFrame(apply);
   }, [apply]);
 
+  /** Recentre la vue sur l'item d'index `i` (clampé), animé. */
+  const goTo = useCallback((i: number) => {
+    const el = ref.current;
+    const centers = centersRef.current;
+    if (!el || centers.length === 0) return;
+    const clamped = Math.max(0, Math.min(i, centers.length - 1));
+    const target = centers[clamped] - el.clientWidth / 2;
+    const max = el.scrollWidth - el.clientWidth;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollTo({
+      left: Math.max(0, Math.min(target, max)),
+      behavior: reduce ? 'auto' : 'smooth',
+    });
+  }, []);
+
+  /** Avance d'un item (`dir` = +1 / -1) depuis l'item actuellement le plus centré. */
+  const step = useCallback((dir: number) => {
+    const el = ref.current;
+    const centers = centersRef.current;
+    if (!el || centers.length === 0) return;
+    const viewCenter = el.scrollLeft + el.clientWidth / 2;
+    let nearest = 0;
+    let best = Infinity;
+    for (let i = 0; i < centers.length; i++) {
+      const d = Math.abs(centers[i] - viewCenter);
+      if (d < best) { best = d; nearest = i; }
+    }
+    goTo(nearest + dir);
+  }, [goTo]);
+
+  // Molette / trackpad : on n'agit que sur un geste à dominante horizontale
+  // (laisse le scroll vertical de la page passer). Listener non-passif pour
+  // pouvoir `preventDefault`.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      if (wheelLockRef.current) return;
+      wheelLockRef.current = true;
+      step(e.deltaX > 0 ? 1 : -1);
+      window.setTimeout(() => { wheelLockRef.current = false; }, 360);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [step]);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    dragRef.current = { x: e.clientX, y: e.clientY, moved: false };
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (!d.moved && Math.abs(e.clientX - d.x) > 8 && Math.abs(e.clientX - d.x) > Math.abs(e.clientY - d.y)) {
+      d.moved = true;
+    }
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d || !d.moved) return;
+    const dx = e.clientX - d.x;
+    if (Math.abs(dx) < 30) return; // simple effleurement → on ne bouge pas
+    suppressClickRef.current = true; // neutralise le click de fin de swipe
+    step(dx < 0 ? 1 : -1); // swipe vers la gauche → item suivant
+  }, [step]);
+
+  // Empêche l'ouverture de la carte quand le pointerup termine un swipe.
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (!suppressClickRef.current) return;
+    suppressClickRef.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -76,7 +164,15 @@ export function PopularRail({ children }: { children: ReactNode }) {
   }, [children, measure]);
 
   return (
-    <div ref={ref} className={styles.popRail}>
+    <div
+      ref={ref}
+      className={styles.popRail}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => { dragRef.current = null; }}
+      onClickCapture={onClickCapture}
+    >
       {Children.map(children, (child, i) => (
         <div key={i} className={styles.popItem}>
           {child}

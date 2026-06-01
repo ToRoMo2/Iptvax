@@ -43,15 +43,23 @@
   align-items: center;
   gap: 10px;
   height: 40px;
-  padding: 0 14px;
-  background: transparent;
+  padding: 0 8px 0 14px;
+  background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
-  transition: border-color var(--d-micro) var(--ease);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: border-color var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease),
+              background var(--d-micro) var(--ease);
 }
 
-.searchWrapper:focus-within {
-  border-color: var(--line-strong);
+/* Focus souris/tactile (focus-within) ET focus télécommande norigin (rc-focused)
+   → bordure accent + halo cyan subtil (§IV-7 : tokens Aurora uniquement). */
+.searchWrapper:focus-within,
+.searchWrapper:global(.rc-focused) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-faint), 0 0 18px -6px var(--accent-glow);
 }
 
 .searchIcon {
@@ -59,10 +67,16 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  transition: color var(--d-micro) var(--ease);
+}
+.searchWrapper:focus-within .searchIcon,
+.searchWrapper:global(.rc-focused) .searchIcon {
+  color: var(--accent);
 }
 
 .search {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: 0;
   outline: 0;
@@ -73,6 +87,31 @@
 
 .search::placeholder {
   color: var(--t-4);
+}
+/* Masque la croix native du type="search" (on rend la nôtre, .searchClear). */
+.search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.searchClear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--t-3);
+  cursor: pointer;
+  transition: color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.searchClear:hover {
+  color: var(--t-1);
+  background: var(--line);
 }
 
 .searchBadge {
@@ -120,6 +159,11 @@
 .gridChannel > *,
 .gridPoster > * {
   content-visibility: auto;
+  /* ⚠ min-width: 0 obligatoire : le titre des cartes est en `white-space:
+     nowrap` → sans ça la largeur min-content de l'item (titre entier) déborde
+     la colonne `1fr` → cartes « zoomées » + scroll horizontal. Indispensable
+     surtout pour les posters Films/Séries (titres longs). */
+  min-width: 0;
 }
 .gridChannel > * { contain-intrinsic-size: auto 240px; }
 .gridPoster  > * { contain-intrinsic-size: auto 360px; }
@@ -254,12 +298,22 @@
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  overflow-y: visible;
+  /* ⚠ NE PAS mettre `overflow-y: visible` : avec `overflow-x: auto`, la spec CSS
+     le recalcule en `auto` → le rail devient AUSSI un conteneur de scroll
+     vertical. Les posters (aspect-ratio 2/3 + titre de hauteur variable)
+     débordent d'un sous-pixel → un mini scroll vertical capte le swipe
+     descendant fait sur un poster et bloque le scroll de page. `hidden`
+     supprime ce conteneur vertical : le rail ne défile qu'à l'horizontale et
+     les gestes verticaux remontent à la page. (NE PAS utiliser `touch-action:
+     pan-x` : il désactive le pan vertical sur toute la zone → impossible de
+     scroller la page le doigt posé sur un poster.) Le padding vertical élargi
+     laisse respirer le `scale(1.06)` au survol desktop sans le rogner. */
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
-  padding: 4px var(--pad-edge);
+  padding: 12px var(--pad-edge);
 }
 .shelfRail::-webkit-scrollbar { display: none; }
 /* ⚠ flex-shrink: 0 obligatoire : le titre des cartes est en `nowrap`, donc
@@ -369,32 +423,68 @@
     margin-bottom: 18px;
   }
   .titleBlock { margin-right: 0; }
-  .searchWrapper { height: 38px; padding: 0 12px; }
-  .search { font-size: 14px; }
+  .searchWrapper { height: 44px; padding: 0 6px 0 14px; }
+  /* >=16px : évite le zoom iOS au focus (§IV-20). */
+  .search { font-size: 16px; }
+  .searchClear { width: 30px; height: 30px; }
   .searchBadge { font-size: 11px; padding: 3px 9px; }
 
-  /* Films / Séries : 2 par ligne (garde-fou §IV-20) → posters larges et
-     tactiles, lisibles au pouce, plutôt qu'une grille desktop rétrécie. */
-  .gridPoster { grid-template-columns: repeat(2, 1fr); }
-  .gridLoading { grid-template-columns: repeat(2, 1fr); }
-  /* Chaînes : 2 par ligne strict, adapte la taille à l'écran */
-  .gridChannel { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 18px 14px; }
+  /* Films / Séries : 3 posters par ligne en vue catégorie complète (choix
+     utilisateur). `minmax(0, 1fr)` (et non `1fr`) : colonnes qui peuvent
+     rétrécir sous la largeur min-content des titres `nowrap` → pas de
+     débordement horizontal. */
+  .gridPoster { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gridLoading { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Chaînes : 2 par ligne strict (cartes 16:9 larges) */
+  .gridChannel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { gap: 18px 12px; }
 
   /* Rails : cartes plus petites + en-têtes compacts (peek de la carte suivante). */
   .posterCell { width: 140px; }
   .shelfRail { gap: 12px; }
   .shelfHeader { margin-bottom: 12px; }
   .seeAllLabel { font-size: 12px; }
-  .catHeader { gap: 10px; margin-bottom: 18px; }
-  .catTitle { font-size: 22px; }
-  .backBtn { width: 38px; height: 38px; }
+
+  /* En-tête catégorie : barre fixe centrée, reste visible pendant le scroll
+     (retour + nom de catégorie toujours accessibles, même tout en bas).
+     z-index 45 → au-dessus de la chrome shell (brand/profil/recherche en z-40)
+     qu'elle recouvre proprement sur cette sous-vue. */
+  .catHeader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 45;
+    margin: 0;
+    height: var(--topnav-h);
+    padding: var(--safe-top) 56px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 10, 0.9);
+    backdrop-filter: saturate(150%) blur(16px);
+    border-bottom: 1px solid var(--line);
+  }
+  .catTitle {
+    font-size: 17px;
+    text-align: center;
+    max-width: 100%;
+  }
+  .backBtn {
+    position: absolute;
+    left: var(--pad-edge);
+    top: var(--safe-top);
+    bottom: 0;
+    margin: auto 0;
+    width: 38px;
+    height: 38px;
+  }
 }
 
 @media (max-width: 380px) {
-  .gridPoster { grid-template-columns: repeat(2, 1fr); }
-  .gridLoading { grid-template-columns: repeat(2, 1fr); }
-  .gridChannel { grid-template-columns: repeat(2, 1fr); }
-  .grid { gap: 14px 12px; }
+  .gridPoster { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gridLoading { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gridChannel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { gap: 14px 10px; }
   .posterCell { width: 124px; }
 }

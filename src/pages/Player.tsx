@@ -7,9 +7,10 @@ import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
-import type { Episode, PlayerState, SeriesInfo } from '../types/xtream.types';
+import type { Episode, LiveChannelRef, LiveStream, PlayerState, SeriesInfo } from '../types/xtream.types';
 import type { TmdbEpisodeStills } from '../types/tmdb.types';
-import { cleanTitle, extractYear } from '../utils/catalog';
+import { cleanTitle, extractYear, groupByTitle, qualityRank } from '../utils/catalog';
+import { buildEpgRows, type EpgRow } from '../utils/epg';
 import styles from './Player.module.css';
 
 export function Player() {
@@ -52,25 +53,35 @@ export function Player() {
   const hasPrev = hasChannelNav && channelIndex! > 0;
   const hasNext = hasChannelNav && channelIndex! < channels!.length - 1;
 
-  const switchChannel = useCallback(
-    (direction: 1 | -1) => {
-      if (!credentials || !channels || typeof channelIndex !== 'number') return;
-      const next = channelIndex + direction;
-      if (next < 0 || next >= channels.length) return;
-      const target = channels[next];
+  // Sélectionne une chaîne du zapper par index. Variante optionnelle : si le
+  // zapper a ouvert le sélecteur de qualité, on joue le stream_id choisi ;
+  // sinon (prev/next, chaîne mono-variante) on joue la meilleure qualité (primary).
+  const selectChannel = useCallback(
+    (index: number, variant?: { stream_id: number; name: string }) => {
+      if (!credentials || !channels || index < 0 || index >= channels.length) return;
+      const target = channels[index];
+      const streamId = variant?.stream_id ?? target.stream_id;
       const nextState: PlayerState = {
-        url: xtreamService.getLiveStreamUrl(credentials, target.stream_id),
-        fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, target.stream_id),
+        url: xtreamService.getLiveStreamUrl(credentials, streamId),
+        fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, streamId),
         title: target.name,
         type: 'live',
         poster: target.stream_icon,
         liveChannels: channels,
-        liveIndex: next,
+        liveIndex: index,
       };
       // replace:true → la touche retour ramène à /live, pas à la chaîne précédente
       navigate('/player', { state: nextState, replace: true });
     },
-    [credentials, channels, channelIndex, navigate],
+    [credentials, channels, navigate],
+  );
+
+  const switchChannel = useCallback(
+    (direction: 1 | -1) => {
+      if (typeof channelIndex !== 'number') return;
+      selectChannel(channelIndex + direction);
+    },
+    [channelIndex, selectChannel],
   );
 
   useEffect(() => {
@@ -80,6 +91,107 @@ export function Player() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [navigate]);
+
+  // ── EPG de la chaîne live courante (affiché dans l'overlay du lecteur) ─────
+  // Strictement additif : un serveur sans EPG renvoie une liste vide → aucune
+  // bande n'apparaît. Re-fetch au changement de chaîne (prev/next → liveIndex).
+  const liveStreamId =
+    isLive && channels && typeof channelIndex === 'number'
+      ? channels[channelIndex]?.stream_id
+      : undefined;
+  const [liveEpg, setLiveEpg] = useState<EpgRow[]>([]);
+  useEffect(() => {
+    if (!credentials || !isLive || liveStreamId == null) {
+      setLiveEpg([]);
+      return;
+    }
+    let cancelled = false;
+    xtreamService
+      .getShortEpg(credentials, liveStreamId, 12)
+      .then((r) => { if (!cancelled) setLiveEpg(buildEpgRows(r.epg_listings ?? [])); })
+      .catch(() => { if (!cancelled) setLiveEpg([]); });
+    return () => { cancelled = true; };
+  }, [credentials, isLive, liveStreamId]);
+
+  // ── Catalogue live (zapper avec catégories dans l'overlay) ────────────────
+  // Construit côté lecteur (PAS dans PlayerState, §IV-26) : une requête
+  // `getLiveStreams` (cache de session → hit après passage par /live) bucketée
+  // par catégorie puis regroupée par titre (mêmes helpers que Live.tsx). Donne
+  // au zapper les catégories navigables + les variantes de qualité par chaîne.
+  const [liveCatalog, setLiveCatalog] = useState<
+    { id: string; name: string; channels: LiveChannelRef[] }[]
+  >([]);
+  useEffect(() => {
+    if (!credentials || !isLive) { setLiveCatalog([]); return; }
+    let cancelled = false;
+    Promise.all([
+      xtreamService.getLiveCategories(credentials),
+      xtreamService.getLiveStreams(credentials),
+    ])
+      .then(([cats, all]) => {
+        if (cancelled) return;
+        const byCat = new Map<string, LiveStream[]>();
+        for (const s of all) {
+          const arr = byCat.get(s.category_id);
+          if (arr) arr.push(s);
+          else byCat.set(s.category_id, [s]);
+        }
+        const catalog = cats
+          .map((c) => {
+            const bucket = byCat.get(c.category_id) ?? [];
+            const groups = groupByTitle(bucket, (s) => s.name, (s) => qualityRank(s.name));
+            const channels: LiveChannelRef[] = groups.map((gr) => ({
+              stream_id: gr.primary.stream_id,
+              name: gr.title || gr.primary.name,
+              stream_icon: gr.primary.stream_icon,
+              variants:
+                gr.variants.length > 1
+                  ? gr.variants.map((v) => ({ stream_id: v.stream_id, name: v.name }))
+                  : undefined,
+            }));
+            return { id: c.category_id, name: c.category_name, channels };
+          })
+          .filter((r) => r.channels.length > 0);
+        setLiveCatalog(catalog);
+      })
+      .catch(() => { if (!cancelled) setLiveCatalog([]); });
+    return () => { cancelled = true; };
+  }, [credentials, isLive]);
+
+  // Stream_id de la chaîne en cours (= primary du ref courant) → surlignage dans
+  // le rail. Catégorie courante = celle qui contient cette chaîne dans le catalogue.
+  const currentChannelStreamId =
+    isLive && channels && typeof channelIndex === 'number'
+      ? channels[channelIndex]?.stream_id
+      : undefined;
+  const liveCurrentCategoryId = useMemo(() => {
+    if (currentChannelStreamId == null) return undefined;
+    return liveCatalog.find((c) => c.channels.some((ch) => ch.stream_id === currentChannelStreamId))?.id;
+  }, [liveCatalog, currentChannelStreamId]);
+
+  // Lecture d'une chaîne du zapper (catégorie + index). Variante optionnelle si
+  // l'utilisateur a choisi une qualité. Bascule `liveChannels`/`liveIndex` sur la
+  // catégorie ciblée → prev/next opèrent ensuite dans cette catégorie.
+  const playChannel = useCallback(
+    (categoryId: string, index: number, variant?: { stream_id: number; name: string }) => {
+      if (!credentials) return;
+      const cat = liveCatalog.find((c) => c.id === categoryId);
+      const target = cat?.channels[index];
+      if (!cat || !target) return;
+      const streamId = variant?.stream_id ?? target.stream_id;
+      const nextState: PlayerState = {
+        url: xtreamService.getLiveStreamUrl(credentials, streamId),
+        fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, streamId),
+        title: target.name,
+        type: 'live',
+        poster: target.stream_icon,
+        liveChannels: cat.channels,
+        liveIndex: index,
+      };
+      navigate('/player', { state: nextState, replace: true });
+    },
+    [credentials, liveCatalog, navigate],
+  );
 
   // ── Reprise de lecture ────────────────────────────────────────────────────
   const historyId = state?.historyId;
@@ -237,6 +349,12 @@ export function Player() {
           channelPosition={
             hasChannelNav ? `${channelIndex! + 1} / ${channels!.length}` : undefined
           }
+          // Zapper : catalogue navigable par catégorie + chaîne/cat courante.
+          liveCatalog={isLive ? liveCatalog : undefined}
+          liveCurrentCategoryId={liveCurrentCategoryId}
+          liveCurrentStreamId={currentChannelStreamId}
+          onPlayChannel={isLive ? playChannel : undefined}
+          liveEpg={liveEpg}
           resume={resume}
           onPersist={handlePersist}
           // Panneau « Épisodes » : props transmises uniquement si seriesContext

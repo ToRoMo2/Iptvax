@@ -24,6 +24,12 @@ interface LocationState {
   variants?: SeriesItem[];
 }
 
+function ChevDown() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m6 9 6 6 6-6" /></svg>
+  );
+}
+
 export function SeriesDetail() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -43,6 +49,8 @@ export function SeriesDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>('1');
+  // Accordéon « À propos » (mobile uniquement — desktop l'ignore via CSS).
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const seriesId = variant?.series_id ?? (id ? parseInt(id) : NaN);
 
@@ -245,24 +253,34 @@ export function SeriesDetail() {
         {!loading && !error && (
           <div className={styles.grid}>
             <div>
-              <div className={styles.cat}>
-                <span className={styles.catDot} />
-                {t('detail.series')}
-              </div>
-              <h1 className={styles.title}>{displayTitle}</h1>
+              <div className={styles.headRow}>
+                {(() => {
+                  const posterUrl = safeImgUrl(tmdb?.poster ?? info?.info.cover ?? variant?.cover);
+                  return posterUrl ? (
+                    <img className={styles.posterThumb} src={posterUrl} alt={displayTitle} loading="lazy" decoding="async" />
+                  ) : null;
+                })()}
+                <div className={styles.headInfo}>
+                  <div className={styles.cat}>
+                    <span className={styles.catDot} />
+                    {t('detail.series')}
+                  </div>
+                  <h1 className={styles.title}>{displayTitle}</h1>
 
-              <div className={styles.meta}>
-                {year && <span>{year}</span>}
-                {year && genre && <span className={styles.metaSep} />}
-                {genre && <span>{genre}</span>}
-                {(year || genre) && seasons.length > 0 && <span className={styles.metaSep} />}
-                {seasons.length > 0 && (
-                  <span>
-                    {tc('detail.seasonsCountOne', 'detail.seasonsCountOther', seasons.length)}
-                  </span>
-                )}
-                {rating && <span className={styles.metaSep} />}
-                {rating && <span>★ {rating}</span>}
+                  <div className={styles.meta}>
+                    {year && <span>{year}</span>}
+                    {year && genre && <span className={styles.metaSep} />}
+                    {genre && <span>{genre}</span>}
+                    {(year || genre) && seasons.length > 0 && <span className={styles.metaSep} />}
+                    {seasons.length > 0 && (
+                      <span>
+                        {tc('detail.seasonsCountOne', 'detail.seasonsCountOther', seasons.length)}
+                      </span>
+                    )}
+                    {rating && <span className={styles.metaSep} />}
+                    {rating && <span>★ {rating}</span>}
+                  </div>
+                </div>
               </div>
 
               <div className={styles.actions}>
@@ -398,7 +416,16 @@ export function SeriesDetail() {
             </div>
 
             <aside className={styles.side}>
-              <h4 className={styles.sideTitle}>{t('detail.about')}</h4>
+              <button
+                type="button"
+                className={`${styles.sideHead} ${aboutOpen ? styles.sideHeadOpen : ''}`}
+                onClick={() => setAboutOpen((o) => !o)}
+                aria-expanded={aboutOpen}
+              >
+                <h4 className={styles.sideTitle}>{t('detail.about')}</h4>
+                <span className={styles.sideChev}><ChevDown /></span>
+              </button>
+              <div className={`${styles.sideBody} ${aboutOpen ? styles.sideBodyOpen : ''}`}>
               {genre && (
                 <div className={styles.factRow}>
                   <span className={styles.factKey}>{t('detail.genre')}</span>
@@ -439,6 +466,7 @@ export function SeriesDetail() {
                   <span className={styles.factVal}>{variants.length}</span>
                 </div>
               )}
+              </div>
             </aside>
           </div>
         )}

@@ -16,6 +16,9 @@ interface Props {
   isLive?: boolean;
   isFavorite?: boolean;
   selected?: boolean;
+  // Petite pastille en bas à gauche de l'art (ex. « 4 qualités » pour une
+  // chaîne Live regroupant plusieurs variantes de qualité).
+  badge?: string;
   onClick: () => void;
   onFavorite?: () => void;
   // Slot optionnel — quand fourni, remplace l'image/placeholder dans la zone
@@ -33,6 +36,7 @@ function MediaCardInner({
   isLive,
   isFavorite,
   selected,
+  badge,
   onClick,
   onFavorite,
   inlinePreview,
@@ -106,6 +110,9 @@ function MediaCardInner({
             LIVE
           </div>
         )}
+
+        {/* Pastille qualités (chaîne regroupée) */}
+        {badge && <div className={styles.qualityBadge}>{badge}</div>}
       </div>
 
       {/* ── Info below image ── */}
@@ -149,5 +156,6 @@ export const MediaCard = memo(MediaCardInner, (a, b) =>
   a.isLive === b.isLive &&
   a.isFavorite === b.isFavorite &&
   a.selected === b.selected &&
+  a.badge === b.badge &&
   Boolean(a.inlinePreview) === Boolean(b.inlinePreview),
 );

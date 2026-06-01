@@ -5,14 +5,18 @@
   --pop-w: 260px;
   display: flex;
   gap: 18px;
-  overflow-x: auto;
+  /* Pas de scroll natif : le défilement est piloté (un item par geste, voir
+     PopularRail.tsx). `touch-action: pan-y` laisse passer le scroll vertical de
+     page ; le déplacement horizontal est géré en JS via `scrollTo`. */
+  overflow-x: hidden;
   overflow-y: visible;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x mandatory;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
   scrollbar-width: none;
+  user-select: none;
+  -webkit-user-select: none;
   /* Padding latéral = (50% - moitié d'un item) → le 1er et le dernier poster
-     peuvent venir se centrer (scroll-snap center). */
+     peuvent venir se centrer. */
   padding: 14px calc(50% - var(--pop-w) / 2);
 }
 .popRail::-webkit-scrollbar {
@@ -22,7 +26,6 @@
 .popItem {
   flex: 0 0 auto;
   width: var(--pop-w);
-  scroll-snap-align: center;
   transform-origin: center center;
   /* Transition courte = le scaling « suit » le doigt sans paraître saccadé
      (le JS pose la valeur cible à chaque frame de scroll). */
