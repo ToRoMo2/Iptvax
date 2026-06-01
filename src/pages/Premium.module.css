@@ -6,6 +6,18 @@
   gap: 32px;
 }
 
+/* Dans le shell de l'app (toutes plateformes), la chrome fixe (brand-fixed,
+   profil, recherche) flotte au-dessus du contenu et fournit déjà le logo.
+   → on masque la marque interne de Premium (doublon) et on dégage le haut de
+   la hauteur de la barre. Hors shell (vitrine web, ProfileSelect) ces règles ne
+   s'appliquent pas → la marque interne et le padding d'origine sont conservés. */
+:global(.main-content) .screen {
+  padding-top: calc(var(--topnav-h) + 8px);
+}
+:global(.main-content) .brand {
+  display: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
