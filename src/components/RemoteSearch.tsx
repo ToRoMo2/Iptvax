@@ -44,12 +44,20 @@ export function RemoteSearch({
   }, [focused, ref]);
 
   const onInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    // Sortir du mode saisie → la navigation flèches reprend (le focus virtuel
-    // norigin est toujours sur le conteneur).
-    // e.preventDefault() sur Enter : sans ça, l'action IME "Go"/"Search" de la
-    // WebView Android traite type="search" comme une soumission de formulaire et
-    // navigue vers "/" (accueil), même sans <form> dans le DOM.
-    if (e.key === 'Escape' || e.key === 'Enter' || e.key.startsWith('Arrow')) {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      // e.preventDefault() bloque l'action browser (soumission de form).
+      // e.nativeEvent.stopImmediatePropagation() est indispensable :
+      // React émet depuis div#root, norigin écoute sur window → l'événement natif
+      // continue de remonter APRÈS React. Quand blur() déplace le focus virtuel
+      // norigin vers un autre élément (ex. nav Accueil), norigin tire onEnterPress
+      // sur ce nouvel élément → navigate('/') = retour accueil involontaire.
+      // stopImmediatePropagation() coupe la remontée native avant window.
+      e.preventDefault();
+      e.nativeEvent.stopImmediatePropagation();
+      inputRef.current?.blur();
+    } else if (e.key.startsWith('Arrow')) {
+      // Arrow : blur pour rendre le D-pad à norigin, mais l'événement remonte
+      // normalement vers norigin pour qu'il pilote la navigation spatiale.
       e.preventDefault();
       inputRef.current?.blur();
     }
@@ -79,7 +87,7 @@ export function RemoteSearch({
         className={inputClassName}
         type="text"
         inputMode="search"
-        enterKeyHint="search"
+        enterKeyHint="done"
         placeholder={`${placeholder} · fix2`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
