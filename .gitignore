@@ -28,3 +28,8 @@ supabase/.temp
 
 # Electron — sortie d'electron-builder (installeurs Windows .exe, dossiers unpacked)
 release
+
+# Signature APK Android — secrets, NE JAMAIS commiter
+*.keystore
+*.jks
+key.properties
