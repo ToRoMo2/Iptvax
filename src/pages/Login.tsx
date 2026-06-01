@@ -173,10 +173,10 @@ export function Login({ redirectTo, hideBrand }: LoginProps = {}) {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 pattern="[0-9]*"
-                maxLength={6}
+                maxLength={8}
                 placeholder={t('login.otpPlaceholder')}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 required
                 autoFocus
               />
