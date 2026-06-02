@@ -1,12 +1,17 @@
 /* ── Recherche globale — rails (Chaînes / Films / Séries) ──────────────────
    La page réutilise Browse.module.css (.page, .header, .shelves, .shelf,
    .shelfHeader, .shelfRail, .posterCell…). Chaque section de résultats est
-   une rangée horizontale scrollable (pattern Movies/Series/Live §IV-22/27)
-   → les 3 catégories tiennent dans un seul écran. Ce module ne porte que la
-   cellule « chaîne » 16:9 propre au rail de résultats Live. */
+   une rangée horizontale scrollable (pattern Movies/Series/Live §IV-22/27).
 
-/* Cellule chaîne (16:9) à largeur fixe dans un rail horizontal — même
-   dimensionnement que les rails Live (Live.module.css). */
+   DESKTOP / TABLETTE : les classes locales ci-dessous sont volontairement
+   VIDES (aucune règle) → le rendu reste celui de Browse, strictement inchangé.
+
+   MOBILE (≤640px) — refonte « Spotlight » (§IV-20) :
+   barre de recherche fixée EN BAS (au-dessus de la bottom nav), titre/sous-titre
+   et badges masqués, rails compactés pour tenir sans scroll. Tout est scopé à
+   la page Search → Movies/Series/Live (mêmes classes Browse) ne bougent pas. */
+
+/* Cellule chaîne (16:9) à largeur fixe dans un rail — desktop calqué sur Live. */
 .channelCell {
   width: 260px;
   flex-shrink: 0;
@@ -18,5 +23,38 @@
 }
 
 @media (max-width: 640px) {
-  .channelCell { width: 60vw; }
+  /* ── Page : titre retiré → on remonte le contenu près de la chrome haute
+        (brand/profil flottants) et on réserve le bas pour la barre fixe. ── */
+  .page {
+    padding-top: calc(56px + var(--safe-top));
+    padding-bottom: calc(var(--bottomnav-h) + 72px);
+  }
+
+  /* En-tête réduit à néant : le titre est masqué et la barre passe en fixed
+     (hors flux) → l'en-tête ne réserve plus aucun espace. */
+  .searchHeader { margin-bottom: 0; gap: 0; }
+  .titleBlock { display: none; }
+  .badge { display: none; }
+
+  /* ── Barre de recherche fixée en bas, juste au-dessus de la bottom nav ──
+        (z-index 45 : au-dessus du contenu, sous la bottom nav z-50). Conserve
+        le style de .searchWrapper (Browse) — on ne change que le placement. */
+  .searchBar {
+    position: fixed;
+    left: var(--pad-edge);
+    right: var(--pad-edge);
+    bottom: calc(var(--bottomnav-h) + 10px);
+    width: auto;
+    max-width: none;
+    margin: 0;
+    z-index: 45;
+  }
+
+  /* ── Rails compactés pour faire tenir les 3 sections sans scroll ── */
+  .searchShelves { margin-top: 4px; }
+  .shelf { margin-bottom: 18px; }
+  .shelfHeader { margin-bottom: 10px; }
+  .shelfRail { padding-top: 6px; padding-bottom: 6px; }
+  .posterCell { width: 116px; }
+  .channelCell { width: 50vw; }
 }

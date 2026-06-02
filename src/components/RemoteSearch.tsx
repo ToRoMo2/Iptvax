@@ -88,7 +88,7 @@ export function RemoteSearch({
         type="text"
         inputMode="search"
         enterKeyHint="done"
-        placeholder={`${placeholder} · fix2`}
+        placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onInputKeyDown}
