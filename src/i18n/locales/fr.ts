@@ -28,6 +28,7 @@ const fr = {
     resultOne: '{count} résultat',
     resultOther: '{count} résultats',
     popular: 'Populaires',
+    myList: 'Ma Liste',
   },
   app: {
     connecting: 'Connexion en cours…',

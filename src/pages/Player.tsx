@@ -13,6 +13,11 @@ import { cleanTitle, extractYear, groupByTitle, qualityRank } from '../utils/cat
 import { buildEpgRows, type EpgRow } from '../utils/epg';
 import styles from './Player.module.css';
 
+// Id de la catégorie synthétique « Ma Liste » (favoris) injectée en tête du
+// zapper quand `PlayerState.liveListLabel` est posé. Préfixe `__` → aucune
+// collision possible avec un `category_id` Xtream.
+const MYLIST_CAT_ID = '__mylist__';
+
 export function Player() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -69,11 +74,13 @@ export function Player() {
         poster: target.stream_icon,
         liveChannels: channels,
         liveIndex: index,
+        // Préserve l'identité de la liste (« Ma Liste ») au fil des prev/next.
+        liveListLabel: state?.liveListLabel,
       };
       // replace:true → la touche retour ramène à /live, pas à la chaîne précédente
       navigate('/player', { state: nextState, replace: true });
     },
-    [credentials, channels, navigate],
+    [credentials, channels, navigate, state?.liveListLabel],
   );
 
   const switchChannel = useCallback(
@@ -164,10 +171,23 @@ export function Player() {
     isLive && channels && typeof channelIndex === 'number'
       ? channels[channelIndex]?.stream_id
       : undefined;
+
+  // Catalogue affiché par le zapper. Quand la liste courante est nommée (favoris
+  // « Ma Liste »), on préfixe une catégorie synthétique avec ces chaînes → le
+  // zapper montre « Ma Liste » en tête (sélectionnée par défaut car elle contient
+  // la chaîne en cours), tout en laissant glisser vers les catégories du serveur.
+  const zapCatalog = useMemo(() => {
+    if (!isLive) return [];
+    if (state?.liveListLabel && channels && channels.length > 0) {
+      return [{ id: MYLIST_CAT_ID, name: state.liveListLabel, channels }, ...liveCatalog];
+    }
+    return liveCatalog;
+  }, [isLive, state?.liveListLabel, channels, liveCatalog]);
+
   const liveCurrentCategoryId = useMemo(() => {
     if (currentChannelStreamId == null) return undefined;
-    return liveCatalog.find((c) => c.channels.some((ch) => ch.stream_id === currentChannelStreamId))?.id;
-  }, [liveCatalog, currentChannelStreamId]);
+    return zapCatalog.find((c) => c.channels.some((ch) => ch.stream_id === currentChannelStreamId))?.id;
+  }, [zapCatalog, currentChannelStreamId]);
 
   // Lecture d'une chaîne du zapper (catégorie + index). Variante optionnelle si
   // l'utilisateur a choisi une qualité. Bascule `liveChannels`/`liveIndex` sur la
@@ -175,7 +195,7 @@ export function Player() {
   const playChannel = useCallback(
     (categoryId: string, index: number, variant?: { stream_id: number; name: string }) => {
       if (!credentials) return;
-      const cat = liveCatalog.find((c) => c.id === categoryId);
+      const cat = zapCatalog.find((c) => c.id === categoryId);
       const target = cat?.channels[index];
       if (!cat || !target) return;
       const streamId = variant?.stream_id ?? target.stream_id;
@@ -187,10 +207,13 @@ export function Player() {
         poster: target.stream_icon,
         liveChannels: cat.channels,
         liveIndex: index,
+        // Rester dans « Ma Liste » tant qu'on zappe dedans ; en sortir dès qu'on
+        // choisit une chaîne d'une catégorie du serveur.
+        liveListLabel: categoryId === MYLIST_CAT_ID ? state?.liveListLabel : undefined,
       };
       navigate('/player', { state: nextState, replace: true });
     },
-    [credentials, liveCatalog, navigate],
+    [credentials, zapCatalog, navigate, state?.liveListLabel],
   );
 
   // ── Zapping prev/next avec sélecteur de qualité ───────────────────────────
@@ -211,6 +234,9 @@ export function Player() {
     },
     [liveCatalog],
   );
+  // Note : on enrichit depuis `liveCatalog` (catégories serveur) et non
+  // `zapCatalog` — les variantes de qualité ne vivent que dans les catégories du
+  // serveur ; « Ma Liste » porte des chaînes mono-flux.
   const prevChannel =
     hasPrev && channels ? channelWithVariants(channels[channelIndex! - 1]) : undefined;
   const nextChannel =
@@ -384,7 +410,9 @@ export function Player() {
           nextChannel={nextChannel}
           onZapChannel={hasChannelNav ? zapChannel : undefined}
           // Zapper : catalogue navigable par catégorie + chaîne/cat courante.
-          liveCatalog={isLive ? liveCatalog : undefined}
+          // `zapCatalog` = catégories serveur, précédées de « Ma Liste » si la
+          // lecture vient des favoris (cohérence overlay ↔ prev/next).
+          liveCatalog={isLive ? zapCatalog : undefined}
           liveCurrentCategoryId={liveCurrentCategoryId}
           liveCurrentStreamId={currentChannelStreamId}
           onPlayChannel={isLive ? playChannel : undefined}

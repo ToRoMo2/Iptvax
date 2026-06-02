@@ -27,6 +27,7 @@ const es: typeof frDict = {
     resultOne: '{count} resultado',
     resultOther: '{count} resultados',
     popular: 'Populares',
+    myList: 'Mi Lista',
   },
   app: {
     connecting: 'Conectando…',

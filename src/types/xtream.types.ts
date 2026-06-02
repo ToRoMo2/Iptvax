@@ -210,6 +210,11 @@ export interface PlayerState {
   // + index courant, pour permettre prev/next depuis le player.
   liveChannels?: LiveChannelRef[];
   liveIndex?: number;
+  // Live uniquement : si `liveChannels` est une liste nommée (ex. « Ma Liste »
+  // des favoris) plutôt qu'une catégorie du serveur, ce libellé est affiché
+  // comme catégorie synthétique en tête du zapper de l'overlay (et préservé au
+  // prev/next). Absent = liste issue d'une catégorie normale.
+  liveListLabel?: string;
   // Épisode uniquement : déclenche le panneau « Épisodes » dans le lecteur.
   seriesContext?: SeriesContext;
 }

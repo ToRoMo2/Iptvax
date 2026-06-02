@@ -83,7 +83,7 @@ function Shelf({
 
 export function Live() {
   const { credentials } = useXtream();
-  const { isFavorite, toggleFavorite } = useLibrary();
+  const { favorites, isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -210,6 +210,32 @@ export function Live() {
     else playVariant(g, g.primary, listGroups);
   };
 
+  // ── Rail « Ma Liste » (chaînes favorites) ──────────────────────────────────
+  // Zapping restreint aux favoris (liste nommée → catégorie synthétique dans
+  // l'overlay), exactement comme la page Favoris.
+  const favChannels = useMemo(() => favorites.filter((f) => f.type === 'live'), [favorites]);
+  const playFavoriteChannel = (index: number) => {
+    if (!credentials) return;
+    const liveChannels = favChannels.map((c) => ({
+      stream_id: Number(c.id),
+      name: c.name,
+      stream_icon: c.image,
+    }));
+    const fav = favChannels[index];
+    const streamId = Number(fav.id);
+    const state: PlayerState = {
+      url: xtreamService.getLiveStreamUrl(credentials, streamId),
+      fallbackUrl: xtreamService.getLiveStreamTsUrl(credentials, streamId),
+      title: fav.name,
+      type: 'live',
+      poster: fav.image,
+      liveChannels,
+      liveIndex: index < 0 ? 0 : index,
+      liveListLabel: t('common.myList'),
+    };
+    navigate('/player', { state });
+  };
+
   const groupBadge = (g: LiveGroup): string | undefined => {
     if (g.variants.length < 2) return undefined;
     const top = qualityLabel(g.primary.name, '');
@@ -334,6 +360,28 @@ export function Live() {
         </div>
       ) : (
         <div className={styles.shelves}>
+          {favChannels.length > 0 && (
+            <Shelf
+              title={t('common.myList')}
+              count={favChannels.length}
+              seeAllLabel={t('common.seeAll')}
+              onSeeAll={() => navigate('/favorites')}
+            >
+              {favChannels.map((c, i) => (
+                <div key={c.id} className={live.channelCell}>
+                  <MediaCard
+                    title={c.name}
+                    image={c.image}
+                    variant="channel"
+                    isLive
+                    isFavorite={isFavorite('live', c.id)}
+                    onClick={() => playFavoriteChannel(i)}
+                    onFavorite={() => toggleFavorite(c)}
+                  />
+                </div>
+              ))}
+            </Shelf>
+          )}
           {rails.map((r) => (
             <Shelf
               key={r.id}
@@ -357,7 +405,9 @@ export function Live() {
               )}
             </Shelf>
           ))}
-          {rails.length === 0 && <p className={styles.empty}>{t('live.none')}</p>}
+          {rails.length === 0 && favChannels.length === 0 && (
+            <p className={styles.empty}>{t('live.none')}</p>
+          )}
         </div>
       )}
 
