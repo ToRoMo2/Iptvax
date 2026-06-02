@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 
 /** Clé de focus stable de la barre de recherche (cible des redirections
@@ -15,6 +15,11 @@ interface Props {
   inputClassName: string;
   /** Classe du bouton « effacer » (optionnelle — affiché seulement si fournie). */
   clearClassName?: string;
+  /** Si true, donne le focus à l'input 100 ms après le montage. */
+  autoFocus?: boolean;
+  /** Si fourni, cycle le placeholder entre ces phrases toutes les 3200 ms
+   *  (seulement quand value === ''). */
+  animatedPlaceholders?: string[];
 }
 
 /**
@@ -30,12 +35,37 @@ export function RemoteSearch({
   iconClassName,
   inputClassName,
   clearClassName,
+  autoFocus,
+  animatedPlaceholders,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { ref, focused } = useFocusable({
     focusKey: SEARCH_FOCUS_KEY,
     onEnterPress: () => inputRef.current?.focus(),
   });
+
+  // ── Auto-focus ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!autoFocus) return;
+    const id = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(id);
+  }, [autoFocus]);
+
+  // ── Placeholder animé ─────────────────────────────────────────────────────
+  const [animPlaceholder, setAnimPlaceholder] = useState(
+    animatedPlaceholders?.[0] ?? placeholder,
+  );
+  useEffect(() => {
+    if (!animatedPlaceholders || animatedPlaceholders.length === 0) return;
+    let idx = 0;
+    const id = setInterval(() => {
+      idx = (idx + 1) % animatedPlaceholders.length;
+      setAnimPlaceholder(animatedPlaceholders[idx]);
+    }, 3200);
+    return () => clearInterval(id);
+  }, [animatedPlaceholders, placeholder]);
+
+  const displayPlaceholder = animatedPlaceholders && value === '' ? animPlaceholder : placeholder;
 
   useEffect(() => {
     if (focused) {
@@ -88,7 +118,7 @@ export function RemoteSearch({
         type="text"
         inputMode="search"
         enterKeyHint="done"
-        placeholder={placeholder}
+        placeholder={displayPlaceholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onInputKeyDown}

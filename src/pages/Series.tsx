@@ -100,6 +100,7 @@ export function Series() {
 
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   // Rail « Populaires » (tendances TMDB) — Premium only (cf. Movies / §X).
   const [popular, setPopular] = useState<TitleGroup<SeriesItem>[]>([]);
@@ -124,6 +125,7 @@ export function Series() {
   // ── Debounce recherche ─────────────────────────────────────────────────────
   useEffect(() => {
     const id = setTimeout(() => setQuery(search.trim()), 200);
+    if (search.trim().length > 0) setShowSearch(true);
     return () => clearTimeout(id);
   }, [search]);
 
@@ -287,23 +289,38 @@ export function Series() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.titleBlock}>
-          <h1 className={styles.title}>{t('series.title')}</h1>
-          <p className={styles.pageSub}>
-            {isGlobalSearch
-              ? t('live.globalSearch')
-              : tc('series.countOne', 'series.countOther', allGroups.length)}
-          </p>
+        <div className={`${styles.titleBlock} ${styles.titleBlockRow}`}>
+          <div>
+            <h1 className={styles.title}>{t('series.title')}</h1>
+            <p className={styles.pageSub}>
+              {isGlobalSearch
+                ? t('live.globalSearch')
+                : tc('series.countOne', 'series.countOther', allGroups.length)}
+            </p>
+          </div>
+          <button
+            className={`${styles.searchToggleBtn} ${showSearch ? styles.searchToggleActive : ''}`}
+            aria-label={t('series.searchPlaceholder')}
+            aria-expanded={showSearch}
+            onClick={() => {
+              setShowSearch((s) => !s);
+              if (showSearch) setSearch('');
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          </button>
         </div>
-        <RemoteSearch
-          value={search}
-          onChange={setSearch}
-          placeholder={t('series.searchPlaceholder')}
-          wrapperClassName={styles.searchWrapper}
-          iconClassName={styles.searchIcon}
-          inputClassName={styles.search}
-          clearClassName={styles.searchClear}
-        />
+        <div className={`${styles.searchOuter} ${showSearch ? styles.searchOpen : ''}`}>
+          <RemoteSearch
+            value={search}
+            onChange={setSearch}
+            placeholder={t('series.searchPlaceholder')}
+            wrapperClassName={styles.searchWrapper}
+            iconClassName={styles.searchIcon}
+            inputClassName={styles.search}
+            clearClassName={styles.searchClear}
+          />
+        </div>
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
           <span className={styles.searchBadge}>{t('common.minChars', { n: MIN_SEARCH_LEN })}</span>
         )}

@@ -37,8 +37,8 @@
   .badge { display: none; }
 
   /* ── Barre de recherche fixée en bas, juste au-dessus de la bottom nav ──
-        (z-index 45 : au-dessus du contenu, sous la bottom nav z-50). Conserve
-        le style de .searchWrapper (Browse) — on ne change que le placement. */
+        (z-index 45 : au-dessus du contenu, sous la bottom nav z-50). Plus
+        grande et plus proéminente que les barres des pages catalogue. */
   .searchBar {
     position: fixed;
     left: var(--pad-edge);
@@ -48,6 +48,10 @@
     max-width: none;
     margin: 0;
     z-index: 45;
+    height: 60px;
+    font-size: 17px;
+    box-shadow: 0 -2px 20px rgba(0,0,0,0.3), 0 4px 24px rgba(0,0,0,0.4),
+                0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.06);
   }
 
   /* ── Rails compactés pour faire tenir les 3 sections sans scroll ── */

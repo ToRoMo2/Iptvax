@@ -41,15 +41,15 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 50px;
-  padding: 0 10px 0 20px;
-  background: var(--bg-2);
+  gap: 14px;
+  height: 56px;
+  padding: 0 14px 0 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.04);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   transition: border-color var(--d-micro) var(--ease),
               box-shadow var(--d-micro) var(--ease),
               background var(--d-micro) var(--ease);
@@ -57,6 +57,7 @@
 
 .searchWrapper:hover {
   border-color: var(--line-strong);
+  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
 }
 
 /* Focus souris/tactile (focus-within) ET focus télécommande norigin (rc-focused)
@@ -64,7 +65,8 @@
 .searchWrapper:focus-within,
 .searchWrapper:global(.rc-focused) {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-faint), 0 0 22px -4px var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--accent-faint), 0 0 28px -4px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.06);
+  background: linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(0,212,255,0.02) 100%);
 }
 
 .searchIcon {
@@ -72,11 +74,13 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  transition: color var(--d-micro) var(--ease);
+  transition: color var(--d-micro) var(--ease),
+              transform var(--d-micro) var(--ease);
 }
 .searchWrapper:focus-within .searchIcon,
 .searchWrapper:global(.rc-focused) .searchIcon {
   color: var(--accent);
+  transform: scale(1.1);
 }
 
 .search {
@@ -86,8 +90,9 @@
   border: 0;
   outline: 0;
   color: var(--t-1);
-  font-size: 14.5px;
+  font-size: 15px;
   font-family: inherit;
+  letter-spacing: 0.01em;
 }
 
 .search::placeholder {
@@ -104,33 +109,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 50%;
-  background: transparent;
+  background: var(--bg-2);
   color: var(--t-3);
   cursor: pointer;
-  transition: color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+  transition: color var(--d-micro) var(--ease),
+              background var(--d-micro) var(--ease),
+              border-color var(--d-micro) var(--ease);
 }
 .searchClear:hover {
   color: var(--t-1);
-  background: var(--line);
+  background: var(--bg-card-hover);
+  border-color: var(--line-strong);
 }
 
 .searchBadge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  background: transparent;
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.04);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   color: var(--t-2);
   font-size: 12px;
   font-weight: 500;
   flex-shrink: 0;
+  backdrop-filter: blur(8px);
 }
 
 .catSkeleton {
@@ -400,6 +409,30 @@
   white-space: nowrap;
 }
 
+/* ── Wrapper d'animation mobile pour la barre de recherche (Live/Films/Séries) ──
+   Desktop : transparent passthrough (flex: 1, max-width identique à searchWrapper).
+   Mobile : grid-template-rows 0fr→1fr pour animer la hauteur sans JS height. */
+.searchOuter {
+  flex: 1;
+  max-width: 440px;
+}
+
+/* Bouton loupe pour ouvrir/fermer la barre (mobile only, hidden on desktop) */
+.searchToggleBtn {
+  display: none;
+}
+
+@keyframes srchReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ====================================================================
    Responsive
    ==================================================================== */
@@ -428,11 +461,69 @@
     margin-bottom: 18px;
   }
   .titleBlock { margin-right: 0; }
-  .searchWrapper { height: 52px; padding: 0 8px 0 18px; }
+  .searchWrapper { height: 54px; padding: 0 10px 0 20px; }
   /* >=16px : évite le zoom iOS au focus (§IV-20). */
   .search { font-size: 16px; }
   .searchClear { width: 32px; height: 32px; }
   .searchBadge { font-size: 11px; padding: 3px 9px; }
+
+  /* Wrapper d'animation : fermé par défaut */
+  .searchOuter {
+    max-width: none;
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+    transition: grid-template-rows 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .searchOuter > * {
+    overflow: hidden;
+    min-height: 0;
+  }
+  /* Ouvert */
+  .searchOuter.searchOpen {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .searchOuter.searchOpen .searchWrapper {
+    animation: srchReveal 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  /* Bouton loupe toggle (mobile only) */
+  .searchToggleBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.04);
+    color: var(--t-2);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--d-micro) var(--ease),
+                background var(--d-micro) var(--ease),
+                border-color var(--d-micro) var(--ease);
+  }
+  .searchToggleBtn:hover,
+  .searchToggleBtn.searchToggleActive {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-faint);
+  }
+  .searchToggleBtn svg { width: 17px; height: 17px; }
+
+  /* Titleblock avec toggle : flex row pour mettre le titre à gauche et le bouton à droite */
+  .titleBlockRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
 
   /* Films / Séries : 3 posters par ligne en vue catégorie complète (choix
      utilisateur). `minmax(0, 1fr)` (et non `1fr`) : colonnes qui peuvent
