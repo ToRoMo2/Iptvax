@@ -1350,7 +1350,7 @@
      masqué en paysage (§IV-28), reste accessible mais tassé — il est désormais
      opt-in via le toggle, donc l'afficher sur demande est cohérent. */
   .liveStrip { gap: 4px; }
-  .catTabs { padding: 0 2px 2px; }
+  .catTabs { padding: 0 14px 2px; }
   .catTab { padding: 4px 10px 6px; font-size: 12px; }
   .channelCell { width: 88px; height: 66px; padding: 5px 7px; gap: 5px; }
   .channelLogo { height: 28px; flex-basis: 28px; }
@@ -1483,9 +1483,10 @@
 .catTabs {
   display: flex;
   gap: 4px;
-  padding: 2px 2px 4px;
+  padding: 2px 14px 4px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  scroll-padding-inline: 14px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -1514,9 +1515,12 @@
 .channelRail {
   display: flex;
   gap: 10px;
-  padding: 4px 2px 2px;
+  /* Décalage gauche/droite : la 1re carte ne colle pas au bord (sinon elle
+     tombe dans le dégradé sombre de l'overlay au scroll tout à gauche). */
+  padding: 4px 14px 2px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  scroll-padding-inline: 14px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
