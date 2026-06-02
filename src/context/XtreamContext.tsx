@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   useRef,
+  useCallback,
   type ReactNode,
 } from 'react';
 import type { XtreamCredentials, XtreamUserInfo } from '../types/xtream.types';
@@ -18,6 +19,7 @@ interface XtreamContextValue {
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   authError: string | null;
+  retryAuth: () => void;
 }
 
 const XtreamContext = createContext<XtreamContextValue | null>(null);
@@ -43,6 +45,8 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
   const [userInfo, setUserInfo] = useState<XtreamUserInfo | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  // Incrémenté par retryAuth() → re-déclenche l'effet d'authentification.
+  const [retryCount, setRetryCount] = useState(0);
 
   // `t` dans une ref : l'effet d'auth ne doit se relancer que sur changement
   // de profil, pas à chaque changement de langue.
@@ -50,36 +54,61 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
   const tRef = useRef(t);
   tRef.current = t;
 
+  const retryAuth = useCallback(() => setRetryCount((n) => n + 1), []);
+
   // Authentifie le profil IPTV actif (le composant est remonté via `key`
   // dans App.tsx à chaque changement de profil → re-auth automatique).
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     setIsAuthenticating(true);
     setAuthError(null);
 
-    xtreamService
-      .authenticate(credentials)
-      .then((response) => {
-        if (cancelled) return;
-        if (!response?.user_info || response.user_info.auth === 0) {
-          throw new Error(tRef.current('profileSelect.badCredentials'));
-        }
-        setUserInfo(response.user_info);
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return;
-        setAuthError(e instanceof Error ? e.message : tRef.current('profileSelect.connectFail'));
-        setUserInfo(null);
-      })
-      .finally(() => {
-        if (!cancelled) setIsAuthenticating(false);
-      });
+    // Tentative d'authentification avec auto-retry unique pour les erreurs
+    // transitoires (5xx serveur, réseau coupé). Les erreurs 4xx et le rejet
+    // auth=0 ne sont PAS retentées (identifiants incorrects = pas transitoire).
+    const attempt = (internalAttempt: number) => {
+      xtreamService
+        .authenticate(credentials)
+        .then((response) => {
+          if (cancelled) return;
+          if (!response?.user_info || response.user_info.auth === 0) {
+            // Marqueur stable — localisé uniquement à l'affichage.
+            throw new Error('auth:rejected');
+          }
+          setUserInfo(response.user_info);
+          setIsAuthenticating(false);
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          const msg = e instanceof Error ? e.message : '';
+          // HTTP 4xx ou rejet auth=0 → ne pas réessayer automatiquement.
+          const isTransient = msg !== 'auth:rejected' && !/^HTTP [34]\d\d$/.test(msg);
+          if (internalAttempt === 0 && isTransient) {
+            // Auto-retry silencieux après 3 s — reste sur l'écran "Connexion…"
+            retryTimer = setTimeout(() => {
+              if (!cancelled) attempt(1);
+            }, 3_000);
+            return;
+          }
+          const display =
+            msg === 'auth:rejected'
+              ? tRef.current('profileSelect.badCredentials')
+              : msg || tRef.current('profileSelect.connectFail');
+          setAuthError(display);
+          setUserInfo(null);
+          setIsAuthenticating(false);
+        });
+    };
+
+    attempt(0);
 
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile.id]);
+  }, [profile.id, retryCount]);
 
   const value = useMemo(
     () => ({
@@ -88,8 +117,9 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
       isAuthenticated: !!userInfo,
       isAuthenticating,
       authError,
+      retryAuth,
     }),
-    [credentials, userInfo, isAuthenticating, authError],
+    [credentials, userInfo, isAuthenticating, authError, retryAuth],
   );
 
   return (

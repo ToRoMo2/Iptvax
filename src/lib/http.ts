@@ -20,11 +20,23 @@ import { CapacitorHttp } from '@capacitor/core';
 // proxy /api/xtream.
 const NATIVE_API_HEADERS = { 'User-Agent': 'Mozilla/5.0' };
 
+// Les catalogues Xtream peuvent peser plusieurs Mo sur réseau mobile lent.
+// Sans timeout explicite, CapacitorHttp (HttpURLConnection Android) et fetch
+// peuvent pendre indéfiniment si le réseau stalle en cours de transfert.
+// 45 s laisse le temps aux gros catalogues de charger sur 3G tout en bornant
+// la durée d'attente (cas de panne réseau silencieuse côté mobile).
+const HTTP_TIMEOUT_MS = 45_000;
+
 export async function httpGetJson<T>(url: string, init?: RequestInit): Promise<T> {
   if (isCapacitor) {
     // Android (Capacitor) : le WebView bloque les requêtes cross-origin → on
     // délègue au client HTTP natif Java qui ignore le CORS côté runtime.
-    const res = await CapacitorHttp.get({ url, headers: NATIVE_API_HEADERS });
+    const res = await CapacitorHttp.get({
+      url,
+      headers: NATIVE_API_HEADERS,
+      connectTimeout: HTTP_TIMEOUT_MS,
+      readTimeout: HTTP_TIMEOUT_MS,
+    });
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`HTTP ${res.status}`);
     }
@@ -35,7 +47,7 @@ export async function httpGetJson<T>(url: string, init?: RequestInit): Promise<T
   // Web / Tizen / webOS : fetch standard.
   // Sur Tizen (.wgt) et webOS (.ipk), les apps empaquetées n'ont pas de
   // restriction CORS — les requêtes Xtream cross-origin passent librement.
-  const res = await fetch(url, init);
+  const res = await fetch(url, { ...init, signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);

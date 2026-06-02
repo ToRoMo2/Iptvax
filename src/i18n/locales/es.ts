@@ -34,6 +34,7 @@ const es: typeof frDict = {
     loading: 'Cargando…',
     profileConnectFail: 'No se pudo conectar al perfil «{name}».',
     checkCredentials: 'Verifica las credenciales IPTV de este perfil.',
+    serverTemporaryError: 'Servidor IPTV temporalmente no disponible. Inténtalo de nuevo en unos instantes.',
     changeProfile: 'Cambiar de perfil',
   },
   nav: {
