@@ -43,11 +43,30 @@ export function Search() {
   useEffect(() => {
     if (!credentials || loadedRef.current) return;
     loadedRef.current = true;
+
+    let alive = true;
+
+    // Filet de sécurité : si l'un des 3 catalogues stalle (réseau mobile
+    // silencieusement coupé), Promise.allSettled n'arrive jamais → loading
+    // reste true indéfiniment. Après 30 s on force les tableaux encore null
+    // à [] pour débloquer l'UI avec les résultats partiels disponibles.
+    // Le timeout HTTP (45 s dans http.ts) fera ensuite rejeter la Promise
+    // suspendue, ce qui purge son entrée du cache → le prochain passage sur
+    // la page relancera un vrai fetch.
+    const safetyTimer = setTimeout(() => {
+      if (!alive) return;
+      setAllLive((prev) => prev ?? []);
+      setAllMovies((prev) => prev ?? []);
+      setAllSeries((prev) => prev ?? []);
+    }, 30_000);
+
     Promise.allSettled([
       xtreamService.getLiveStreams(credentials),
       xtreamService.getVodStreams(credentials),
       xtreamService.getSeries(credentials),
     ]).then(([live, movies, series]) => {
+      if (!alive) return;
+      clearTimeout(safetyTimer);
       setAllLive(live.status === 'fulfilled' ? live.value : []);
       setAllMovies(movies.status === 'fulfilled' ? movies.value : []);
       setAllSeries(series.status === 'fulfilled' ? series.value : []);
@@ -60,6 +79,14 @@ export function Search() {
         setError(t('search.catalogError'));
       }
     });
+
+    return () => {
+      alive = false;
+      clearTimeout(safetyTimer);
+      // Permet au prochain montage (ou au re-run sur changement de credentials)
+      // de relancer les fetches si les creds ont changé.
+      loadedRef.current = false;
+    };
   }, [credentials, t]);
 
   useEffect(() => {
