@@ -39,15 +39,15 @@ function SearchShelf({
   children: ReactNode;
 }) {
   return (
-    <section className={browse.shelf}>
-      <div className={browse.shelfHeader}>
+    <section className={`${browse.shelf} ${styles.shelf}`}>
+      <div className={`${browse.shelfHeader} ${styles.shelfHeader}`}>
         <div className={browse.shelfTitleGroup}>
           <h2 className={browse.shelfTitle}>{title}</h2>
           <span className={browse.shelfDivider} aria-hidden="true" />
           <span className={browse.shelfCount}>{count}</span>
         </div>
       </div>
-      <ScrollRail railClassName={browse.shelfRail}>{children}</ScrollRail>
+      <ScrollRail railClassName={`${browse.shelfRail} ${styles.shelfRail}`}>{children}</ScrollRail>
     </section>
   );
 }
@@ -194,9 +194,9 @@ export function Search() {
   };
 
   return (
-    <div className={browse.page}>
-      <header className={browse.header}>
-        <div className={browse.titleBlock}>
+    <div className={`${browse.page} ${styles.page}`}>
+      <header className={`${browse.header} ${styles.searchHeader}`}>
+        <div className={`${browse.titleBlock} ${styles.titleBlock}`}>
           <h1 className={browse.title}>{t('search.title')}</h1>
           <p className={browse.pageSub}>
             {isSearching && !loading
@@ -208,18 +208,18 @@ export function Search() {
           value={search}
           onChange={setSearch}
           placeholder={t('search.placeholder')}
-          wrapperClassName={browse.searchWrapper}
+          wrapperClassName={`${browse.searchWrapper} ${styles.searchBar}`}
           iconClassName={browse.searchIcon}
           inputClassName={browse.search}
           clearClassName={browse.searchClear}
         />
         {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LEN && (
-          <span className={browse.searchBadge}>
+          <span className={`${browse.searchBadge} ${styles.badge}`}>
             {t('common.minChars', { n: MIN_SEARCH_LEN })}
           </span>
         )}
         {isSearching && loading && (
-          <span className={browse.searchBadge}>{t('search.loadingCatalog')}</span>
+          <span className={`${browse.searchBadge} ${styles.badge}`}>{t('search.loadingCatalog')}</span>
         )}
       </header>
 
@@ -247,7 +247,7 @@ export function Search() {
       )}
 
       {isSearching && !loading && totalResults > 0 && (
-        <div className={browse.shelves}>
+        <div className={`${browse.shelves} ${styles.searchShelves}`}>
           {liveResults.length > 0 && (
             <SearchShelf title={t('search.channels')} count={liveResults.length}>
               {liveResults.map((stream) => (
@@ -278,7 +278,7 @@ export function Search() {
               {movieGroups.map((g) => (
                 <PreviewCard
                   key={g.primary.stream_id}
-                  className={browse.posterCell}
+                  className={`${browse.posterCell} ${styles.posterCell}`}
                   title={g.title}
                   image={g.primary.stream_icon}
                   backdrop={g.primary.backdrop_path?.[0]}
@@ -319,7 +319,7 @@ export function Search() {
               {seriesGroups.map((g) => (
                 <PreviewCard
                   key={g.primary.series_id}
-                  className={browse.posterCell}
+                  className={`${browse.posterCell} ${styles.posterCell}`}
                   title={g.title}
                   image={g.primary.cover}
                   backdrop={g.primary.backdrop_path?.[0]}
