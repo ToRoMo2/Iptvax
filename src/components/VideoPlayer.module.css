@@ -115,6 +115,44 @@
 }
 .mobileCenterPlayBtn:active { transform: scale(0.93); }
 
+/* Colonne centrale : pistes audio/CC (live) empilées au-dessus du groupe lecture. */
+.mobileCenterStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+  pointer-events: none; /* les enfants re-activent */
+}
+
+/* Rangée des pistes audio/sous-titres remontées au-dessus du pause (live). */
+.mobileCenterTrackRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: all;
+}
+
+/* Chip audio/CC : pastille translucide visible directement sur la vidéo. */
+.mobileCenterChip {
+  height: 38px !important;
+  min-width: 0 !important;
+  padding: 0 14px !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: var(--r-pill) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+}
+.mobileCenterChip:active { background: rgba(0, 0, 0, 0.65) !important; }
+
+/* Boutons du bottom bar remontés au centre en live sur mobile : masqués ici
+   (la règle de masquage vit dans la media query mobile, paire avec l'affichage
+   des contrôles centraux). Aucun effet sur desktop. */
+.liveCenterOnly {}
+
 /* Sliders verticaux latéraux (luminosité / volume) */
 .mobileSideBar {
   display: flex;
@@ -1100,6 +1138,10 @@
   /* Cacher back10/play/fwd10 du bottomBar (ils sont maintenant au centre) */
   .bottomBar .primaryGroup { display: none !important; }
 
+  /* Live : audio/CC du bottom bar masqués (remontés au-dessus du pause dans les
+     contrôles centraux pour rester visibles malgré l'overlay chargé). */
+  .liveCenterOnly { display: none !important; }
+
   /* Cacher le spacer (inutile sans primaryGroup) */
   .spacer { display: none !important; }
 
@@ -1122,7 +1164,10 @@
     .mobileCenterControls { gap: 18px; }
     /* Live : remonte le bloc central au-dessus de la bande basse (plus haute en
        live à cause du zapper) pour éviter le chevauchement avec les chaînes. */
-    .mobileCenterControlsLive { top: 38%; }
+    .mobileCenterControlsLive { top: 34%; }
+    /* Pile centrale compacte (track row au-dessus du pause) en paysage. */
+    .mobileCenterStack { gap: 10px; }
+    .mobileCenterChip { height: 32px !important; padding: 0 11px !important; }
   }
 }
 

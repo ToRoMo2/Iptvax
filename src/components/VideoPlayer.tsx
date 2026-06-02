@@ -44,6 +44,16 @@ interface Props {
   onPrevChannel?: () => void;
   onNextChannel?: () => void;
   channelPosition?: string;
+  // ── Zapping prev/next avec sélecteur de qualité (boutons de l'overlay) ─────
+  // Refs de la chaîne précédente / suivante dans la liste courante (catégorie ou
+  // favoris — celle du compteur « 1/82 »), enrichies de leurs variantes de
+  // qualité. `onZapChannel(direction, variant?)` joue la chaîne adjacente ; si la
+  // cible a ≥ 2 variantes, l'overlay ouvre le même bottom-sheet de qualité que le
+  // zapper avant d'appeler `onZapChannel` avec la variante choisie. Boutons grisés
+  // quand `prevChannel`/`nextChannel` sont absents (bord de liste).
+  prevChannel?: LiveChannelRef;
+  nextChannel?: LiveChannelRef;
+  onZapChannel?: (direction: 1 | -1, variant?: { stream_id: number; name: string }) => void;
   // ── Zapper live (catalogue navigable par catégorie dans l'overlay) ────────
   // Catalogue complet (catégories + chaînes regroupées par titre avec variantes
   // de qualité), construit côté Player. Permet un rail de zapping + une rangée
@@ -147,6 +157,9 @@ export function VideoPlayer({
   onPrevChannel,
   onNextChannel,
   channelPosition,
+  prevChannel,
+  nextChannel,
+  onZapChannel,
   liveCatalog,
   liveCurrentCategoryId,
   liveCurrentStreamId,
@@ -222,7 +235,14 @@ export function VideoPlayer({
   // bottom-sheet de qualité est ouvert (null = fermé).
   const [liveBottomView, setLiveBottomView] = useState<'channels' | 'epg'>('channels');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
-  const [qualityPick, setQualityPick] = useState<{ catId: string; index: number } | null>(null);
+  // Bottom-sheet de choix de qualité, partagé par le zapper (tap sur une chaîne
+  // du rail) ET par les boutons prev/next de l'overlay. Descripteur générique :
+  // nom affiché, variantes à proposer, et callback de lecture de la variante.
+  const [qSheet, setQSheet] = useState<{
+    name: string;
+    variants: { stream_id: number; name: string }[];
+    onPick: (v: { stream_id: number; name: string }) => void;
+  } | null>(null);
   const channelRailRef = useRef<HTMLDivElement>(null);
   const catTabsRef = useRef<HTMLDivElement>(null);
   // Vue active dans le panneau sous-titres : 'tracks' (pistes + bouton
@@ -339,10 +359,33 @@ export function VideoPlayer({
       if (!activeCatId || !onPlayChannel) return;
       const ch = railChannels[index];
       if (!ch) return;
-      if (ch.variants && ch.variants.length > 1) setQualityPick({ catId: activeCatId, index });
-      else onPlayChannel(activeCatId, index);
+      if (ch.variants && ch.variants.length > 1) {
+        setQSheet({
+          name: ch.name,
+          variants: ch.variants,
+          onPick: (v) => onPlayChannel(activeCatId, index, v),
+        });
+      } else onPlayChannel(activeCatId, index);
     },
     [activeCatId, railChannels, onPlayChannel],
+  );
+
+  // Zapping prev/next via les boutons de l'overlay : si la chaîne adjacente a
+  // ≥ 2 variantes → même bottom-sheet de qualité que le zapper, sinon lecture
+  // directe. Boutons grisés en bord de liste (prevChannel/nextChannel absents).
+  const handleZap = useCallback(
+    (direction: 1 | -1) => {
+      const target = direction === 1 ? nextChannel : prevChannel;
+      if (!target || !onZapChannel) return;
+      if (target.variants && target.variants.length > 1) {
+        setQSheet({
+          name: target.name,
+          variants: target.variants,
+          onPick: (v) => onZapChannel(direction, v),
+        });
+      } else onZapChannel(direction);
+    },
+    [prevChannel, nextChannel, onZapChannel],
   );
 
   // Centre la chaîne courante (ou le début) dans le rail à l'ouverture / au
@@ -974,33 +1017,88 @@ export function VideoPlayer({
             </div>
           </div>
 
-          {/* Groupe lecture central */}
-          <div className={styles.mobileCenterPlayGroup}>
-            {!isLive && (
-              <button
-                className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
-                onClick={() => player.seek(player.currentTime - 10)}
-                title={t('player.back10')}
-              >
-                <IconBack10 size={30} />
-              </button>
+          {/* Colonne centrale : pistes audio/CC (live) au-dessus du pause +
+              groupe lecture (±10s en VOD, chaîne prec/suiv en live). */}
+          <div className={styles.mobileCenterStack}>
+            {/* Live : pistes audio + sous-titres remontées au-dessus du pause
+                (cachées dans le bottom bar quand l'overlay est chargé). */}
+            {isLive && (player.audioTracks.length > 0 || player.subtitleTracks.length > 0) && (
+              <div className={styles.mobileCenterTrackRow}>
+                {player.audioTracks.length > 0 && (
+                  <button
+                    className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.mobileCenterChip}`}
+                    onClick={(e) => { e.stopPropagation(); openPanel('audio'); }}
+                    title={t('player.audioTrack')}
+                  >
+                    <IconAudio size={18} />
+                    <span className={styles.controlBtnLabel}>
+                      {player.audioTracks[player.currentAudio]?.language?.toUpperCase() || 'AUDIO'}
+                    </span>
+                  </button>
+                )}
+                {player.subtitleTracks.length > 0 && (
+                  <button
+                    className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.mobileCenterChip} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
+                    onClick={(e) => { e.stopPropagation(); openPanel('subtitles'); }}
+                    title={t('player.subtitles')}
+                  >
+                    <IconSubtitles size={18} />
+                    <span className={styles.controlBtnLabel}>
+                      {player.currentSubtitle >= 0
+                        ? (player.subtitleTracks[player.currentSubtitle]?.language?.toUpperCase() || 'CC')
+                        : 'CC'}
+                    </span>
+                  </button>
+                )}
+              </div>
             )}
-            <button
-              className={`${styles.controlBtn} ${styles.mobileCenterPlayBtn}`}
-              onClick={player.toggle}
-              title={t('player.playPause')}
-            >
-              {isPlaying ? <IconPause size={30} /> : <IconPlay size={30} />}
-            </button>
-            {!isLive && (
+
+            {/* Groupe lecture central */}
+            <div className={styles.mobileCenterPlayGroup}>
+              {isLive ? (
+                <button
+                  className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
+                  onClick={() => handleZap(-1)}
+                  disabled={!prevChannel}
+                  title={t('player.prevChannel')}
+                >
+                  <IconPrev size={28} />
+                </button>
+              ) : (
+                <button
+                  className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
+                  onClick={() => player.seek(player.currentTime - 10)}
+                  title={t('player.back10')}
+                >
+                  <IconBack10 size={30} />
+                </button>
+              )}
               <button
-                className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
-                onClick={() => player.seek(player.currentTime + 10)}
-                title={t('player.fwd10')}
+                className={`${styles.controlBtn} ${styles.mobileCenterPlayBtn}`}
+                onClick={player.toggle}
+                title={t('player.playPause')}
               >
-                <IconFwd10 size={30} />
+                {isPlaying ? <IconPause size={30} /> : <IconPlay size={30} />}
               </button>
-            )}
+              {isLive ? (
+                <button
+                  className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
+                  onClick={() => handleZap(1)}
+                  disabled={!nextChannel}
+                  title={t('player.nextChannel')}
+                >
+                  <IconNext size={28} />
+                </button>
+              ) : (
+                <button
+                  className={`${styles.controlBtn} ${styles.mobileSeekBtn}`}
+                  onClick={() => player.seek(player.currentTime + 10)}
+                  title={t('player.fwd10')}
+                >
+                  <IconFwd10 size={30} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Slider volume — droite */}
@@ -1135,11 +1233,11 @@ export function VideoPlayer({
               en pause auto, et reprend la lecture à sa fermeture. */}
           {panelKind === null ? (
             <div className={styles.bottomBar}>
-              {isLive && (onPrevChannel || onNextChannel) && (
+              {isLive && onZapChannel && (
                 <button
                   className={`${styles.controlBtn} ${styles.primaryGroup}`}
-                  onClick={onPrevChannel}
-                  disabled={!onPrevChannel}
+                  onClick={() => handleZap(-1)}
+                  disabled={!prevChannel}
                   title={t('player.prevChannel')}
                 >
                   <IconPrev size={22} />
@@ -1156,11 +1254,11 @@ export function VideoPlayer({
                 {isPlaying ? <IconPause size={24} /> : <IconPlay size={24} />}
               </button>
 
-              {isLive && (onPrevChannel || onNextChannel) && (
+              {isLive && onZapChannel && (
                 <button
                   className={`${styles.controlBtn} ${styles.primaryGroup}`}
-                  onClick={onNextChannel}
-                  disabled={!onNextChannel}
+                  onClick={() => handleZap(1)}
+                  disabled={!nextChannel}
                   title={t('player.nextChannel')}
                 >
                   <IconNext size={22} />
@@ -1191,10 +1289,11 @@ export function VideoPlayer({
                 />
               </div>
 
-              {/* Audio — ouvre le panneau inline */}
+              {/* Audio — ouvre le panneau inline. En live, masqué sur mobile
+                  (remonté au-dessus du pause dans les contrôles centraux). */}
               {player.audioTracks.length > 0 && (
                 <button
-                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup}`}
+                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup} ${isLive ? styles.liveCenterOnly : ''}`}
                   onClick={(e) => { e.stopPropagation(); openPanel('audio'); }}
                   title={t('player.audioTrack')}
                 >
@@ -1205,10 +1304,11 @@ export function VideoPlayer({
                 </button>
               )}
 
-              {/* Sous-titres — ouvre le panneau inline */}
+              {/* Sous-titres — ouvre le panneau inline. En live, masqué sur mobile
+                  (remonté au-dessus du pause dans les contrôles centraux). */}
               {player.subtitleTracks.length > 0 && (
                 <button
-                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
+                  className={`${styles.controlBtn} ${styles.controlBtnLabeled} ${styles.secondaryGroup} ${isLive ? styles.liveCenterOnly : ''} ${player.currentSubtitle >= 0 ? styles.controlBtnOn : ''}`}
                   onClick={(e) => { e.stopPropagation(); openPanel('subtitles'); }}
                   title={t('player.subtitles')}
                 >
@@ -1613,50 +1713,47 @@ export function VideoPlayer({
       </div>
       )}
 
-      {/* Bottom-sheet « choix de qualité » d'une chaîne du zapper (≥ 2 variantes).
-          Rendu au niveau racine (hors `.controls`) pour survivre à l'auto-masquage
-          des contrôles. Picker → onPlayChannel(catId, index, variant) → navigation. */}
-      {!tvMode && qualityPick && (() => {
-        const ch = liveCatalog?.find((c) => c.id === qualityPick.catId)?.channels[qualityPick.index];
-        if (!ch?.variants) return null;
-        return (
+      {/* Bottom-sheet « choix de qualité » (≥ 2 variantes) — partagé par le zapper
+          (tap sur le rail) ET les boutons prev/next de l'overlay. Rendu au niveau
+          racine (hors `.controls`) pour survivre à l'auto-masquage des contrôles.
+          Picker → qSheet.onPick(variant) → navigation. */}
+      {!tvMode && qSheet && (
+        <div
+          className={styles.qSheetBackdrop}
+          onClick={(e) => { e.stopPropagation(); setQSheet(null); }}
+          role="presentation"
+        >
           <div
-            className={styles.qSheetBackdrop}
-            onClick={(e) => { e.stopPropagation(); setQualityPick(null); }}
-            role="presentation"
+            className={styles.qSheet}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
           >
-            <div
-              className={styles.qSheet}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className={styles.qSheetHead}>
-                <span className={styles.qSheetTitle}>{ch.name}</span>
-                <span className={styles.qSheetSub}>{t('player.chooseChannelQuality')}</span>
-              </div>
-              <div className={styles.qSheetList}>
-                {ch.variants.map((v, i) => (
-                  <button
-                    key={v.stream_id}
-                    className={styles.qSheetRow}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPlayChannel?.(qualityPick.catId, qualityPick.index, v);
-                      setQualityPick(null);
-                    }}
-                  >
-                    <span className={styles.qSheetRowLabel}>
-                      {qualityLabel(v.name, t('detail.source', { n: i + 1 }))}
-                    </span>
-                    <IconPlay size={15} />
-                  </button>
-                ))}
-              </div>
+            <div className={styles.qSheetHead}>
+              <span className={styles.qSheetTitle}>{qSheet.name}</span>
+              <span className={styles.qSheetSub}>{t('player.chooseChannelQuality')}</span>
+            </div>
+            <div className={styles.qSheetList}>
+              {qSheet.variants.map((v, i) => (
+                <button
+                  key={v.stream_id}
+                  className={styles.qSheetRow}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    qSheet.onPick(v);
+                    setQSheet(null);
+                  }}
+                >
+                  <span className={styles.qSheetRowLabel}>
+                    {qualityLabel(v.name, t('detail.source', { n: i + 1 }))}
+                  </span>
+                  <IconPlay size={15} />
+                </button>
+              ))}
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
