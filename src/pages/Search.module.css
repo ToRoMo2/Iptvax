@@ -1,45 +1,22 @@
-/* ── Recherche globale — sections (Chaînes / Films / Séries) ───────────────
-   La page réutilise Browse.module.css (.page, .header, .grid, .empty…).
-   Ce module ne porte que les en-têtes de section spécifiques à la recherche. */
+/* ── Recherche globale — rails (Chaînes / Films / Séries) ──────────────────
+   La page réutilise Browse.module.css (.page, .header, .shelves, .shelf,
+   .shelfHeader, .shelfRail, .posterCell…). Chaque section de résultats est
+   une rangée horizontale scrollable (pattern Movies/Series/Live §IV-22/27)
+   → les 3 catégories tiennent dans un seul écran. Ce module ne porte que la
+   cellule « chaîne » 16:9 propre au rail de résultats Live. */
 
-.section {
-  margin-bottom: 48px;
+/* Cellule chaîne (16:9) à largeur fixe dans un rail horizontal — même
+   dimensionnement que les rails Live (Live.module.css). */
+.channelCell {
+  width: 260px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
 }
 
-.section:last-child {
-  margin-bottom: 0;
-}
-
-.sectionHead {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 22px;
-}
-
-.sectionTitle {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--t-1);
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
-.sectionCount {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  color: var(--t-2);
-  font-size: 12px;
-  font-weight: 600;
+@media (max-width: 900px) {
+  .channelCell { width: 230px; }
 }
 
 @media (max-width: 640px) {
-  .section { margin-bottom: 32px; }
-  .sectionHead { margin-bottom: 14px; }
-  .sectionTitle { font-size: 18px; }
-  .sectionCount { font-size: 11px; padding: 2px 8px; }
+  .channelCell { width: 60vw; }
 }

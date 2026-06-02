@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
@@ -8,6 +8,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
+import { ScrollRail } from '../components/ScrollRail';
 import { groupByTitle, star5Label } from '../utils/catalog';
 import type {
   LiveStream,
@@ -22,6 +23,35 @@ const MIN_SEARCH_LEN = 3;
 // Plafond PAR section (chaînes / films / séries) — borne le nombre de cartes
 // montées à chaque frappe (anti-jank, voir docs/architecture.md §4).
 const RESULT_LIMIT = 60;
+
+// ── Rangée « rail » (en-tête + scroll horizontal) ───────────────────────────
+// Même pattern que Movies / Series / Live (§IV-22/27) : chaque section de
+// résultats est UNE rangée scrollable horizontalement → les 3 catégories
+// (chaînes / films / séries) tiennent dans un seul écran, sans devoir
+// scroller verticalement jusqu'en bas pour atteindre les séries.
+function SearchShelf({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <section className={browse.shelf}>
+      <div className={browse.shelfHeader}>
+        <div className={browse.shelfTitleGroup}>
+          <h2 className={browse.shelfTitle}>{title}</h2>
+          <span className={browse.shelfDivider} aria-hidden="true" />
+          <span className={browse.shelfCount}>{count}</span>
+        </div>
+      </div>
+      <ScrollRail railClassName={browse.shelfRail}>{children}</ScrollRail>
+    </section>
+  );
+}
+
 
 export function Search() {
   const { credentials } = useXtream();
@@ -216,126 +246,115 @@ export function Search() {
         <p className={browse.empty}>{t('search.noResults', { query })}</p>
       )}
 
-      {isSearching && !loading && liveResults.length > 0 && (
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>{t('search.channels')}</h2>
-            <span className={styles.sectionCount}>{liveResults.length}</span>
-          </div>
-          <div className={`${browse.grid} ${browse.gridChannel}`}>
-            {liveResults.map((stream) => (
-              <MediaCard
-                key={stream.stream_id}
-                title={stream.name}
-                image={stream.stream_icon}
-                variant="channel"
-                isLive
-                isFavorite={isFavorite('live', String(stream.stream_id))}
-                onClick={() => openChannel(stream)}
-                onFavorite={() =>
-                  toggleFavorite({
-                    type: 'live',
-                    id: String(stream.stream_id),
-                    name: stream.name,
-                    image: stream.stream_icon ?? '',
-                  })
-                }
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {isSearching && !loading && totalResults > 0 && (
+        <div className={browse.shelves}>
+          {liveResults.length > 0 && (
+            <SearchShelf title={t('search.channels')} count={liveResults.length}>
+              {liveResults.map((stream) => (
+                <div key={stream.stream_id} className={styles.channelCell}>
+                  <MediaCard
+                    title={stream.name}
+                    image={stream.stream_icon}
+                    variant="channel"
+                    isLive
+                    isFavorite={isFavorite('live', String(stream.stream_id))}
+                    onClick={() => openChannel(stream)}
+                    onFavorite={() =>
+                      toggleFavorite({
+                        type: 'live',
+                        id: String(stream.stream_id),
+                        name: stream.name,
+                        image: stream.stream_icon ?? '',
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </SearchShelf>
+          )}
 
-      {isSearching && !loading && movieGroups.length > 0 && (
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>{t('search.movies')}</h2>
-            <span className={styles.sectionCount}>{movieGroups.length}</span>
-          </div>
-          <div className={`${browse.grid} ${browse.gridPoster}`}>
-            {movieGroups.map((g) => (
-              <PreviewCard
-                key={g.primary.stream_id}
-                title={g.title}
-                image={g.primary.stream_icon}
-                backdrop={g.primary.backdrop_path?.[0]}
-                synopsis={g.primary.plot}
-                meta={[
-                  g.year,
-                  star5Label(g.primary.rating_5based),
-                  g.primary.genre?.split('/')[0].trim(),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-                variant="movie"
-                isFavorite={isFavorite('movie', String(g.primary.stream_id))}
-                trailerUrl={g.primary.youtube_trailer}
-                resolveTrailer={() =>
-                  tmdbService.getTrailer('movie', g.title, g.year)
-                }
-                onOpen={() =>
-                  navigate(`/movie/${g.primary.stream_id}`, {
-                    state: { movie: g.primary, variants: g.variants },
-                  })
-                }
-                onFavorite={() =>
-                  toggleFavorite({
-                    type: 'movie',
-                    id: String(g.primary.stream_id),
-                    name: g.title,
-                    image: g.primary.stream_icon ?? '',
-                  })
-                }
-              />
-            ))}
-          </div>
-        </section>
-      )}
+          {movieGroups.length > 0 && (
+            <SearchShelf title={t('search.movies')} count={movieGroups.length}>
+              {movieGroups.map((g) => (
+                <PreviewCard
+                  key={g.primary.stream_id}
+                  className={browse.posterCell}
+                  title={g.title}
+                  image={g.primary.stream_icon}
+                  backdrop={g.primary.backdrop_path?.[0]}
+                  synopsis={g.primary.plot}
+                  meta={[
+                    g.year,
+                    star5Label(g.primary.rating_5based),
+                    g.primary.genre?.split('/')[0].trim(),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  variant="movie"
+                  isFavorite={isFavorite('movie', String(g.primary.stream_id))}
+                  trailerUrl={g.primary.youtube_trailer}
+                  resolveTrailer={() =>
+                    tmdbService.getTrailer('movie', g.title, g.year)
+                  }
+                  onOpen={() =>
+                    navigate(`/movie/${g.primary.stream_id}`, {
+                      state: { movie: g.primary, variants: g.variants },
+                    })
+                  }
+                  onFavorite={() =>
+                    toggleFavorite({
+                      type: 'movie',
+                      id: String(g.primary.stream_id),
+                      name: g.title,
+                      image: g.primary.stream_icon ?? '',
+                    })
+                  }
+                />
+              ))}
+            </SearchShelf>
+          )}
 
-      {isSearching && !loading && seriesGroups.length > 0 && (
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>{t('search.series')}</h2>
-            <span className={styles.sectionCount}>{seriesGroups.length}</span>
-          </div>
-          <div className={`${browse.grid} ${browse.gridPoster}`}>
-            {seriesGroups.map((g) => (
-              <PreviewCard
-                key={g.primary.series_id}
-                title={g.title}
-                image={g.primary.cover}
-                backdrop={g.primary.backdrop_path?.[0]}
-                synopsis={g.primary.plot}
-                meta={[
-                  g.year,
-                  star5Label(g.primary.rating_5based),
-                  g.primary.genre?.split('/')[0].trim(),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-                variant="series"
-                isFavorite={isFavorite('series', String(g.primary.series_id))}
-                trailerUrl={g.primary.youtube_trailer}
-                resolveTrailer={() =>
-                  tmdbService.getTrailer('tv', g.title, g.year)
-                }
-                onOpen={() =>
-                  navigate(`/series/${g.primary.series_id}`, {
-                    state: { series: g.primary, variants: g.variants },
-                  })
-                }
-                onFavorite={() =>
-                  toggleFavorite({
-                    type: 'series',
-                    id: String(g.primary.series_id),
-                    name: g.title,
-                    image: g.primary.cover ?? '',
-                  })
-                }
-              />
-            ))}
-          </div>
-        </section>
+          {seriesGroups.length > 0 && (
+            <SearchShelf title={t('search.series')} count={seriesGroups.length}>
+              {seriesGroups.map((g) => (
+                <PreviewCard
+                  key={g.primary.series_id}
+                  className={browse.posterCell}
+                  title={g.title}
+                  image={g.primary.cover}
+                  backdrop={g.primary.backdrop_path?.[0]}
+                  synopsis={g.primary.plot}
+                  meta={[
+                    g.year,
+                    star5Label(g.primary.rating_5based),
+                    g.primary.genre?.split('/')[0].trim(),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  variant="series"
+                  isFavorite={isFavorite('series', String(g.primary.series_id))}
+                  trailerUrl={g.primary.youtube_trailer}
+                  resolveTrailer={() =>
+                    tmdbService.getTrailer('tv', g.title, g.year)
+                  }
+                  onOpen={() =>
+                    navigate(`/series/${g.primary.series_id}`, {
+                      state: { series: g.primary, variants: g.variants },
+                    })
+                  }
+                  onFavorite={() =>
+                    toggleFavorite({
+                      type: 'series',
+                      id: String(g.primary.series_id),
+                      name: g.title,
+                      image: g.primary.cover ?? '',
+                    })
+                  }
+                />
+              ))}
+            </SearchShelf>
+          )}
+        </div>
       )}
     </div>
   );
