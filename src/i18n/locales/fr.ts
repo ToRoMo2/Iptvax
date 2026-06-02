@@ -35,6 +35,7 @@ const fr = {
     loading: 'Chargement…',
     profileConnectFail: 'Impossible de se connecter au profil « {name} ».',
     checkCredentials: 'Vérifiez les identifiants IPTV de ce profil.',
+    serverTemporaryError: 'Serveur IPTV temporairement indisponible. Réessayez dans quelques instants.',
     changeProfile: 'Changer de profil',
   },
   nav: {

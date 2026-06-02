@@ -60,7 +60,7 @@ function LoadingScreen({ label }: { label: string }) {
 }
 
 function AppContent() {
-  const { isAuthenticated, isAuthenticating, authError } = useXtream();
+  const { isAuthenticated, isAuthenticating, authError, retryAuth } = useXtream();
   const { activeProfile, clearActiveProfile } = useIptvProfile();
   const { t } = useI18n();
 
@@ -69,13 +69,22 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
+    // HTTP 5xx → message "serveur temporairement indisponible" (pas une faute
+    // d'identifiants). Autre erreur → message brut ou invite à vérifier les creds.
+    const errorMsg = /^HTTP 5\d\d$/.test(authError ?? '')
+      ? t('app.serverTemporaryError')
+      : (authError ?? t('app.checkCredentials'));
+
     return (
       <div className="loading-screen">
         <span>{t('app.profileConnectFail', { name: activeProfile?.name ?? '' })}</span>
         <span style={{ color: 'var(--t-3)', fontSize: 13 }}>
-          {authError ?? t('app.checkCredentials')}
+          {errorMsg}
         </span>
-        <button className="btn btn-primary" onClick={clearActiveProfile}>
+        <button className="btn btn-primary" onClick={retryAuth}>
+          {t('common.retry')}
+        </button>
+        <button className="btn" style={{ marginTop: 8 }} onClick={clearActiveProfile}>
           {t('app.changeProfile')}
         </button>
       </div>
