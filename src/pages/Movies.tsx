@@ -85,7 +85,7 @@ function SeeAllCard({ label, onClick }: { label: string; onClick: () => void }) 
 
 export function Movies() {
   const { credentials } = useXtream();
-  const { isFavorite, toggleFavorite } = useLibrary();
+  const { favorites, isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -180,6 +180,19 @@ export function Movies() {
         trendingDone.current = false;
       });
   }, [allStreams, allGroups]);
+
+  // ── Rail « Ma Liste » (films favoris matchés au catalogue) ─────────────────
+  const favGroups = useMemo(() => {
+    const favs = favorites.filter((f) => f.type === 'movie');
+    if (favs.length === 0) return [];
+    const byId = new Map(allGroups.map((g) => [String(g.primary.stream_id), g] as const));
+    const out: TitleGroup<VodStream>[] = [];
+    for (const f of favs) {
+      const g = byId.get(f.id);
+      if (g) out.push(g);
+    }
+    return out;
+  }, [favorites, allGroups]);
 
   // ── Résultats de recherche (filtre sur le catalogue dédupliqué) ────────────
   const searchGroups = useMemo(() => {
@@ -339,6 +352,19 @@ export function Movies() {
               <PopularRail>{popular.map((g) => renderCard(g, false))}</PopularRail>
             </section>
           )}
+          {favGroups.length > 0 && (
+            <Shelf
+              title={t('common.myList')}
+              count={favGroups.length}
+              seeAllLabel={t('common.seeAll')}
+              onSeeAll={() => navigate('/favorites')}
+            >
+              {favGroups.slice(0, RAIL_PREVIEW).map((g) => renderCard(g, true))}
+              {favGroups.length > RAIL_PREVIEW && (
+                <SeeAllCard label={t('common.seeAll')} onClick={() => navigate('/favorites')} />
+              )}
+            </Shelf>
+          )}
           {rails.map((r) => (
             <Shelf
               key={r.id}
@@ -356,7 +382,9 @@ export function Movies() {
               )}
             </Shelf>
           ))}
-          {rails.length === 0 && <p className={styles.empty}>{t('movies.none')}</p>}
+          {rails.length === 0 && favGroups.length === 0 && (
+            <p className={styles.empty}>{t('movies.none')}</p>
+          )}
         </div>
       )}
     </div>

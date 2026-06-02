@@ -52,6 +52,8 @@ export function Favorites() {
       poster: channel.image,
       liveChannels,
       liveIndex,
+      // Zapper de l'overlay → catégorie synthétique « Ma Liste » en tête.
+      liveListLabel: t('common.myList'),
     };
     navigate('/player', { state });
   };
