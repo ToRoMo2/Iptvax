@@ -8,7 +8,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
-import { groupByTitle } from '../utils/catalog';
+import { groupByTitle, star5Label } from '../utils/catalog';
 import type {
   LiveStream,
   VodStream,
@@ -262,9 +262,7 @@ export function Search() {
                 synopsis={g.primary.plot}
                 meta={[
                   g.year,
-                  g.primary.rating_5based > 0
-                    ? `★ ${g.primary.rating_5based.toFixed(1)}`
-                    : null,
+                  star5Label(g.primary.rating_5based),
                   g.primary.genre?.split('/')[0].trim(),
                 ]
                   .filter(Boolean)
@@ -310,9 +308,7 @@ export function Search() {
                 synopsis={g.primary.plot}
                 meta={[
                   g.year,
-                  g.primary.rating_5based > 0
-                    ? `★ ${g.primary.rating_5based.toFixed(1)}`
-                    : null,
+                  star5Label(g.primary.rating_5based),
                   g.primary.genre?.split('/')[0].trim(),
                 ]
                   .filter(Boolean)

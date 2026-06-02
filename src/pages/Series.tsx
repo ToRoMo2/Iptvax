@@ -10,7 +10,7 @@ import { RemoteSearch } from '../components/RemoteSearch';
 import { ScrollRail } from '../components/ScrollRail';
 import { PopularRail } from '../components/PopularRail';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
-import { groupByTitle, titleKey, type TitleGroup } from '../utils/catalog';
+import { groupByTitle, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import styles from './Browse.module.css';
 
@@ -230,7 +230,7 @@ export function Series() {
       synopsis={g.primary.plot}
       meta={[
         g.year,
-        g.primary.rating_5based > 0 ? `★ ${g.primary.rating_5based.toFixed(1)}` : null,
+        star5Label(g.primary.rating_5based),
         g.primary.genre?.split('/')[0].trim(),
       ]
         .filter(Boolean)

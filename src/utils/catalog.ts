@@ -166,6 +166,20 @@ export function qualityRank(raw: string): number {
   return QUALITY_RANK[qualityLabel(raw, '')] ?? 1;
 }
 
+/**
+ * Étiquette « ★ X.X » de la note /5 d'un item, ou `null` si absente/nulle.
+ *
+ * ⚠ `rating_5based` est typé `number` mais les serveurs Xtream le renvoient
+ * fréquemment en **string** ("8.5"). `valeur > 0` laisse passer une string non
+ * vide puis `.toFixed()` lève `TypeError` → crash de rendu (et sans
+ * ErrorBoundary, tout l'arbre React démonte → écran noir). On coerce donc
+ * systématiquement avant le formatage.
+ */
+export function star5Label(value: unknown): string | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? `★ ${n.toFixed(1)}` : null;
+}
+
 export interface TitleGroup<T> {
   /** Clé de regroupement (titre canonique + année). */
   key: string;
