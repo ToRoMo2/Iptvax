@@ -169,7 +169,11 @@
 }
 
 @media (max-width: 640px) {
-  .channelCell { width: 220px; }
+  /* 2 chaînes visibles d'emblée + petit aperçu de la 3ᵉ (indice de défilement).
+     43vw : 2 cartes + 1 gap remplissent la largeur, le reste laisse dépasser un
+     liseré de la carte suivante. La largeur fixe en px (220) n'en montrait que
+     ~1,5 → obligeait à scroller pour voir une 2ᵉ chaîne. */
+  .channelCell { width: 43vw; }
 
   /* Bottom-sheet ancré en bas, plein largeur (style natif iOS/Android). */
   .sheetBackdrop { align-items: flex-end; padding: 0; }
@@ -197,5 +201,6 @@
 }
 
 @media (max-width: 380px) {
-  .channelCell { width: 200px; }
+  /* Ultra-compact : on resserre un peu plus pour garder 2 cartes confortables. */
+  .channelCell { width: 44vw; }
 }
