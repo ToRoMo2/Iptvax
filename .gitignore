@@ -36,3 +36,5 @@ key.properties
 
 # Réglages LOCAUX Claude Code (peuvent contenir des commandes avec secrets)
 .claude/settings.local.json
+# Worktrees temporaires des agents Claude Code
+.claude/worktrees/
