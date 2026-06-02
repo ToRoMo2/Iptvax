@@ -902,6 +902,12 @@ export default defineConfig({
           hls: ['hls.js'],
           mpegts: ['mpegts.js'],
           nav: ['@noriginmedia/norigin-spatial-navigation'],
+          // Vendors lourds mais stables → chunk dédié : ils changent rarement,
+          // donc restent en cache navigateur d'un déploiement à l'autre (le
+          // hash de l'app change sans réinvalider Supabase/QR), et allègent le
+          // chunk applicatif principal re-téléchargé à chaque release.
+          supabase: ['@supabase/supabase-js'],
+          qrcode: ['qrcode'],
         },
       },
     },

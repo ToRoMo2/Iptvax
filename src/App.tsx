@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import {
   BrowserRouter,
   HashRouter,
@@ -26,29 +26,40 @@ import { TvPairing } from './pages/TvPairing';
 import { TvLink, TV_PAIRING_CODE_KEY } from './pages/TvLink';
 import { ProfileSelect } from './pages/ProfileSelect';
 import { isTvDevice } from './native/tvDetect';
+// Navigation primaire chargée d'emblée (changement d'onglet instantané, pas de
+// flash Suspense) — c'est le cœur de l'usage quotidien.
 import { Home } from './pages/Home';
 import { Live } from './pages/Live';
 import { Movies } from './pages/Movies';
 import { Series } from './pages/Series';
-import { SeriesDetail } from './pages/SeriesDetail';
-import { MovieDetail } from './pages/MovieDetail';
-import { Player } from './pages/Player';
-import { Search } from './pages/Search';
-import { Favorites } from './pages/Favorites';
-import { Community } from './pages/Community';
-import { MemberCine } from './pages/MemberCine';
-import { Settings } from './pages/Settings';
-import { Premium } from './pages/Premium';
-import { Watched } from './pages/Watched';
-// ── Vitrine (site web marketing, Phase 5) ─────────────────────────────────
-import { VitrineLayout } from './components/vitrine/VitrineLayout';
-import { HomeVitrine } from './pages/vitrine/HomeVitrine';
-import { Downloads } from './pages/vitrine/Downloads';
-import { SettingsVitrine } from './pages/vitrine/SettingsVitrine';
-import { MentionsLegales } from './pages/vitrine/MentionsLegales';
-import { CGV } from './pages/vitrine/CGV';
-import { Confidentialite } from './pages/vitrine/Confidentialite';
 import './styles/app.css';
+
+// ── Code splitting des routes secondaires ─────────────────────────────────
+// Sorties du bundle initial → chargées à la demande. Gain majeur : le lecteur
+// (`Player`) embarque hls.js + mpegts.js (plusieurs centaines de Ko) qui ne
+// servent qu'à la lecture ; les fiches détail, le compte, la communauté et
+// tout le sous-arbre vitrine ne sont pas sur le chemin de démarrage. Sur natif
+// (Capacitor) les chunks sont locaux → chargement quasi instantané ; sur web,
+// le bundle initial fond nettement. Les exports étant nommés, chaque `import()`
+// remappe l'export voulu sur `default` (typage exact préservé → props OK).
+const Player = lazy(() => import('./pages/Player').then((m) => ({ default: m.Player })));
+const SeriesDetail = lazy(() => import('./pages/SeriesDetail').then((m) => ({ default: m.SeriesDetail })));
+const MovieDetail = lazy(() => import('./pages/MovieDetail').then((m) => ({ default: m.MovieDetail })));
+const Search = lazy(() => import('./pages/Search').then((m) => ({ default: m.Search })));
+const Favorites = lazy(() => import('./pages/Favorites').then((m) => ({ default: m.Favorites })));
+const Community = lazy(() => import('./pages/Community').then((m) => ({ default: m.Community })));
+const MemberCine = lazy(() => import('./pages/MemberCine').then((m) => ({ default: m.MemberCine })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const Premium = lazy(() => import('./pages/Premium').then((m) => ({ default: m.Premium })));
+const Watched = lazy(() => import('./pages/Watched').then((m) => ({ default: m.Watched })));
+// ── Vitrine (site web marketing, Phase 5) ─────────────────────────────────
+const VitrineLayout = lazy(() => import('./components/vitrine/VitrineLayout').then((m) => ({ default: m.VitrineLayout })));
+const HomeVitrine = lazy(() => import('./pages/vitrine/HomeVitrine').then((m) => ({ default: m.HomeVitrine })));
+const Downloads = lazy(() => import('./pages/vitrine/Downloads').then((m) => ({ default: m.Downloads })));
+const SettingsVitrine = lazy(() => import('./pages/vitrine/SettingsVitrine').then((m) => ({ default: m.SettingsVitrine })));
+const MentionsLegales = lazy(() => import('./pages/vitrine/MentionsLegales').then((m) => ({ default: m.MentionsLegales })));
+const CGV = lazy(() => import('./pages/vitrine/CGV').then((m) => ({ default: m.CGV })));
+const Confidentialite = lazy(() => import('./pages/vitrine/Confidentialite').then((m) => ({ default: m.Confidentialite })));
 
 function LoadingScreen({ label }: { label: string }) {
   return (
@@ -63,6 +74,28 @@ function AppContent() {
   const { isAuthenticated, isAuthenticating, authError, retryAuth } = useXtream();
   const { activeProfile, clearActiveProfile } = useIptvProfile();
   const { t } = useI18n();
+
+  // Préchauffage du lecteur pendant l'inactivité : le chunk Player (avec
+  // hls.js + mpegts.js, ~225 Ko gzip) est exclu du bundle initial (§lazy).
+  // On le charge en arrière-plan une fois l'app interactive → quand
+  // l'utilisateur lance une lecture, le code est déjà en cache (démarrage
+  // instantané) sans avoir alourdi le démarrage de l'app.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const w = window as typeof window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const warm = () => { void import('./pages/Player'); };
+    let idleId = 0;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    if (w.requestIdleCallback) idleId = w.requestIdleCallback(warm, { timeout: 4000 });
+    else timerId = setTimeout(warm, 2500);
+    return () => {
+      if (idleId && w.cancelIdleCallback) w.cancelIdleCallback(idleId);
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [isAuthenticated]);
 
   if (isAuthenticating) {
     return <LoadingScreen label={t('app.connecting')} />;
@@ -92,10 +125,12 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route path="/player" element={<Player />} />
-      <Route path="*" element={<Shell />} />
-    </Routes>
+    <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
+      <Routes>
+        <Route path="/player" element={<Player />} />
+        <Route path="*" element={<Shell />} />
+      </Routes>
+    </Suspense>
   );
 }
 
@@ -107,6 +142,7 @@ function Shell() {
         <RemoteControl />
         <TopNav />
         <main className="main-content">
+          <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/live" element={<Live />} />
@@ -131,6 +167,7 @@ function Shell() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/premium" element={<Premium />} />
           </Routes>
+          </Suspense>
         </main>
       </div>
     </div>
@@ -235,6 +272,7 @@ function VitrineGate() {
 
   return (
     <SubscriptionProvider>
+      <Suspense fallback={<LoadingScreen label="" />}>
       <VitrineLayout>
         <Routes>
           <Route path="/" element={<HomeVitrine />} />
@@ -250,6 +288,7 @@ function VitrineGate() {
           <Route path="*" element={<Navigate to="/downloads" replace />} />
         </Routes>
       </VitrineLayout>
+      </Suspense>
     </SubscriptionProvider>
   );
 }

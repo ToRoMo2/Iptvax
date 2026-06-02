@@ -24,6 +24,13 @@
     <meta name="twitter:image" content="https://iptvax.com/logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- TMDB : ouvre DNS+TLS vers l'API et le CDN d'images en amont du premier
+         fetch (tendances + backdrop du hero) → le hero TMDB de l'accueil
+         s'affiche plus tôt. dns-prefetch en repli pour les navigateurs qui
+         ignorent preconnect cross-origin sans ressource attachée. -->
+    <link rel="preconnect" href="https://api.themoviedb.org" crossorigin />
+    <link rel="preconnect" href="https://image.tmdb.org" />
+    <link rel="dns-prefetch" href="https://image.tmdb.org" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body>
