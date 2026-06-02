@@ -193,6 +193,36 @@ export function Player() {
     [credentials, liveCatalog, navigate],
   );
 
+  // ── Zapping prev/next avec sélecteur de qualité ───────────────────────────
+  // Les boutons prev/next du lecteur (overlay) doivent proposer le même choix de
+  // qualité que le zapper. Les refs de `state.liveChannels` (issues de /live ou
+  // des favoris) ne portent PAS les variantes → on les ré-enrichit en matchant
+  // le stream_id primary dans le catalogue live. Favoris : pas de match → pas de
+  // variantes → lecture directe de la chaîne (comportement attendu).
+  const channelWithVariants = useCallback(
+    (ref: LiveChannelRef | undefined): LiveChannelRef | undefined => {
+      if (!ref) return undefined;
+      if (ref.variants && ref.variants.length > 1) return ref;
+      for (const cat of liveCatalog) {
+        const found = cat.channels.find((ch) => ch.stream_id === ref.stream_id);
+        if (found?.variants && found.variants.length > 1) return { ...ref, variants: found.variants };
+      }
+      return ref;
+    },
+    [liveCatalog],
+  );
+  const prevChannel =
+    hasPrev && channels ? channelWithVariants(channels[channelIndex! - 1]) : undefined;
+  const nextChannel =
+    hasNext && channels ? channelWithVariants(channels[channelIndex! + 1]) : undefined;
+  const zapChannel = useCallback(
+    (direction: 1 | -1, variant?: { stream_id: number; name: string }) => {
+      if (typeof channelIndex !== 'number') return;
+      selectChannel(channelIndex + direction, variant);
+    },
+    [channelIndex, selectChannel],
+  );
+
   // ── Reprise de lecture ────────────────────────────────────────────────────
   const historyId = state?.historyId;
 
@@ -349,6 +379,10 @@ export function Player() {
           channelPosition={
             hasChannelNav ? `${channelIndex! + 1} / ${channels!.length}` : undefined
           }
+          // Zapping prev/next avec sélecteur de qualité (boutons de l'overlay).
+          prevChannel={prevChannel}
+          nextChannel={nextChannel}
+          onZapChannel={hasChannelNav ? zapChannel : undefined}
           // Zapper : catalogue navigable par catégorie + chaîne/cat courante.
           liveCatalog={isLive ? liveCatalog : undefined}
           liveCurrentCategoryId={liveCurrentCategoryId}
