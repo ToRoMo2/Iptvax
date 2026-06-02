@@ -208,6 +208,13 @@ export function Search() {
           value={search}
           onChange={setSearch}
           placeholder={t('search.placeholder')}
+          animatedPlaceholders={[
+            t('search.placeholder'),
+            t('movies.searchPlaceholder'),
+            t('series.searchPlaceholder'),
+            t('live.searchPlaceholder'),
+          ]}
+          autoFocus
           wrapperClassName={`${browse.searchWrapper} ${styles.searchBar}`}
           iconClassName={browse.searchIcon}
           inputClassName={browse.search}
