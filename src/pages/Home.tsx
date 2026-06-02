@@ -415,6 +415,12 @@ export function Home() {
   const cwRequestedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!tmdbService.isEnabled() || history.length === 0) return;
+    // Attendre que le hero soit composé (donc que les tendances + le backdrop
+    // LCP aient été demandés en priorité) avant de lancer les enrichissements
+    // « Reprendre ». Sinon ces requêtes (jusqu'à 1-2 par item d'historique)
+    // saturent le pool de connexions TMDB (~6/host) et retardent l'image du
+    // hero — exactement ce que l'utilisateur perçoit comme « accueil lent ».
+    if (heroLoading) return;
     let alive = true;
     history.forEach((item) => {
       if (item.type === 'live' || cwRequestedRef.current.has(item.id)) return;
@@ -434,7 +440,7 @@ export function Home() {
       });
     });
     return () => { alive = false; };
-  }, [history]);
+  }, [history, heroLoading]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   // Un clic sur un film ouvre sa fiche détail (design Vanta) ; la lecture est
@@ -529,7 +535,12 @@ export function Home() {
                   className={styles.heroBg}
                   // Hero = élément LCP : pas de lazy. Décodage async pour ne
                   // pas bloquer le thread principal pendant le compositing.
+                  // La slide active est `fetchpriority=high` (passe devant les
+                  // posters des rails), les autres `low` → l'image visible
+                  // s'affiche en premier au lieu de se disputer la bande
+                  // passante avec les 5 autres backdrops du carrousel.
                   decoding="async"
+                  fetchPriority={i === heroIdx ? 'high' : 'low'}
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
