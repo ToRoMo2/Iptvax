@@ -1,56 +1,90 @@
-/* ── Carrousel « Populaires » (rupture visuelle vs rails de catégorie) ──────── */
+/* ── Carrousel « Populaires » (rupture visuelle vs rails de catégorie) ─────────
+   Scroll natif + snap centré (le défilement suit le doigt, momentum géré par le
+   navigateur). Le scaling « coverflow » est posé en JS (cf. PopularRail.tsx) ;
+   ici on ne fige que le layout, le snap et le halo de la carte active. */
 
 .popRail {
   /* Largeur d'un poster « populaire » — pilote aussi le padding de centrage. */
-  --pop-w: 260px;
+  --pop-w: 264px;
   display: flex;
   gap: 18px;
-  /* Pas de scroll natif : le défilement est piloté (un item par geste, voir
-     PopularRail.tsx). `touch-action: pan-y` laisse passer le scroll vertical de
-     page ; le déplacement horizontal est géré en JS via `scrollTo`. */
-  overflow-x: hidden;
+  /* Scroll horizontal natif : le doigt entraîne le rail, l'inertie et le snap
+     sont gérés par le navigateur. `overscroll-behavior-x: contain` évite que le
+     fling horizontal ne déclenche un retour-arrière de navigation. */
+  overflow-x: auto;
   overflow-y: visible;
-  touch-action: pan-y;
-  /* Défilement INSTANTANÉ (pas `smooth`) : la position de scroll saute d'un item
-     à l'autre immédiatement → la carte centrée est tappable tout de suite après
-     un swipe. L'animation visuelle vient des transitions scale/opacity sur
-     `.popItem` (ci-dessous), pas du déplacement de scroll. Avec `smooth`, la
-     carte « glissait » encore ~400 ms et un tap pendant ce temps tombait entre
-     deux cartes → premier appui ignoré. ⚠ Ne pas remettre `smooth` ici : ça
-     réintroduit le bug même si le JS demande `behavior: 'instant'` côté Firefox
-     ancien (le CSS gagne sur `behavior: 'auto'`).
-     scroll-behavior: auto = instantané. */
-  scroll-behavior: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  user-select: none;
-  -webkit-user-select: none;
+  /* `smooth` ne concerne que le scroll programmatique/clavier — le drag tactile
+     reste direct. Donne un recentrage doux après une molette/un drag souris. */
+  scroll-behavior: smooth;
+  /* Affordance desktop : on peut « attraper » le rail à la souris. */
+  cursor: grab;
   /* Padding latéral = (50% - moitié d'un item) → le 1er et le dernier poster
-     peuvent venir se centrer. */
-  padding: 14px calc(50% - var(--pop-w) / 2);
+     peuvent venir se centrer sous la zone de mise en valeur. */
+  padding: 22px calc(50% - var(--pop-w) / 2) 14px;
 }
 .popRail::-webkit-scrollbar {
   display: none;
 }
 
+/* Pendant un drag souris : on coupe le snap pour que le rail colle au curseur,
+   puis on le rétablit au relâché (le navigateur recentre sur la + proche). */
+.dragging {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  cursor: grabbing;
+  user-select: none;
+}
+
 .popItem {
-  flex: 0 0 auto;
+  position: relative;
+  flex: 0 0 var(--pop-w);
   width: var(--pop-w);
-  transform-origin: center center;
-  /* Transition courte = le scaling « suit » le doigt sans paraître saccadé
-     (le JS pose la valeur cible à chaque frame de scroll). */
-  transition: transform 0.14s linear, opacity 0.14s linear;
+  scroll-snap-align: center;
+  transform-origin: center 46%;
+  /* Pas de transition sur `transform`/`opacity` : le JS les pose à chaque frame
+     de scroll → le scaling colle au doigt sans lag. */
   will-change: transform, opacity;
 }
 
-/* La carte remplit l'item (PreviewCard rendue SANS largeur fixe ici). */
-.popItem > * {
+/* La carte remplit l'item (PreviewCard rendue sans largeur fixe ici). */
+.popItem > :not(.popGlow) {
   width: 100%;
 }
 
+/* ── Halo accent de la carte centrale (DA Aurora) ──────────────────────────── */
+.popGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* Calé sur le ratio poster (.art = 2/3) → le halo épouse exactement l'affiche. */
+  aspect-ratio: 2 / 3;
+  border-radius: var(--r-card);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.32s var(--ease);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 18px 48px -8px var(--accent-glow),
+    0 0 60px 2px var(--accent-glow);
+}
+.popItemActive .popGlow {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .popRail {
+    scroll-behavior: auto;
+  }
   .popItem {
     transform: none !important;
     opacity: 1 !important;
+  }
+  .popGlow {
     transition: none;
   }
 }
@@ -60,9 +94,9 @@
 }
 
 @media (max-width: 640px) {
-  .popRail { --pop-w: 210px; gap: 14px; }
+  .popRail { --pop-w: 214px; gap: 14px; }
 }
 
 @media (max-width: 380px) {
-  .popRail { --pop-w: 180px; }
+  .popRail { --pop-w: 182px; }
 }
