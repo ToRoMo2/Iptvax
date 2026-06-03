@@ -156,6 +156,8 @@ export function Home() {
 
   const heroTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const heroLenRef = useRef(0);
+  const heroSwipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const heroSuppressRef = useRef(false);
 
   // Catalogue dédupliqué COMPLET (pour matcher les tendances TMDB) + tendances.
   const movieGroupsRef = useRef<TitleGroup<VodStream>[]>([]);
@@ -508,6 +510,46 @@ export function Home() {
     }
   };
 
+  // ── Hero swipe + tap-to-detail ───────────────────────────────────────────
+  const onHeroPointerDown = (e: React.PointerEvent) => {
+    heroSuppressRef.current = false; // reset stale flag from previous gesture
+    heroSwipeRef.current = { x: e.clientX, y: e.clientY, moved: false };
+  };
+  const onHeroPointerMove = (e: React.PointerEvent) => {
+    const d = heroSwipeRef.current;
+    if (!d) return;
+    if (!d.moved && Math.abs(e.clientX - d.x) > 8 && Math.abs(e.clientX - d.x) > Math.abs(e.clientY - d.y)) {
+      d.moved = true;
+    }
+  };
+  const onHeroPointerUp = (e: React.PointerEvent) => {
+    const d = heroSwipeRef.current;
+    heroSwipeRef.current = null;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    // Swipe (≥ 40px horizontal, dominant direction) → change slide.
+    if (d.moved && Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) {
+      heroSuppressRef.current = true;
+      stepSlide(dx < 0 ? 1 : -1);
+      return;
+    }
+    // Tap (or tiny movement): navigate to detail unless the target is an
+    // interactive element (button / action area) — those handle themselves.
+    const target = e.target as HTMLElement;
+    if (!target.closest('button, [data-hero-actions]')) {
+      const slide = heroSlides[heroIdx];
+      if (slide) infoHero(slide);
+      heroSuppressRef.current = true; // suppress the synthetic click that follows
+    }
+  };
+  const onHeroClickCapture = (e: React.MouseEvent) => {
+    if (!heroSuppressRef.current) return;
+    heroSuppressRef.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   const initials = (name: string) =>
     name.replace(/[^A-Za-z0-9]/g, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '••';
 
@@ -518,7 +560,14 @@ export function Home() {
       {heroLoading ? (
         <div className={styles.heroSkeleton} />
       ) : (
-        <div className={styles.hero}>
+        <div
+          className={styles.hero}
+          onPointerDown={onHeroPointerDown}
+          onPointerMove={onHeroPointerMove}
+          onPointerUp={onHeroPointerUp}
+          onPointerCancel={() => { heroSwipeRef.current = null; }}
+          onClickCapture={onHeroClickCapture}
+        >
           {heroSlides.map((slide, i) => (
             <div
               key={slide.id}
@@ -568,7 +617,7 @@ export function Home() {
                 {slide.description && (
                   <p className={styles.heroDesc}>{slide.description}</p>
                 )}
-                <div className={styles.heroActions}>
+                <div className={styles.heroActions} data-hero-actions>
                   <Focusable
                     className={styles.heroPlayBtn}
                     focusedClassName="rc-focused"

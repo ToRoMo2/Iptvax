@@ -115,6 +115,10 @@ export function PopularRail({ children }: { children: ReactNode }) {
   }, [step]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Reset any stale suppress flag from a previous swipe that ended outside
+    // the container (in that case no click fires to reset it, so the next tap
+    // would be swallowed).
+    suppressClickRef.current = false;
     dragRef.current = { x: e.clientX, y: e.clientY, moved: false };
   }, []);
 

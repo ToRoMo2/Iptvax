@@ -12,6 +12,9 @@
   width: calc(100% - var(--pad-edge) * 2);
   border-radius: 16px;
   background: #050505;
+  /* Allow vertical page scroll while JS handles horizontal swipe. */
+  touch-action: pan-y;
+  cursor: pointer;
 }
 
 .heroSlide {
@@ -1066,9 +1069,8 @@
   .heroDots { right: 18px; bottom: 12px; gap: 4px; }
   .heroDot { width: 14px; }
   .heroDotActive { width: 28px; }
-  .heroNav { width: 32px; height: 32px; }
-  .heroNavPrev { left: 8px; }
-  .heroNavNext { right: 8px; }
+  /* Arrows replaced by finger swipe on mobile. */
+  .heroNav { display: none; }
 
   .rows { padding: 0 0 64px; }
   .rowHeader { margin-bottom: 14px; }
