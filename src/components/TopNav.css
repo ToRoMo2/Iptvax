@@ -355,6 +355,27 @@
   .profile-fixed .profile:hover .who,
   .profile-fixed.rc-open .profile .who { max-width: 0; opacity: 0; }
 
+  /* ── CTA Premium / badge — fixe centré dans le header ───────────── */
+  .premium-fixed-mobile {
+    display: inline-flex;
+    position: fixed;
+    top: calc(12px + var(--safe-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    height: 38px;
+    /* Réutilise les styles .premium-badge / .upgrade-cta définis plus haut
+       en les contextualisant pour la taille mobile */
+    padding: 0 14px;
+    font-size: 12px;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  /* Shimmer conservé sur mobile */
+  .premium-fixed-mobile.premium-badge::after { animation: nav-shimmer 3.2s ease-in-out infinite; }
+  /* Pulse conservé sur mobile */
+  .premium-fixed-mobile.upgrade-cta { animation: nav-pulse-gold 2.8s ease-in-out infinite; }
+
   /* ── Bouton recherche flottant en haut à droite, à côté du profil ── */
   .search-fixed-mobile {
     display: grid;
@@ -545,6 +566,11 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
+}
+
+/* ── CTA Premium fixe centré — mobile uniquement ── */
+.premium-fixed-mobile {
+  display: none; /* desktop : vit dans la capsule .topnav */
 }
 
 /* ── Couronne avatar (overlay top-right, toutes tailles) ── */

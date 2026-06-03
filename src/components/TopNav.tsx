@@ -140,6 +140,27 @@ export function TopNav() {
         </button>
       )}
 
+      {/* ── CTA Premium — mobile only, centré dans le header ───────────
+            La capsule .topnav est display:none sur mobile → ce bloc fixe
+            indépendant prend sa place au centre du header.
+            Premium actif : badge doré. Gratuit : bouton CTA pulsant. ── */}
+      {isPremium ? (
+        <span className="premium-fixed-mobile premium-badge" aria-label="Abonnement Premium actif">
+          <span className="prem-icon" aria-hidden="true">✦</span>
+          <span className="prem-lbl">Premium</span>
+        </span>
+      ) : (
+        <button
+          type="button"
+          className="premium-fixed-mobile upgrade-cta"
+          onClick={() => navigate('/premium')}
+          title="Passer à Premium"
+        >
+          <span className="upgrade-icon" aria-hidden="true">✦</span>
+          <span className="upgrade-lbl">Passer Premium</span>
+        </button>
+      )}
+
       {/* ── Capsule navbar — centrée, liens uniquement (desktop / tablette) */}
       <header className={`topnav ${scrolled ? 'scrolled' : ''} ${navOpen ? 'rc-open' : ''}`}>
         <nav className="links" aria-label="Primary">
