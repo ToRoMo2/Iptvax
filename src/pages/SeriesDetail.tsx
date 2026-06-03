@@ -256,12 +256,13 @@ export function SeriesDetail() {
   }, [loading, info]);
 
   // Reprise : entrée d'historique de cette série (épisode le plus récemment
-  // commencé, toutes sources confondues).
+  // commencé, toutes sources/variantes confondues — regroupement par titre
+  // canonique, cohérent avec historyGroupKey).
   const resumeEntry = useMemo(() => {
-    if (Number.isNaN(seriesId)) return undefined;
-    const gk = `series:${seriesId}`;
+    if (!displayTitle || displayTitle === seriesFallback) return undefined;
+    const gk = `series:${titleKey(displayTitle)}`;
     return history.find((h) => historyGroupKey(h) === gk);
-  }, [history, seriesId]);
+  }, [history, displayTitle, seriesFallback]);
   const canResume = !!(resumeEntry && resumePosition(resumeEntry) != null);
 
   // « Reprendre » : relit l'épisode/variante exact de l'historique (position +

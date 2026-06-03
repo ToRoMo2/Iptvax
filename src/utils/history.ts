@@ -9,15 +9,17 @@ import { titleKey } from './catalog';
  * carte précédente au lieu d'en empiler une nouvelle.
  *
  * - film : `movie:<titleKey>` (le `stream_id` change d'une variante à l'autre).
- * - série : `series:<seriesId>` (les `id` d'épisode changent à chaque épisode).
+ * - série : `series:<titleKey>` — ⚠ PAS le `series_id` : chaque source/variante
+ *   (VOSTFR, 4K…) est une entrée Xtream distincte avec son propre `series_id`.
+ *   On regroupe donc sur le titre canonique → toutes les variantes ET tous les
+ *   épisodes d'une série tombent dans la même carte.
  * - live : clé par chaîne (pas de regroupement).
  */
 export function historyGroupKey(item: WatchHistoryItem): string {
   if (item.type === 'series') {
-    const sid = item.playerState?.seriesContext?.seriesId;
-    if (sid != null) return `series:${sid}`;
-    // Repli : titre sans le libellé d'épisode ("Série – Épisode 2").
-    return `series:${titleKey(item.title.split(' – ')[0])}`;
+    // Titre de la série (sans le libellé d'épisode "Série – Épisode 2").
+    const base = item.playerState?.seriesContext?.title ?? item.title.split(' – ')[0];
+    return `series:${titleKey(base)}`;
   }
   if (item.type === 'movie') return `movie:${titleKey(item.title)}`;
   return `${item.type}:${item.id}`;
