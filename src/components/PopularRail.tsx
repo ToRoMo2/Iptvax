@@ -66,7 +66,7 @@ export function PopularRail({ children }: { children: ReactNode }) {
     rafRef.current = requestAnimationFrame(apply);
   }, [apply]);
 
-  /** Recentre la vue sur l'item d'index `i` (clampé), animé. */
+  /** Recentre la vue sur l'item d'index `i` (clampé), instantané. */
   const goTo = useCallback((i: number) => {
     const el = ref.current;
     const centers = centersRef.current;
@@ -74,10 +74,12 @@ export function PopularRail({ children }: { children: ReactNode }) {
     const clamped = Math.max(0, Math.min(i, centers.length - 1));
     const target = centers[clamped] - el.clientWidth / 2;
     const max = el.scrollWidth - el.clientWidth;
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // Instant scroll — CSS transitions on .popItem animate scale/opacity smoothly.
+    // Smooth scroll caused a timing window where a tap during the animation fired
+    // on the container gap instead of the card, swallowing the first tap.
     el.scrollTo({
       left: Math.max(0, Math.min(target, max)),
-      behavior: reduce ? 'auto' : 'smooth',
+      behavior: 'auto',
     });
   }, []);
 
