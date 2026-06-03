@@ -248,15 +248,24 @@ export function SeriesDetail() {
   const seasons = info ? Object.keys(info.episodes).sort((a, b) => Number(a) - Number(b)) : [];
   const episodes: Episode[] = info?.episodes[selectedSeason] ?? [];
 
-  // Progression par épisode (depuis l'historique, indexé par `episode-<id>`) →
-  // tick « terminé » + barre d'avancement dans la liste.
+  // Progression par épisode → tick « terminé » + barre d'avancement dans la
+  // liste. ⚠ Indexé par (saison, n° d'épisode) et NON par `episode-<id>` : les
+  // ids d'épisode diffèrent d'une variante/source à l'autre, mais la position
+  // S/É est stable → la progression d'une variante (ex. 4K) s'affiche bien sur
+  // la liste de la variante affichée.
   const episodeProgress = useMemo(() => {
     const m = new Map<string, number>();
+    if (!displayTitle || displayTitle === seriesFallback) return m;
+    const gk = `series:${titleKey(displayTitle)}`;
     for (const h of history) {
-      if (h.type === 'series') m.set(h.id, h.progress);
+      if (h.type !== 'series' || historyGroupKey(h) !== gk) continue;
+      const sc = h.playerState?.seriesContext;
+      if (!sc) continue;
+      const key = `${sc.currentSeason}:${sc.currentEpisodeNum}`;
+      m.set(key, Math.max(m.get(key) ?? 0, h.progress));
     }
     return m;
-  }, [history]);
+  }, [history, displayTitle, seriesFallback]);
 
   // Lecture différée : la variante choisie dans la popup a fini de charger.
   useEffect(() => {
@@ -277,19 +286,55 @@ export function SeriesDetail() {
     const gk = `series:${titleKey(displayTitle)}`;
     return history.find((h) => historyGroupKey(h) === gk);
   }, [history, displayTitle, seriesFallback]);
-  const canResume = !!(resumeEntry && resumePosition(resumeEntry) != null);
+  // « Reprendre » dès qu'un épisode a été commencé (en cours OU terminé : on
+  // enchaîne alors sur le suivant).
+  const canResume = !!resumeEntry;
 
-  // « Reprendre » : relit l'épisode/variante exact de l'historique (position +
-  // pistes appliquées par le lecteur via getResume), sans repasser par la popup.
-  const handleResume = () => {
-    if (resumeEntry) navigate('/player', { state: resumeEntry.playerState });
+  // Épisode suivant dans `info` après (saison, n°). Passe à la saison suivante
+  // si l'épisode courant est le dernier de sa saison.
+  const nextEpisode = (data: SeriesInfo, season: number, num: number): Episode | undefined => {
+    const cur = data.episodes[String(season)] ?? [];
+    const idx = cur.findIndex((e) => e.episode_num === num);
+    if (idx >= 0 && idx + 1 < cur.length) return cur[idx + 1];
+    const seasonsNum = Object.keys(data.episodes).map(Number).sort((a, b) => a - b);
+    for (let i = seasonsNum.indexOf(season) + 1; i > 0 && i < seasonsNum.length; i++) {
+      const eps = data.episodes[String(seasonsNum[i])];
+      if (eps?.length) return eps[0];
+    }
+    return undefined;
   };
 
-  // Bouton rond « changer de version » (mode Reprendre) : rejoue l'épisode
-  // repris depuis une autre source via la popup.
-  const handleChangeVersion = () => {
+  // Cible de reprise : l'épisode en cours (reprise position) s'il n'est pas
+  // terminé, sinon l'épisode SUIVANT (depuis le début). `null` si inconnu.
+  const resumeTarget = (): { season: number; num: number } | null => {
     const sc = resumeEntry?.playerState?.seriesContext;
-    pendingPlay.current = sc ? { season: sc.currentSeason, num: sc.currentEpisodeNum } : 'first';
+    if (!resumeEntry || !sc) return null;
+    if (resumePosition(resumeEntry) != null) {
+      return { season: sc.currentSeason, num: sc.currentEpisodeNum };
+    }
+    const next = info ? nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum) : undefined;
+    return next ? { season: next.season, num: next.episode_num } : null;
+  };
+
+  // « Reprendre » : reprise position de l'épisode en cours (relit son
+  // playerState exact → getResume applique position + pistes), sinon lecture du
+  // suivant. Repli : relit la dernière entrée connue.
+  const handleResume = () => {
+    if (!resumeEntry) return;
+    const sc = resumeEntry.playerState?.seriesContext;
+    if (resumePosition(resumeEntry) != null) {
+      navigate('/player', { state: resumeEntry.playerState });
+      return;
+    }
+    const next = sc && info ? nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum) : undefined;
+    if (next) handlePlayEpisode(next);
+    else navigate('/player', { state: resumeEntry.playerState });
+  };
+
+  // Bouton rond « changer de version » (mode Reprendre) : rejoue la cible de
+  // reprise (épisode en cours ou suivant) depuis une autre source via la popup.
+  const handleChangeVersion = () => {
+    pendingPlay.current = resumeTarget() ?? 'first';
     setShowVersions(true);
   };
 
@@ -492,7 +537,7 @@ export function SeriesDetail() {
               <div className={styles.episodeList}>
                 {episodes.map((ep) => {
                   const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stills[ep.episode_num]);
-                  const epProg = episodeProgress.get(`episode-${ep.id}`) ?? 0;
+                  const epProg = episodeProgress.get(`${ep.season}:${ep.episode_num}`) ?? 0;
                   const epDone = isFinishedProgress(epProg);
                   return (
                     <Focusable

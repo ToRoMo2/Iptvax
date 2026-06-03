@@ -734,6 +734,10 @@ export function Home() {
             <ScrollRail railClassName={styles.rowRail}>
               {resumeRail.map((item) => {
                 const thumb = safeImgUrl(cwBackdrops[item.id] ?? item.image);
+                // Série : on n'affiche que le titre de la série (le libellé
+                // d'épisode brut est masqué — l'épisode est dans le sous-titre
+                // "S1 · É1"). Robuste même pour les entrées d'avant le nettoyage.
+                const cardName = item.type === 'series' ? item.title.split(' – ')[0] : item.title;
                 return (
                 <Focusable
                   key={item.id}
@@ -774,7 +778,7 @@ export function Home() {
                     </div>
                   </div>
                   <div className={styles.cardLabel}>
-                    <div className={styles.cardName}>{item.title}</div>
+                    <div className={styles.cardName}>{cardName}</div>
                     <div className={styles.cardMeta}>{item.subtitle}</div>
                   </div>
                 </Focusable>
