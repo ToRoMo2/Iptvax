@@ -583,12 +583,52 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* Conteneur de la vignette : ancre le tick « terminé » + la barre d'avancement. */
+.epThumbWrap {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: var(--r-ui);
+  overflow: hidden;
+  line-height: 0;
+}
+
 .epThumb {
   width: 132px;
   height: 74px;
   object-fit: cover;
   border-radius: var(--r-ui);
   flex-shrink: 0;
+}
+
+/* Pastille « épisode terminé ». */
+.epDone {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), 0 0 10px var(--accent-glow);
+}
+
+/* Barre d'avancement (épisode commencé, pas terminé). */
+.epProgress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.epProgress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .epThumbPlaceholder {

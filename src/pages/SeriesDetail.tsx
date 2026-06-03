@@ -8,7 +8,7 @@ import { useI18n } from '../contexts/I18nContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel } from '../utils/catalog';
-import { splitMeta } from '../utils/ratings';
+import { splitMeta, isFinishedProgress } from '../utils/ratings';
 import { historyGroupKey, resumePosition } from '../utils/history';
 import { fmtRuntime } from '../utils/format';
 import { safeImgUrl } from '../utils/image';
@@ -42,6 +42,10 @@ function VersionIcon() {
       <path d="m12 2 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5" /><path d="m3 17 9 5 9-5" />
     </svg>
   );
+}
+
+function CheckIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><path d="m5 12 5 5L20 7" /></svg>;
 }
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -243,6 +247,16 @@ export function SeriesDetail() {
 
   const seasons = info ? Object.keys(info.episodes).sort((a, b) => Number(a) - Number(b)) : [];
   const episodes: Episode[] = info?.episodes[selectedSeason] ?? [];
+
+  // Progression par épisode (depuis l'historique, indexé par `episode-<id>`) →
+  // tick « terminé » + barre d'avancement dans la liste.
+  const episodeProgress = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const h of history) {
+      if (h.type === 'series') m.set(h.id, h.progress);
+    }
+    return m;
+  }, [history]);
 
   // Lecture différée : la variante choisie dans la popup a fini de charger.
   useEffect(() => {
@@ -478,6 +492,8 @@ export function SeriesDetail() {
               <div className={styles.episodeList}>
                 {episodes.map((ep) => {
                   const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stills[ep.episode_num]);
+                  const epProg = episodeProgress.get(`episode-${ep.id}`) ?? 0;
+                  const epDone = isFinishedProgress(epProg);
                   return (
                     <Focusable
                       key={ep.id}
@@ -485,11 +501,19 @@ export function SeriesDetail() {
                       onEnter={() => handleEpisodeClick(ep)}
                       onClick={() => handleEpisodeClick(ep)}
                     >
-                      {thumb ? (
-                        <img src={thumb} alt={ep.title} loading="lazy" decoding="async" className={styles.epThumb} />
-                      ) : (
-                        <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
-                      )}
+                      <div className={styles.epThumbWrap}>
+                        {thumb ? (
+                          <img src={thumb} alt={ep.title} loading="lazy" decoding="async" className={styles.epThumb} />
+                        ) : (
+                          <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
+                        )}
+                        {epDone && <div className={styles.epDone}><CheckIcon /></div>}
+                        {!epDone && epProg > 0 && (
+                          <div className={styles.epProgress}>
+                            <span style={{ width: `${epProg}%` }} />
+                          </div>
+                        )}
+                      </div>
                       <div className={styles.epInfo}>
                         <span className={styles.epNum}>{t('detail.episodeN', { n: ep.episode_num })}</span>
                         <span className={styles.epTitle}>{episodeLabel(ep.title, displayTitle, t('detail.episodeN', { n: ep.episode_num }))}</span>

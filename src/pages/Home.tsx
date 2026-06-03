@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
@@ -17,6 +17,7 @@ import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
 import type { TmdbTrendingItem } from '../types/tmdb.types';
 import { groupByTitle, cleanTitle, titleKey, type TitleGroup } from '../utils/catalog';
+import { dedupeHistoryByGroup } from '../utils/history';
 import { safeImgUrl } from '../utils/image';
 import styles from './Home.module.css';
 
@@ -124,6 +125,9 @@ function RowSkeleton({ type }: { type: 'cw' | 'channel' | 'poster' }) {
 export function Home() {
   const { credentials } = useXtream();
   const { history, removeFromHistory, clearHistory } = useLibrary();
+  // Rail « Reprendre » : une carte par contenu (la plus récente). L'état garde
+  // toutes les entrées par épisode/variante pour la progression de la liste.
+  const resumeRail = useMemo(() => dedupeHistoryByGroup(history), [history]);
   const { isPremium } = useSubscription();
   const { t } = useI18n();
   // `t` dans une ref : composeHero/composeRows ne doivent pas se relancer à
@@ -712,13 +716,13 @@ export function Home() {
       <div className={styles.rows}>
 
         {/* Continue Watching */}
-        {history.length > 0 && (
+        {resumeRail.length > 0 && (
           <div className={styles.row}>
             <div className={styles.rowHeader}>
               <div className={styles.rowTitleGroup}>
                 <span className={styles.rowTitle}>{t('home.resume')}</span>
                 <span className={styles.rowDivider} aria-hidden="true" />
-                <span className={styles.rowCount}>{history.length}</span>
+                <span className={styles.rowCount}>{resumeRail.length}</span>
               </div>
               <button
                 className={`${styles.rowSeeAll} ${clearConfirm ? styles.clearConfirmActive : ''}`}
@@ -728,7 +732,7 @@ export function Home() {
               </button>
             </div>
             <ScrollRail railClassName={styles.rowRail}>
-              {history.map((item) => {
+              {resumeRail.map((item) => {
                 const thumb = safeImgUrl(cwBackdrops[item.id] ?? item.image);
                 return (
                 <Focusable
