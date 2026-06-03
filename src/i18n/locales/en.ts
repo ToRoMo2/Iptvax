@@ -190,6 +190,8 @@ const en: typeof frDict = {
     playMovie: '▶ Play movie',
     play: '▶ Play',
     watch: 'Watch',
+    resume: 'Resume',
+    changeVersion: 'Change version',
     more: 'More',
     less: 'Less',
     version: 'Version',

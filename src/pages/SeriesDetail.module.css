@@ -288,6 +288,28 @@
   box-shadow: 0 0 18px var(--accent-glow);
 }
 
+/* Bouton rond « changer de version » (mode Reprendre uniquement). */
+.versionRoundBtn {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--t-1);
+  border: 1px solid var(--line-strong);
+  transition: background var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
+}
+.versionRoundBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--t-2);
+}
+.versionRoundBtn svg {
+  width: 22px;
+  height: 22px;
+}
+
 /* Synopsis — aligné à gauche, repliable (« Plus / Moins ») */
 .synopsisWrap {
   width: 100%;
@@ -786,7 +808,7 @@
   .ratingRow { gap: 9px; font-size: 14px; margin-bottom: 24px; }
   .actions { margin-bottom: 28px; }
   .playBtn { height: 54px; font-size: 15px; }
-  .favBtn { width: 54px; height: 54px; }
+  .favBtn, .versionRoundBtn { width: 54px; height: 54px; }
   .synopsis { font-size: 14px; }
 
   /* Accordéon « À propos » : replié par défaut (§IV-23). */

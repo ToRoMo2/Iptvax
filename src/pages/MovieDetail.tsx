@@ -9,6 +9,7 @@ import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
 import { splitMeta } from '../utils/ratings';
+import { historyGroupKey, resumePosition } from '../utils/history';
 import { fmtRuntime } from '../utils/format';
 import { safeImgUrl } from '../utils/image';
 import { RateBlock } from '../components/RateBlock/RateBlock';
@@ -35,6 +36,14 @@ function PlayIcon() {
   return <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z" /></svg>;
 }
 
+function VersionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+      <path d="m12 2 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5" /><path d="m3 17 9 5 9-5" />
+    </svg>
+  );
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
@@ -48,7 +57,7 @@ export function MovieDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
-  const { addToHistory, isFavorite, toggleFavorite } = useLibrary();
+  const { history, addToHistory, isFavorite, toggleFavorite } = useLibrary();
   const { t } = useI18n();
 
   const passed = (location.state as LocationState)?.movie ?? null;
@@ -138,6 +147,21 @@ export function MovieDetail() {
     if (!movie) return;
     if (variants.length > 1) setShowVersions(true);
     else playMovie(selected ?? movie);
+  };
+
+  // Reprise : entrée d'historique du même film (toutes variantes confondues),
+  // assez avancée pour proposer « Reprendre » plutôt que « Regarder ».
+  const resumeEntry = useMemo(() => {
+    if (!movie) return undefined;
+    const gk = `movie:${titleKey(movie.name)}`;
+    return history.find((h) => historyGroupKey(h) === gk);
+  }, [history, movie]);
+  const canResume = !!(resumeEntry && resumePosition(resumeEntry) != null);
+
+  // « Reprendre » : relit la variante exacte de l'historique (position +
+  // pistes appliquées par le lecteur via getResume), sans repasser par la popup.
+  const handleResume = () => {
+    if (resumeEntry) navigate('/player', { state: resumeEntry.playerState });
   };
 
   // Affiche portrait pour le hero : poster TMDB > icône Xtream > backdrop.
@@ -255,12 +279,22 @@ export function MovieDetail() {
                   <Focusable
                     className={styles.playBtn}
                     focusKey={DETAIL_PLAY_FOCUS_KEY}
-                    onEnter={handlePlay}
-                    onClick={handlePlay}
+                    onEnter={canResume ? handleResume : handlePlay}
+                    onClick={canResume ? handleResume : handlePlay}
                   >
                     <PlayIcon />
-                    {t('detail.watch')}
+                    {canResume ? t('detail.resume') : t('detail.watch')}
                   </Focusable>
+                  {canResume && variants.length > 1 && (
+                    <Focusable
+                      className={styles.versionRoundBtn}
+                      ariaLabel={t('detail.changeVersion')}
+                      onEnter={() => setShowVersions(true)}
+                      onClick={() => setShowVersions(true)}
+                    >
+                      <VersionIcon />
+                    </Focusable>
+                  )}
                   <Focusable
                     className={`${styles.favBtn} ${isFavorite('movie', String(movie.stream_id)) ? styles.favActive : ''}`}
                     ariaLabel={isFavorite('movie', String(movie.stream_id)) ? t('common.inList') : t('common.addToList')}

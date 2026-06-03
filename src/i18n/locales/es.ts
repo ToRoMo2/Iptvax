@@ -190,6 +190,8 @@ const es: typeof frDict = {
     playMovie: '▶ Ver película',
     play: '▶ Reproducir',
     watch: 'Ver ahora',
+    resume: 'Reanudar',
+    changeVersion: 'Cambiar versión',
     more: 'Más',
     less: 'Menos',
     version: 'Versión',

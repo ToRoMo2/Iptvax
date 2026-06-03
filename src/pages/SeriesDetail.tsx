@@ -9,6 +9,7 @@ import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtre
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
 import { splitMeta } from '../utils/ratings';
+import { historyGroupKey, resumePosition } from '../utils/history';
 import { fmtRuntime } from '../utils/format';
 import { safeImgUrl } from '../utils/image';
 import { RateBlock } from '../components/RateBlock/RateBlock';
@@ -35,6 +36,14 @@ function PlayIcon() {
   return <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z" /></svg>;
 }
 
+function VersionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+      <path d="m12 2 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5" /><path d="m3 17 9 5 9-5" />
+    </svg>
+  );
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
@@ -48,7 +57,7 @@ export function SeriesDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { credentials } = useXtream();
-  const { addToHistory, isFavorite, toggleFavorite } = useLibrary();
+  const { history, addToHistory, isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
 
   const seriesMeta = (location.state as LocationState)?.series ?? null;
@@ -246,6 +255,29 @@ export function SeriesDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, info]);
 
+  // Reprise : entrée d'historique de cette série (épisode le plus récemment
+  // commencé, toutes sources confondues).
+  const resumeEntry = useMemo(() => {
+    if (Number.isNaN(seriesId)) return undefined;
+    const gk = `series:${seriesId}`;
+    return history.find((h) => historyGroupKey(h) === gk);
+  }, [history, seriesId]);
+  const canResume = !!(resumeEntry && resumePosition(resumeEntry) != null);
+
+  // « Reprendre » : relit l'épisode/variante exact de l'historique (position +
+  // pistes appliquées par le lecteur via getResume), sans repasser par la popup.
+  const handleResume = () => {
+    if (resumeEntry) navigate('/player', { state: resumeEntry.playerState });
+  };
+
+  // Bouton rond « changer de version » (mode Reprendre) : rejoue l'épisode
+  // repris depuis une autre source via la popup.
+  const handleChangeVersion = () => {
+    const sc = resumeEntry?.playerState?.seriesContext;
+    pendingPlay.current = sc ? { season: sc.currentSeason, num: sc.currentEpisodeNum } : 'first';
+    setShowVersions(true);
+  };
+
   // Affiche portrait pour le hero : poster TMDB > cover Xtream. URL BRUTE.
   const heroPoster = useMemo(
     () => safeImgUrl(tmdb?.poster ?? info?.info.cover ?? variant?.cover),
@@ -374,12 +406,22 @@ export function SeriesDetail() {
                   <Focusable
                     className={styles.playBtn}
                     focusKey={DETAIL_PLAY_FOCUS_KEY}
-                    onEnter={handleWatch}
-                    onClick={handleWatch}
+                    onEnter={canResume ? handleResume : handleWatch}
+                    onClick={canResume ? handleResume : handleWatch}
                   >
                     <PlayIcon />
-                    {t('detail.watch')}
+                    {canResume ? t('detail.resume') : t('detail.watch')}
                   </Focusable>
+                  {canResume && variants.length > 1 && (
+                    <Focusable
+                      className={styles.versionRoundBtn}
+                      ariaLabel={t('detail.changeVersion')}
+                      onEnter={handleChangeVersion}
+                      onClick={handleChangeVersion}
+                    >
+                      <VersionIcon />
+                    </Focusable>
+                  )}
                   <Focusable
                     className={`${styles.favBtn} ${isFavorite('series', String(seriesId)) ? styles.favActive : ''}`}
                     ariaLabel={isFavorite('series', String(seriesId)) ? t('common.inList') : t('common.addToList')}
