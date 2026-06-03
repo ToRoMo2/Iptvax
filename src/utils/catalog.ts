@@ -120,11 +120,25 @@ const QUALITY_LABEL: Record<string, string> = {
  * présents dans le nom brut : ex. "VF · 4K", "VOSTFR", "TR".
  */
 export function versionLabel(raw: string, fallback: string): string {
-  const tokens = stripDecorations(raw).split(/\s+/).filter(Boolean);
+  // ⚠ NE PAS passer par stripDecorations : il efface le contenu entre
+  // parenthèses/crochets, or les tags de version y vivent souvent
+  // ("Game of Thrones (VOSTFR)"). On découpe sur tout caractère non
+  // alphanumérique pour récupérer ces tags, où qu'ils soient.
+  const tokens = raw
+    .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '') // drapeaux régionaux
+    .replace(/[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/gu, '') // emoji
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  // Mots du titre canonique → écartés du scan (évite qu'un mot comme "It" ou
+  // "Lat" du titre soit pris pour un tag de langue).
+  const titleTokens = new Set(
+    cleanTitle(raw).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean),
+  );
   let lang: string | undefined;
   let quality: string | undefined;
   for (const tok of tokens) {
-    const norm = tok.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+    const norm = tok.toLowerCase();
+    if (titleTokens.has(norm)) continue;
     if (!lang && LANG_LABEL[norm]) lang = LANG_LABEL[norm];
     if (!quality && QUALITY_LABEL[norm]) quality = QUALITY_LABEL[norm];
   }
