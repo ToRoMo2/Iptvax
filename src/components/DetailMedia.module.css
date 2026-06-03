@@ -1,0 +1,190 @@
+.block {
+  margin-top: 8px;
+  text-align: left;
+}
+
+/* ── Onglets Casting / Médias ── */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.tab {
+  padding: 9px 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--t-2);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.tab:hover {
+  color: var(--t-1);
+  border-color: var(--line-strong);
+}
+.tabActive {
+  color: #000;
+  background: var(--t-1);
+  border-color: var(--t-1);
+}
+
+.sectionLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--t-3);
+  margin: 0 0 18px;
+}
+
+/* ── Grille casting ── */
+.castGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 24px;
+}
+
+.castRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px;
+  margin: -8px;
+  border-radius: 12px;
+}
+
+.castAvatar,
+.castAvatarPh {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.castAvatar {
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+.castAvatarPh {
+  display: grid;
+  place-items: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t-3);
+}
+.castName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--t-1);
+}
+.castRole {
+  font-size: 12px;
+  color: var(--t-3);
+  margin-top: 2px;
+}
+
+/* ── Galerie d'images (backdrops 16:9) ── */
+.mediaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.mediaTile {
+  display: block;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #050505;
+  cursor: pointer;
+  transition: transform var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
+}
+.mediaTile:hover {
+  transform: scale(1.015);
+  border-color: var(--line-strong);
+}
+.mediaImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+/* ── Visionneuse plein écran ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 5vh 6vw;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(6px);
+  animation: dm-fade 180ms var(--ease);
+}
+@keyframes dm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lbImg {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+}
+
+.lbClose {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-strong);
+  color: var(--t-1);
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  transition: background var(--d-micro) var(--ease);
+}
+.lbClose:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.lbNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-strong);
+  color: var(--t-1);
+  display: grid;
+  place-items: center;
+  transition: background var(--d-micro) var(--ease);
+}
+.lbNav:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.lbPrev { left: 16px; }
+.lbNext { right: 16px; }
+
+@media (max-width: 640px) {
+  .castGrid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .castAvatar, .castAvatarPh { width: 48px; height: 48px; }
+  .castName { font-size: 13px; }
+  .castRole { font-size: 11px; }
+  .mediaGrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .tab { padding: 8px 14px; font-size: 12px; }
+  .lbNav { width: 40px; height: 40px; }
+}

@@ -14,6 +14,7 @@ import { safeImgUrl } from '../utils/image';
 import { RateBlock } from '../components/RateBlock/RateBlock';
 import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { DetailMedia } from '../components/DetailMedia';
 import { Focusable } from '../components/Focusable';
 import { AppLogo } from '../components/AppLogo';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
@@ -63,6 +64,8 @@ export function MovieDetail() {
   const [aboutOpen, setAboutOpen] = useState(false);
   // Synopsis replié par défaut (bouton « Plus / Moins »).
   const [synopsisOpen, setSynopsisOpen] = useState(false);
+  // Popup « Choisir une version » (ouverte par « Regarder » si > 1 variante).
+  const [showVersions, setShowVersions] = useState(false);
 
   // Deep-link / refresh : pas d'état de navigation → on retrouve le film par id.
   useEffect(() => {
@@ -98,9 +101,11 @@ export function MovieDetail() {
     return () => { alive = false; };
   }, [movie, displayTitle, year]);
 
-  const handlePlay = () => {
+  // Lance une variante précise (appelée directement, ou via la popup version).
+  const playMovie = (target: VodStream) => {
     if (!credentials || !movie) return;
-    const target = selected ?? movie;
+    setSelected(target);
+    setShowVersions(false);
     const historyId = `movie-${target.stream_id}`;
     // Image paysage (16:9) pour la vignette « Reprendre » + le poster vidéo —
     // évite le crop moche d'une affiche portrait. URLs BRUTES : safeImgUrl est
@@ -126,6 +131,13 @@ export function MovieDetail() {
       playerState: state,
     });
     navigate('/player', { state });
+  };
+
+  // « Regarder » : > 1 variante → popup de choix ; sinon lecture directe.
+  const handlePlay = () => {
+    if (!movie) return;
+    if (variants.length > 1) setShowVersions(true);
+    else playMovie(selected ?? movie);
   };
 
   // Affiche portrait pour le hero : poster TMDB > icône Xtream > backdrop.
@@ -212,7 +224,11 @@ export function MovieDetail() {
           <div className={styles.grid}>
             <div className={styles.headRow}>
               <div className={styles.headInfo}>
-                <h1 className={styles.title}>{displayTitle}</h1>
+                {tmdb?.logo ? (
+                  <img className={styles.titleLogo} src={safeImgUrl(tmdb.logo)} alt={displayTitle} />
+                ) : (
+                  <h1 className={styles.title}>{displayTitle}</h1>
+                )}
 
                 <div className={styles.meta}>
                   {year && <span>{year}</span>}
@@ -272,65 +288,11 @@ export function MovieDetail() {
               <RateBlock input={watchedInput} starsFocusKey="rc-rate-stars" />
             )}
 
-            {showVariants && (
-              <div className={styles.versionBlock}>
-                <div className={styles.sectionLabel}>{t('detail.version')}</div>
-                <div className={styles.versionBtns}>
-                  {variants.map((v, i) => (
-                    <Focusable
-                      key={v.stream_id}
-                      className={`${styles.versionBtn} ${selected?.stream_id === v.stream_id ? styles.versionActive : ''}`}
-                      onEnter={() => setSelected(v)}
-                      onClick={() => setSelected(v)}
-                    >
-                      {versionLabel(v.name, t('detail.source', { n: i + 1 }))}
-                    </Focusable>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {tmdb && tmdb.cast.length > 0 ? (
-              <div className={styles.castBlock}>
-                <div className={styles.sectionLabel}>{t('detail.casting')}</div>
-                <div className={styles.castGrid}>
-                  {tmdb.cast.map((c) => (
-                    <Focusable
-                      key={`${c.name}-${c.character}`}
-                      className={styles.castRow}
-                      ariaLabel={c.name}
-                    >
-                      {c.profile ? (
-                        <img src={safeImgUrl(c.profile)} alt={c.name} loading="lazy" decoding="async" className={styles.castAvatar} />
-                      ) : (
-                        <div className={styles.castAvatarPh}>
-                          {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-                        </div>
-                      )}
-                      <span className={styles.castName}>{c.name}</span>
-                      <span className={styles.castRole}>{c.character}</span>
-                    </Focusable>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              xtreamCast.length > 0 && (
-                <div className={styles.castBlock}>
-                  <div className={styles.sectionLabel}>{t('detail.casting')}</div>
-                  <div className={styles.castGrid}>
-                    {xtreamCast.map((name) => (
-                      <Focusable key={name} className={styles.castRow} ariaLabel={name}>
-                        <div className={styles.castAvatarPh}>
-                          {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-                        </div>
-                        <span className={styles.castName}>{name}</span>
-                        <span className={styles.castRole}>{t('detail.actor')}</span>
-                      </Focusable>
-                    ))}
-                  </div>
-                </div>
-              )
-            )}
+            <DetailMedia
+              tmdbCast={tmdb?.cast ?? []}
+              xtreamCast={xtreamCast}
+              images={tmdb?.backdrops ?? []}
+            />
 
             <aside className={styles.side}>
               <button
@@ -382,6 +344,25 @@ export function MovieDetail() {
           </div>
         )}
       </div>
+
+      {showVersions && movie && (
+        <div className={styles.versionModal} onClick={() => setShowVersions(false)} role="dialog" aria-modal="true">
+          <div className={styles.versionCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.versionHead}>
+              <span className={styles.versionTitle}>{t('detail.chooseVersion')}</span>
+              <button className={styles.versionClose} onClick={() => setShowVersions(false)} aria-label={t('common.close')}>✕</button>
+            </div>
+            <div className={styles.versionOpts}>
+              {variants.map((v, i) => (
+                <button key={v.stream_id} type="button" className={styles.versionOpt} onClick={() => playMovie(v)}>
+                  <span>{versionLabel(v.name, t('detail.source', { n: i + 1 }))}</span>
+                  <PlayIcon />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

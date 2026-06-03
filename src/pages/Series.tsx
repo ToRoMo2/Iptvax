@@ -241,6 +241,7 @@ export function Series() {
       isFavorite={isFavorite('series', String(g.primary.series_id))}
       trailerUrl={g.primary.youtube_trailer}
       resolveTrailer={() => tmdbService.getTrailer('tv', g.title, g.year)}
+      resolvePoster={() => tmdbService.lookupPoster('tv', g.title, g.year)}
       onOpen={() => openSeries(g)}
       onFavorite={() =>
         toggleFavorite({

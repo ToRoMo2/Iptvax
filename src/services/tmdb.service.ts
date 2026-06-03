@@ -36,6 +36,8 @@ function active(): boolean {
 
 const BACKDROP_SIZE = 'w1280';
 const POSTER_SIZE = 'w500';
+const POSTER_HD_SIZE = 'w780';
+const LOGO_SIZE = 'w500';
 const PROFILE_SIZE = 'w185';
 const STILL_SIZE = 'w300';
 const MAX_CAST = 12;
@@ -73,6 +75,7 @@ function cached<T>(key: string, producer: () => Promise<T>): Promise<T> {
 
 interface TmdbSearchResult {
   id: number;
+  poster_path?: string | null;
   release_date?: string;
   first_air_date?: string;
 }
@@ -94,7 +97,7 @@ interface TmdbDetails {
   backdrop_path?: string | null;
   poster_path?: string | null;
   credits?: TmdbCredits;
-  images?: { backdrops?: TmdbImage[] };
+  images?: { backdrops?: TmdbImage[]; posters?: TmdbImage[]; logos?: TmdbImage[] };
   /** Durée en minutes (films). */
   runtime?: number;
   /** Durées d'épisode en minutes (séries) — on prend la première. */
@@ -176,13 +179,54 @@ function mapBackdrops(d: TmdbDetails): string[] {
   return urls;
 }
 
+const MAX_POSTERS = 12;
+
+// Galerie d'affiches HD (2:3) pour l'onglet « Médias ». Préfère les affiches
+// localisées FR puis EN puis sans langue, par note décroissante.
+function mapPosters(d: TmdbDetails): string[] {
+  const list = d.images?.posters ?? [];
+  const langRank = (iso: string | null) => (iso === 'fr' ? 0 : iso === 'en' ? 1 : iso === null ? 2 : 3);
+  const urls = [...list]
+    .sort((a, b) => {
+      const la = langRank(a.iso_639_1);
+      const lb = langRank(b.iso_639_1);
+      if (la !== lb) return la - lb;
+      return (b.vote_average ?? 0) - (a.vote_average ?? 0);
+    })
+    .map((p) => img(p.file_path, POSTER_HD_SIZE))
+    .filter((u): u is string => Boolean(u))
+    .slice(0, MAX_POSTERS);
+  // Repli : l'affiche principale si la galerie est vide.
+  if (urls.length === 0) {
+    const main = img(d.poster_path, POSTER_HD_SIZE);
+    if (main) urls.push(main);
+  }
+  return urls;
+}
+
+// Logo/titre (PNG transparent). FR > EN > n'importe, par note décroissante.
+function pickLogo(d: TmdbDetails): string | undefined {
+  const list = d.images?.logos ?? [];
+  if (list.length === 0) return undefined;
+  const langRank = (iso: string | null) => (iso === 'fr' ? 0 : iso === 'en' ? 1 : 2);
+  const best = [...list].sort((a, b) => {
+    const la = langRank(a.iso_639_1);
+    const lb = langRank(b.iso_639_1);
+    if (la !== lb) return la - lb;
+    return (b.vote_average ?? 0) - (a.vote_average ?? 0);
+  })[0];
+  return img(best.file_path, LOGO_SIZE);
+}
+
 function buildEnrichment(d: TmdbDetails): TmdbEnrichment {
   const backdrops = mapBackdrops(d);
   return {
     tmdbId: d.id,
     backdrop: backdrops[0],
     backdrops,
+    posters: mapPosters(d),
     poster: img(d.poster_path, POSTER_SIZE),
+    logo: pickLogo(d),
     rating: d.vote_average && d.vote_average > 0 ? Math.round(d.vote_average * 10) / 10 : undefined,
     runtime: d.runtime && d.runtime > 0 ? d.runtime : d.episode_run_time?.find((r) => r > 0),
     overview: d.overview?.trim() || undefined,
@@ -252,6 +296,37 @@ export const tmdbService = {
 
   enrichSeries(title: string, year?: string): Promise<TmdbEnrichment | null> {
     return enrich('tv', title, year);
+  },
+
+  /**
+   * Affiche TMDB d'un titre, en une seule requête `/search` (légère, mise en
+   * cache). Destinée aux cartes du catalogue (chargement paresseux : la carte
+   * affiche l'affiche IPTV puis la remplace quand celle-ci se résout). Renvoie
+   * `null` si TMDB désactivé / aucun match / pas d'affiche → la carte garde son
+   * visuel IPTV (zéro régression, §IV-TMDB).
+   */
+  lookupPoster(kind: 'movie' | 'tv', title: string, year?: string): Promise<string | null> {
+    const q = title.trim();
+    if (!active() || !q) return Promise.resolve(null);
+    return cached(`poster:${kind}:${q.toLowerCase()}:${year ?? ''}`, async () => {
+      const yearParam = kind === 'movie' ? 'year' : 'first_air_date_year';
+      const search = await tmdbGet<TmdbSearchResponse>(`/search/${kind}`, {
+        query: q,
+        language: 'fr-FR',
+        include_adult: 'false',
+        ...(year ? { [yearParam]: year } : {}),
+      });
+      let best = search?.results?.[0];
+      if (!best && year) {
+        const retry = await tmdbGet<TmdbSearchResponse>(`/search/${kind}`, {
+          query: q,
+          language: 'fr-FR',
+          include_adult: 'false',
+        });
+        best = retry?.results?.[0];
+      }
+      return img(best?.poster_path, POSTER_SIZE) ?? null;
+    });
   },
 
   /**

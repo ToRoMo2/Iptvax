@@ -14,8 +14,12 @@ export interface TmdbEnrichment {
   backdrop?: string;
   /** Tous les fonds d'écran paysage (16:9) pour diaporama, sans texte d'abord. */
   backdrops: string[];
+  /** Galerie d'affiches (2:3) HD pour l'onglet « Médias ». */
+  posters: string[];
   /** Affiche (2:3). */
   poster?: string;
+  /** Logo/titre du film (PNG transparent), FR puis EN puis n'importe — ou absent. */
+  logo?: string;
   /** Note /10 (échelle TMDB). */
   rating?: number;
   /** Durée en minutes (film) ou durée d'un épisode (série). */
