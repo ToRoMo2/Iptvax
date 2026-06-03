@@ -7,7 +7,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel } from '../utils/catalog';
 import { splitMeta } from '../utils/ratings';
 import { historyGroupKey, resumePosition } from '../utils/history';
 import { fmtRuntime } from '../utils/format';
@@ -145,7 +145,7 @@ export function SeriesDetail() {
 
   const handlePlayEpisode = (episode: Episode) => {
     if (!credentials) return;
-    const epLabel = episode.title || t('detail.episodeN', { n: episode.episode_num });
+    const epLabel = episodeLabel(episode.title, displayTitle, t('detail.episodeN', { n: episode.episode_num }));
     const historyId = `episode-${episode.id}`;
     // Image paysage (16:9) pour « Reprendre » + poster vidéo : le still
     // d'épisode TMDB est déjà du 16:9 → idéal. URLs BRUTES (safeImgUrl est
@@ -492,7 +492,7 @@ export function SeriesDetail() {
                       )}
                       <div className={styles.epInfo}>
                         <span className={styles.epNum}>{t('detail.episodeN', { n: ep.episode_num })}</span>
-                        <span className={styles.epTitle}>{ep.title || t('detail.episodeN', { n: ep.episode_num })}</span>
+                        <span className={styles.epTitle}>{episodeLabel(ep.title, displayTitle, t('detail.episodeN', { n: ep.episode_num }))}</span>
                         {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
                         {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
                       </div>
