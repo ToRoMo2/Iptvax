@@ -5,7 +5,7 @@
 
 .popRail {
   /* Largeur d'un poster « populaire » — pilote aussi le padding de centrage. */
-  --pop-w: 264px;
+  --pop-w: 248px;
   display: flex;
   gap: 18px;
   /* Scroll horizontal natif : le doigt entraîne le rail, l'inertie et le snap
@@ -24,7 +24,7 @@
   cursor: grab;
   /* Padding latéral = (50% - moitié d'un item) → le 1er et le dernier poster
      peuvent venir se centrer sous la zone de mise en valeur. */
-  padding: 22px calc(50% - var(--pop-w) / 2) 14px;
+  padding: 12px calc(50% - var(--pop-w) / 2) 12px;
 }
 .popRail::-webkit-scrollbar {
   display: none;
@@ -67,10 +67,11 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.32s var(--ease);
+  /* Contour net + halo serré (pas de propagation large) : un liseré accent
+     + une lueur courte qui hugge le bord, sans déborder sur les voisines. */
   box-shadow:
-    0 0 0 2px var(--accent),
-    0 18px 48px -8px var(--accent-glow),
-    0 0 60px 2px var(--accent-glow);
+    0 0 0 1.5px var(--accent),
+    0 0 12px -2px var(--accent-glow);
 }
 .popItemActive .popGlow {
   opacity: 1;
@@ -90,13 +91,13 @@
 }
 
 @media (max-width: 900px) {
-  .popRail { --pop-w: 230px; }
+  .popRail { --pop-w: 218px; }
 }
 
 @media (max-width: 640px) {
-  .popRail { --pop-w: 214px; gap: 14px; }
+  .popRail { --pop-w: 202px; gap: 14px; }
 }
 
 @media (max-width: 380px) {
-  .popRail { --pop-w: 182px; }
+  .popRail { --pop-w: 172px; }
 }
