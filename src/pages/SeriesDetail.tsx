@@ -69,8 +69,8 @@ export function SeriesDetail() {
   // Popup « Choisir une version » (ouverte par « Regarder » si > 1 variante).
   const [showVersions, setShowVersions] = useState(false);
   // Lecture en attente : variante choisie dans la popup dont les épisodes se
-  // chargent encore → on lit le 1er épisode dès que `info` est prêt.
-  const pendingPlay = useRef(false);
+  // chargent encore. `'first'` = 1er épisode ; `{season,num}` = épisode précis.
+  const pendingPlay = useRef<{ season: number; num: number } | 'first' | null>(null);
 
   const seriesId = variant?.series_id ?? (id ? parseInt(id) : NaN);
 
@@ -178,6 +178,24 @@ export function SeriesDetail() {
     navigate('/player', { state });
   };
 
+  const findEpisode = (data: SeriesInfo, season: number, num: number): Episode | undefined =>
+    Object.values(data.episodes).flat().find((e) => e.season === season && e.episode_num === num);
+
+  const playFirstOf = (data: SeriesInfo) => {
+    const fs = Object.keys(data.episodes).sort((a, b) => Number(a) - Number(b))[0];
+    const first = fs ? data.episodes[fs]?.[0] : undefined;
+    if (first) handlePlayEpisode(first);
+  };
+
+  // Lit la cible voulue dans une SeriesInfo chargée (1er épisode, ou un épisode
+  // précis — repli sur le 1er si la source ne l'a pas).
+  const playTarget = (data: SeriesInfo, target: { season: number; num: number } | 'first') => {
+    if (target === 'first') { playFirstOf(data); return; }
+    const ep = findEpisode(data, target.season, target.num);
+    if (ep) handlePlayEpisode(ep);
+    else playFirstOf(data);
+  };
+
   const handlePlayFirst = () => {
     const first = episodes[0];
     if (first) handlePlayEpisode(first);
@@ -185,18 +203,31 @@ export function SeriesDetail() {
 
   // « Regarder » : > 1 variante → popup de choix ; sinon 1er épisode direct.
   const handleWatch = () => {
-    if (variants.length > 1) setShowVersions(true);
-    else handlePlayFirst();
+    if (variants.length > 1) {
+      pendingPlay.current = 'first';
+      setShowVersions(true);
+    } else handlePlayFirst();
+  };
+
+  // Clic sur un épisode : > 1 variante → popup de choix de source (l'épisode
+  // visé est rejoué depuis la source choisie) ; sinon lecture directe.
+  const handleEpisodeClick = (ep: Episode) => {
+    if (variants.length > 1) {
+      pendingPlay.current = { season: ep.season, num: ep.episode_num };
+      setShowVersions(true);
+    } else handlePlayEpisode(ep);
   };
 
   // Choix d'une variante dans la popup. Même source déjà chargée → lecture
   // immédiate ; sinon on bascule la source et on diffère (cf. effet ci-dessous).
   const playVersion = (v: SeriesItem) => {
     setShowVersions(false);
+    const target = pendingPlay.current ?? 'first';
     if (v.series_id === variant?.series_id && info) {
-      handlePlayFirst();
+      pendingPlay.current = null;
+      playTarget(info, target);
     } else {
-      pendingPlay.current = true;
+      pendingPlay.current = target;
       setVariant(v);
     }
   };
@@ -206,14 +237,14 @@ export function SeriesDetail() {
 
   // Lecture différée : la variante choisie dans la popup a fini de charger.
   useEffect(() => {
-    if (!loading && pendingPlay.current && episodes.length > 0) {
-      pendingPlay.current = false;
-      handlePlayFirst();
-    }
-    // handlePlayFirst recréé à chaque rendu, mais l'effet est gardé par
-    // pendingPlay (lecture unique) → pas besoin de le lister dans les deps.
+    if (loading || !pendingPlay.current || !info) return;
+    const target = pendingPlay.current;
+    pendingPlay.current = null;
+    playTarget(info, target);
+    // playTarget/handlePlayEpisode recréés à chaque rendu, mais l'effet est
+    // gardé par pendingPlay (lecture unique) → deps volontairement minimales.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, episodes]);
+  }, [loading, info]);
 
   // Affiche portrait pour le hero : poster TMDB > cover Xtream. URL BRUTE.
   const heroPoster = useMemo(
@@ -408,8 +439,8 @@ export function SeriesDetail() {
                     <Focusable
                       key={ep.id}
                       className={styles.episode}
-                      onEnter={() => handlePlayEpisode(ep)}
-                      onClick={() => handlePlayEpisode(ep)}
+                      onEnter={() => handleEpisodeClick(ep)}
+                      onClick={() => handleEpisodeClick(ep)}
                     >
                       {thumb ? (
                         <img src={thumb} alt={ep.title} loading="lazy" decoding="async" className={styles.epThumb} />
