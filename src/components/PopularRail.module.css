@@ -11,7 +11,16 @@
   overflow-x: hidden;
   overflow-y: visible;
   touch-action: pan-y;
-  scroll-behavior: smooth;
+  /* Défilement INSTANTANÉ (pas `smooth`) : la position de scroll saute d'un item
+     à l'autre immédiatement → la carte centrée est tappable tout de suite après
+     un swipe. L'animation visuelle vient des transitions scale/opacity sur
+     `.popItem` (ci-dessous), pas du déplacement de scroll. Avec `smooth`, la
+     carte « glissait » encore ~400 ms et un tap pendant ce temps tombait entre
+     deux cartes → premier appui ignoré. ⚠ Ne pas remettre `smooth` ici : ça
+     réintroduit le bug même si le JS demande `behavior: 'instant'` côté Firefox
+     ancien (le CSS gagne sur `behavior: 'auto'`).
+     scroll-behavior: auto = instantané. */
+  scroll-behavior: auto;
   scrollbar-width: none;
   user-select: none;
   -webkit-user-select: none;

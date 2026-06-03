@@ -74,12 +74,16 @@ export function PopularRail({ children }: { children: ReactNode }) {
     const clamped = Math.max(0, Math.min(i, centers.length - 1));
     const target = centers[clamped] - el.clientWidth / 2;
     const max = el.scrollWidth - el.clientWidth;
-    // Instant scroll — CSS transitions on .popItem animate scale/opacity smoothly.
-    // Smooth scroll caused a timing window where a tap during the animation fired
-    // on the container gap instead of the card, swallowing the first tap.
+    // Saut de scroll INSTANTANÉ. ⚠ `behavior: 'instant'` (et NON `'auto'`) :
+    // `'auto'` délègue à la propriété CSS `scroll-behavior`, donc tant qu'elle
+    // valait `smooth` la carte continuait de « glisser » ~400 ms après le swipe
+    // et un tap pendant ce temps tombait entre deux cartes → 1er appui ignoré.
+    // `'instant'` force le saut immédiat → la carte centrée est cliquable dès la
+    // fin du geste. Le ressenti animé vient des transitions scale/opacity sur
+    // `.popItem`, pas du déplacement de scroll.
     el.scrollTo({
       left: Math.max(0, Math.min(target, max)),
-      behavior: 'auto',
+      behavior: 'instant' as ScrollBehavior,
     });
   }, []);
 
