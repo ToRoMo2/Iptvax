@@ -17,25 +17,6 @@
   pointer-events: none;
 }
 
-.brand {
-  position: absolute;
-  top: 48px;
-  left: 56px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--t-1);
-}
-.brandMark {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
-}
 
 .title {
   font-size: 38px;
@@ -151,6 +132,24 @@
   color: var(--t-1);
 }
 .cardFocused .cardName { color: var(--t-1); }
+
+/* Restreint le halo rc-focused à l'avatar : sans ça, le halo rectangulaire
+   englobe l'avatar + le nom sous lui — visuellement bizarre sur mobile.
+   La carte annule le halo global, les avatars le reprennent avec leur
+   border-radius propre. */
+.card:global(.rc-focused) {
+  box-shadow: none;
+}
+.card:global(.rc-focused) .avatar {
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 22px var(--accent-glow);
+}
+.card:global(.rc-focused) .addAvatar {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+}
+/* Supprime le flash de sélection natif du navigateur au tap */
+.card { -webkit-tap-highlight-color: transparent; }
 
 /* Mode gestion */
 .cardManage .avatar { filter: brightness(0.55); }
@@ -364,8 +363,6 @@
    ==================================================================== */
 @media (max-width: 640px) {
   .screen { padding: 88px 16px 48px; }
-  .brand { top: 18px; left: 18px; font-size: 12px; gap: 8px; }
-  .brandMark { width: 12px; height: 12px; }
   .title { font-size: 26px; }
   .sub { font-size: 13px; margin: 8px 0 28px; }
 
