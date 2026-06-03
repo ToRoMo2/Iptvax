@@ -147,6 +147,37 @@ export function versionLabel(raw: string, fallback: string): string {
 }
 
 /**
+ * Libellé d'épisode propre pour l'affichage (titre du lecteur + carte
+ * d'historique + liste d'épisodes). Les titres d'épisode IPTV sont souvent
+ * pollués ("4K| Game of Thrones S01E01", "Game of Thrones - Episode 1 VOSTFR")
+ * → on nettoie via `cleanTitle`, on retire le titre de série répété en préfixe,
+ * et on retombe sur `fallback` (ex. "Épisode 3") s'il ne reste rien d'utile.
+ */
+export function episodeLabel(
+  rawTitle: string | undefined,
+  seriesTitle: string,
+  fallback: string,
+): string {
+  let name = cleanTitle(rawTitle ?? '');
+  if (!name) return fallback;
+  const s = seriesTitle.trim();
+  if (s && name.toLowerCase().startsWith(s.toLowerCase())) {
+    name = name.slice(s.length).replace(/^[\s\-:–·.|]+/u, '').trim();
+  }
+  // Plus rien d'utile (vide, juste un numéro, marqueur SxxExx, ou = titre de
+  // série) → fallback.
+  if (
+    !name ||
+    /^\d{1,3}$/.test(name) ||
+    /^s\d{1,2}(e\d{1,3})?$/i.test(name) ||
+    titleKey(name) === titleKey(s)
+  ) {
+    return fallback;
+  }
+  return name;
+}
+
+/**
  * Étiquette de qualité orientée chaîne Live (préserve la nomenclature IPTV
  * familière : 4K / FHD / HD / SD / HEVC / HDR plutôt que les résolutions
  * brutes). Retourne `fallback` si aucun tag qualité n'est détecté.

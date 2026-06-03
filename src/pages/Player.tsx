@@ -9,7 +9,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { Episode, LiveChannelRef, LiveStream, PlayerState, SeriesInfo } from '../types/xtream.types';
 import type { TmdbEpisodeStills } from '../types/tmdb.types';
-import { cleanTitle, extractYear, groupByTitle, qualityRank } from '../utils/catalog';
+import { cleanTitle, extractYear, groupByTitle, qualityRank, episodeLabel } from '../utils/catalog';
 import { buildEpgRows, type EpgRow } from '../utils/epg';
 import styles from './Player.module.css';
 
@@ -337,7 +337,7 @@ export function Player() {
     (ep: Episode) => {
       if (!credentials || !seriesCtx) return;
       const seriesTitle = seriesCtx.title ?? seriesInfo?.info.name ?? state?.title.split(' – ')[0] ?? '';
-      const epLabel = ep.title || t('detail.episodeN', { n: ep.episode_num });
+      const epLabel = episodeLabel(ep.title, seriesTitle, t('detail.episodeN', { n: ep.episode_num }));
       const historyId = `episode-${ep.id}`;
       const landscape =
         ep.info.movie_image ||
