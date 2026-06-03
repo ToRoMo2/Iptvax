@@ -441,6 +441,135 @@
 }
 
 /* ====================================================================
+   Badge Premium / CTA upgrade — dans la capsule .topnav
+   ==================================================================== */
+
+/* Séparateur avant le badge (toujours visible sur desktop) */
+.topnav .nav-sep-premium {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* ── Badge Premium actif (or/amber gradient + shimmer) ── */
+.topnav .premium-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #b8811f 0%, #f0c035 40%, #e8961a 75%, #c9841c 100%);
+  color: #1a0c00;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
+}
+/* Reflet shimmer */
+.topnav .premium-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: nav-shimmer 3.2s ease-in-out infinite;
+}
+@keyframes nav-shimmer {
+  0%, 55% { transform: translateX(-120%); }
+  75%      { transform: translateX(120%);  }
+  100%     { transform: translateX(120%);  }
+}
+
+.topnav .prem-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+.topnav .prem-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+
+/* ── CTA upgrade (outline doré pulsant) ── */
+.topnav .upgrade-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: #f0c035;
+  border: 1px solid rgba(240, 192, 53, 0.4);
+  background: rgba(240, 192, 53, 0.07);
+  cursor: pointer;
+  font: inherit;
+  flex-shrink: 0;
+  animation: nav-pulse-gold 2.8s ease-in-out infinite;
+  transition:
+    background var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease),
+    color var(--d-micro) var(--ease);
+}
+@keyframes nav-pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 192, 53, 0);    }
+  50%       { box-shadow: 0 0 10px 2px rgba(240, 192, 53, 0.22); }
+}
+.topnav .upgrade-cta:hover {
+  background: rgba(240, 192, 53, 0.16);
+  border-color: rgba(240, 192, 53, 0.65);
+  color: #fdd84a;
+}
+
+.topnav .upgrade-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+.topnav .upgrade-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* ── Couronne avatar (overlay top-right, toutes tailles) ── */
+.profile-fixed .profile .avatar-btn {
+  position: relative;
+}
+.profile-fixed .avatar-crown {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #b8811f 0%, #f0c035 100%);
+  color: #1a0c00;
+  font-size: 7px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--bg, #000);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ====================================================================
    Tablette portrait (641px – 900px) : capsule top conservée, juste compactée
    ==================================================================== */
 @media (max-width: 900px) and (min-width: 641px) {
@@ -464,4 +593,11 @@
     margin-left: 0;
     opacity: 0;
   }
+
+  /* Tablette : badge compact — icône seulement, pas de texte */
+  .topnav .prem-lbl,
+  .topnav .upgrade-lbl { display: none; }
+  .topnav .premium-badge,
+  .topnav .upgrade-cta  { padding: 0 8px; gap: 0; }
+  .topnav .nav-sep-premium { margin: 0 1px; }
 }

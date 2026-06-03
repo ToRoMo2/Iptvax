@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useI18n } from '../contexts/I18nContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import type { TranslationKey } from '../i18n';
 import { ProfilePanel } from './ProfilePanel';
 import { Focusable } from './Focusable';
@@ -50,6 +51,7 @@ export function TopNav() {
   const location  = useLocation();
   const { activeProfile } = useIptvProfile();
   const { t } = useI18n();
+  const { isPremium } = useSubscription();
 
   // Depuis la navbar, flèche bas → cible explicite selon la page courante.
   // IMPORTANT : on utilise === (pas startsWith) pour les listes, sinon
@@ -182,6 +184,25 @@ export function TopNav() {
         >
           <Ic.search />
         </Focusable>
+
+        <span className="nav-sep-premium" aria-hidden="true" />
+
+        {isPremium ? (
+          <span className="premium-badge" aria-label="Abonnement Premium actif">
+            <span className="prem-icon" aria-hidden="true">✦</span>
+            <span className="prem-lbl">Premium</span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="upgrade-cta"
+            onClick={() => navigate('/premium')}
+            title="Passer à Premium"
+          >
+            <span className="upgrade-icon" aria-hidden="true">✦</span>
+            <span className="upgrade-lbl">Passer Premium</span>
+          </button>
+        )}
       </header>
 
       {/* ── Profil — fixé à droite ──────────────────────────────────── */}
@@ -201,6 +222,7 @@ export function TopNav() {
           >
             <div className="avatar-btn" style={avatarVar}>
               <span className="avatar-emoji">{activeProfile?.avatar ?? '🎬'}</span>
+              {isPremium && <span className="avatar-crown" aria-hidden="true">✦</span>}
             </div>
             <div className="who">
               <span className="name">{profileName}</span>
