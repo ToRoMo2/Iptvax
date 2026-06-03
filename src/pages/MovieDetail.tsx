@@ -9,11 +9,11 @@ import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
 import { splitMeta } from '../utils/ratings';
+import { fmtRuntime } from '../utils/format';
 import { safeImgUrl } from '../utils/image';
 import { RateBlock } from '../components/RateBlock/RateBlock';
 import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
-import { BackdropSlideshow } from '../components/BackdropSlideshow';
 import { Focusable } from '../components/Focusable';
 import { AppLogo } from '../components/AppLogo';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
@@ -27,6 +27,18 @@ interface LocationState {
 function ChevDown() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m6 9 6 6 6-6" /></svg>
+  );
+}
+
+function PlayIcon() {
+  return <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z" /></svg>;
+}
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M12 2.6l2.95 5.98 6.6.96-4.77 4.65 1.13 6.57L12 18.6l-5.9 3.1 1.12-6.56L2.45 9.54l6.6-.96z" />
+    </svg>
   );
 }
 
@@ -49,6 +61,8 @@ export function MovieDetail() {
   const [error, setError] = useState<string | null>(null);
   // Accordéon « À propos » (mobile uniquement — desktop l'ignore via CSS).
   const [aboutOpen, setAboutOpen] = useState(false);
+  // Synopsis replié par défaut (bouton « Plus / Moins »).
+  const [synopsisOpen, setSynopsisOpen] = useState(false);
 
   // Deep-link / refresh : pas d'état de navigation → on retrouve le film par id.
   useEffect(() => {
@@ -114,17 +128,20 @@ export function MovieDetail() {
     navigate('/player', { state });
   };
 
-  // Diaporama de tous les fonds d'écran TMDB ; repli sur l'unique backdrop
-  // Xtream / poster si TMDB indisponible. URLs BRUTES (slideshow proxifie).
-  const backdrops = useMemo(() => {
-    if (tmdb?.backdrops.length) return tmdb.backdrops;
-    const fb = movie?.backdrop_path?.[0] || tmdb?.poster || movie?.stream_icon;
-    return fb ? [fb] : [];
-  }, [tmdb, movie]);
+  // Affiche portrait pour le hero : poster TMDB > icône Xtream > backdrop.
+  // URL BRUTE (safeImgUrl appliqué au rendu).
+  const heroPoster = useMemo(
+    () => safeImgUrl(tmdb?.poster ?? movie?.stream_icon ?? movie?.backdrop_path?.[0]),
+    [tmdb, movie],
+  );
   const genre = movie?.genre;
   const ratingNum = tmdb?.rating ?? (movie?.rating && movie.rating !== '0' ? Number(movie.rating) : undefined);
   const rating = ratingNum && !Number.isNaN(ratingNum) ? ratingNum.toFixed(1) : undefined;
+  // Pourcentage façon TMDb (note /10 → /100) — seulement si TMDB a répondu.
+  const pct = tmdb?.rating ? Math.round(tmdb.rating * 10) : undefined;
+  const runtime = fmtRuntime(tmdb?.runtime);
   const synopsis = tmdb?.overview ?? movie?.plot;
+  const longSynopsis = (synopsis?.length ?? 0) > 150;
   const xtreamCast = (movie?.cast ?? '')
     .split(',')
     .map((c) => c.trim())
@@ -156,11 +173,11 @@ export function MovieDetail() {
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
-        {backdrops.length > 0 ? (
-          <BackdropSlideshow images={backdrops} />
+        {heroPoster ? (
+          <img className={styles.heroPoster} src={heroPoster} alt={displayTitle} decoding="async" />
         ) : (
           <div className={`${styles.art} ${styles.artPlaceholder}`}>
-            <span className={styles.artTag}>// BACKDROP · 16:9</span>
+            <span className={styles.artTag}>// POSTER · 2:3</span>
           </div>
         )}
         <div className={styles.overlayBottom} />
@@ -193,115 +210,127 @@ export function MovieDetail() {
 
         {!loading && !error && movie && (
           <div className={styles.grid}>
-            <div>
-              <div className={styles.headRow}>
-                {(() => {
-                  const posterUrl = safeImgUrl(tmdb?.poster ?? movie.stream_icon);
-                  return posterUrl ? (
-                    <img className={styles.posterThumb} src={posterUrl} alt={displayTitle} loading="lazy" decoding="async" />
-                  ) : null;
-                })()}
-                <div className={styles.headInfo}>
-                  <div className={styles.cat}>
-                    <span className={styles.catDot} />
-                    {t('detail.film')}
-                  </div>
-                  <h1 className={styles.title}>{displayTitle}</h1>
+            <div className={styles.headRow}>
+              <div className={styles.headInfo}>
+                <h1 className={styles.title}>{displayTitle}</h1>
 
-                  <div className={styles.meta}>
-                    {year && <span>{year}</span>}
-                    {year && genre && <span className={styles.metaSep} />}
-                    {genre && <span>{genre}</span>}
-                    {rating && <span className={styles.metaSep} />}
-                    {rating && <span>★ {rating}</span>}
+                <div className={styles.meta}>
+                  {year && <span>{year}</span>}
+                  {year && genre && <span className={styles.metaSep} />}
+                  {genre && <span>{genre}</span>}
+                </div>
+
+                {(pct != null || rating || runtime) && (
+                  <div className={styles.ratingRow}>
+                    {pct != null ? (
+                      <>
+                        <span className={styles.tmdbBadge}>TMDb</span>
+                        <span className={styles.ratingPct}>{pct}%</span>
+                      </>
+                    ) : rating ? (
+                      <span className={styles.starBadge}>★ {rating}</span>
+                    ) : null}
+                    {(pct != null || rating) && runtime && <span className={styles.dotSep} />}
+                    {runtime && <span className={styles.runtime}>{runtime}</span>}
                   </div>
+                )}
+
+                <div className={styles.actions}>
+                  <Focusable
+                    className={styles.playBtn}
+                    focusKey={DETAIL_PLAY_FOCUS_KEY}
+                    onEnter={handlePlay}
+                    onClick={handlePlay}
+                  >
+                    <PlayIcon />
+                    {t('detail.watch')}
+                  </Focusable>
+                  <Focusable
+                    className={`${styles.favBtn} ${isFavorite('movie', String(movie.stream_id)) ? styles.favActive : ''}`}
+                    ariaLabel={isFavorite('movie', String(movie.stream_id)) ? t('common.inList') : t('common.addToList')}
+                    onEnter={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
+                    onClick={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
+                  >
+                    <StarIcon filled={isFavorite('movie', String(movie.stream_id))} />
+                  </Focusable>
+                </div>
+
+                {synopsis && (
+                  <div className={styles.synopsisWrap}>
+                    <p className={`${styles.synopsis} ${synopsisOpen ? '' : styles.synopsisClamp}`}>{synopsis}</p>
+                    {longSynopsis && (
+                      <button type="button" className={styles.moreBtn} onClick={() => setSynopsisOpen((o) => !o)}>
+                        {synopsisOpen ? t('detail.less') : t('detail.more')}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {watchedInput && (
+              <RateBlock input={watchedInput} starsFocusKey="rc-rate-stars" />
+            )}
+
+            {showVariants && (
+              <div className={styles.versionBlock}>
+                <div className={styles.sectionLabel}>{t('detail.version')}</div>
+                <div className={styles.versionBtns}>
+                  {variants.map((v, i) => (
+                    <Focusable
+                      key={v.stream_id}
+                      className={`${styles.versionBtn} ${selected?.stream_id === v.stream_id ? styles.versionActive : ''}`}
+                      onEnter={() => setSelected(v)}
+                      onClick={() => setSelected(v)}
+                    >
+                      {versionLabel(v.name, t('detail.source', { n: i + 1 }))}
+                    </Focusable>
+                  ))}
                 </div>
               </div>
+            )}
 
-              <div className={styles.actions}>
-                <Focusable
-                  className="btn btn-primary"
-                  focusKey={DETAIL_PLAY_FOCUS_KEY}
-                  onEnter={handlePlay}
-                  onClick={handlePlay}
-                >
-                  {t('detail.playMovie')}
-                </Focusable>
-                <Focusable
-                  className="btn btn-secondary"
-                  onEnter={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
-                  onClick={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
-                >
-                  {isFavorite('movie', String(movie.stream_id)) ? t('common.inList') : t('common.addToList')}
-                </Focusable>
-              </div>
-
-              {watchedInput && (
-                <RateBlock input={watchedInput} starsFocusKey="rc-rate-stars" />
-              )}
-
-              {showVariants && (
-                <div className={styles.versionBlock}>
-                  <div className={styles.sectionLabel}>{t('detail.version')}</div>
-                  <div className={styles.versionBtns}>
-                    {variants.map((v, i) => (
-                      <Focusable
-                        key={v.stream_id}
-                        className={`${styles.versionBtn} ${selected?.stream_id === v.stream_id ? styles.versionActive : ''}`}
-                        onEnter={() => setSelected(v)}
-                        onClick={() => setSelected(v)}
-                      >
-                        {versionLabel(v.name, t('detail.source', { n: i + 1 }))}
-                      </Focusable>
-                    ))}
-                  </div>
+            {tmdb && tmdb.cast.length > 0 ? (
+              <div className={styles.castBlock}>
+                <div className={styles.sectionLabel}>{t('detail.casting')}</div>
+                <div className={styles.castGrid}>
+                  {tmdb.cast.map((c) => (
+                    <Focusable
+                      key={`${c.name}-${c.character}`}
+                      className={styles.castRow}
+                      ariaLabel={c.name}
+                    >
+                      {c.profile ? (
+                        <img src={safeImgUrl(c.profile)} alt={c.name} loading="lazy" decoding="async" className={styles.castAvatar} />
+                      ) : (
+                        <div className={styles.castAvatarPh}>
+                          {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                        </div>
+                      )}
+                      <span className={styles.castName}>{c.name}</span>
+                      <span className={styles.castRole}>{c.character}</span>
+                    </Focusable>
+                  ))}
                 </div>
-              )}
-
-              {synopsis && <p className={styles.synopsis}>{synopsis}</p>}
-
-              {tmdb && tmdb.cast.length > 0 ? (
+              </div>
+            ) : (
+              xtreamCast.length > 0 && (
                 <div className={styles.castBlock}>
                   <div className={styles.sectionLabel}>{t('detail.casting')}</div>
                   <div className={styles.castGrid}>
-                    {tmdb.cast.map((c) => (
-                      <Focusable
-                        key={`${c.name}-${c.character}`}
-                        className={styles.castRow}
-                        ariaLabel={c.name}
-                      >
-                        {c.profile ? (
-                          <img src={safeImgUrl(c.profile)} alt={c.name} loading="lazy" decoding="async" className={styles.castAvatar} />
-                        ) : (
-                          <div className={styles.castAvatarPh}>
-                            {c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-                          </div>
-                        )}
-                        <span className={styles.castName}>{c.name}</span>
-                        <span className={styles.castRole}>{c.character}</span>
+                    {xtreamCast.map((name) => (
+                      <Focusable key={name} className={styles.castRow} ariaLabel={name}>
+                        <div className={styles.castAvatarPh}>
+                          {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                        </div>
+                        <span className={styles.castName}>{name}</span>
+                        <span className={styles.castRole}>{t('detail.actor')}</span>
                       </Focusable>
                     ))}
                   </div>
                 </div>
-              ) : (
-                xtreamCast.length > 0 && (
-                  <div className={styles.castBlock}>
-                    <div className={styles.sectionLabel}>{t('detail.casting')}</div>
-                    <div className={styles.castGrid}>
-                      {xtreamCast.map((name) => (
-                        <Focusable key={name} className={styles.castRow} ariaLabel={name}>
-                          <div className={styles.castAvatarPh}>
-                            {name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-                          </div>
-                          <span className={styles.castName}>{name}</span>
-                          <span className={styles.castRole}>{t('detail.actor')}</span>
-                        </Focusable>
-                      ))}
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
+              )
+            )}
 
             <aside className={styles.side}>
               <button

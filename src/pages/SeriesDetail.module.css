@@ -3,33 +3,41 @@
   background: var(--bg);
 }
 
-/* ── Hero ── */
+/* ====================================================================
+   Hero — affiche portrait plein cadre fondue vers le noir (style mobile
+   « fiche film », centrée sur toutes les plateformes — §IV-20 un seul rendu).
+   ==================================================================== */
 .hero {
   position: relative;
-  height: 68vh;
-  min-height: 620px;
-  max-height: 900px;
+  width: 100%;
+  max-width: 600px;
+  margin: var(--safe-top) auto 0;
   overflow: hidden;
-  margin: var(--topnav-h) auto 0;
-  max-width: 1640px;
-  width: calc(100% - var(--pad-edge) * 2);
-  border-radius: 16px;
 }
 
+/* Affiche (2:3) en cover, ancrée vers le haut — le visage/titre restent nets,
+   seule la frange basse plonge dans le fondu. */
+.heroPoster,
 .art {
-  position: absolute;
-  inset: 0;
+  display: block;
+  width: 100%;
+  height: 78vh;
+  max-height: 760px;
+  min-height: 420px;
+  object-fit: cover;
+  object-position: center 18%;
   background-color: #050505;
-  background-size: cover;
-  background-position: center top;
 }
 
+.artPlaceholder {
+  position: relative;
+}
 .artPlaceholder::after {
   content: '';
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(70% 90% at 75% 30%, rgba(255, 255, 255, 0.05), transparent 60%),
+    radial-gradient(70% 90% at 50% 30%, rgba(255, 255, 255, 0.05), transparent 60%),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 40px);
 }
 
@@ -45,114 +53,109 @@
   text-transform: uppercase;
 }
 
+/* Fondu : transparent en haut, noir total en bas → raccord invisible avec la
+   page. La hauteur généreuse garantit que le bas de l'affiche disparaît. */
 .overlayBottom {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 55%;
-  /* Fondu démarré plus bas : le haut/milieu du backdrop reste net,
-     seule la frange basse s'assombrit pour fondre vers la page. */
+  height: 70%;
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(0, 0, 0, 0.12) 42%,
-    rgba(0, 0, 0, 0.78) 82%,
-    #000 100%
+    rgba(0, 0, 0, 0.15) 35%,
+    rgba(0, 0, 0, 0.75) 72%,
+    var(--bg) 100%
   );
-  /* Décoratif : laisse passer les clics vers les flèches du diaporama. */
   pointer-events: none;
 }
 
 .back {
   position: absolute;
-  top: 80px;
-  left: var(--pad-edge);
+  top: calc(var(--topnav-h) - 24px);
+  left: 16px;
   z-index: 5;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--t-2);
+  color: var(--t-1);
   font-weight: 500;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
   height: 36px;
   padding: 0 14px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--line);
-  transition: color var(--d-micro) var(--ease);
+  border: 1px solid var(--line-strong);
+  transition: background var(--d-micro) var(--ease);
 }
-
 .back:hover {
-  color: var(--t-1);
+  background: rgba(0, 0, 0, 0.65);
 }
 
-/* ── Body ── */
+/* ====================================================================
+   Body — colonne unique centrée, remontée sur le fondu du hero.
+   ==================================================================== */
 .body {
   position: relative;
-  padding: 0 var(--pad-edge) 96px;
-  margin-top: -188px;
   z-index: 2;
+  width: 100%;
+  max-width: 600px;
+  margin: -120px auto 0;
+  padding: 0 24px 96px;
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 64px;
-  align-items: start;
-}
-
-/* Rangée tête (poster + infos) — sur desktop la vignette poster est masquée et
-   le conteneur ne change rien au flux (block). Sur mobile elle s'active en flex
-   (cf. media query) → bandeau 16:9 en haut + poster·titre côte à côte. */
-.headRow {
   display: block;
 }
 
-.headInfo {
-  min-width: 0;
+/* Bloc tête centré (titre · méta · note · actions · synopsis) */
+.headRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
+.headInfo {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Affiche miniature inutile dans ce layout (l'affiche EST le hero). */
 .posterThumb {
   display: none;
 }
 
 .cat {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--t-2);
-  margin-bottom: 22px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  display: none;
 }
-
 .catDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
+  display: none;
 }
 
 .title {
-  font-size: 64px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.06;
   color: var(--t-1);
-  margin: 0 0 20px;
+  margin: 0 0 14px;
+  max-width: 16ch;
 }
 
 .meta {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 10px;
   color: var(--t-2);
-  font-size: 14px;
-  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 14px;
   flex-wrap: wrap;
 }
 
@@ -163,66 +166,170 @@
   background: var(--t-3);
 }
 
-.tag {
-  border: 1px solid var(--line);
-  padding: 3px 8px;
-  border-radius: var(--r-ui);
-  font-size: 11px;
+/* Ligne de note : badge TMDb vert + pourcentage + durée */
+.ratingRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--t-1);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--t-2);
+  margin-bottom: 28px;
+  flex-wrap: wrap;
 }
 
+.tmdbBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-ui);
+  background: var(--tmdb);
+  color: #00120a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ratingPct {
+  color: var(--t-1);
+}
+
+.starBadge {
+  color: var(--warning);
+}
+
+.runtime {
+  color: var(--t-2);
+  font-weight: 500;
+}
+
+.dotSep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--t-3);
+}
+
+/* Actions — gros bouton « Regarder » clair + bouton favori circulaire */
 .actions {
   display: flex;
-  gap: 12px;
-  margin: 24px 0 36px;
   align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 0 32px;
 }
 
-.iconBtn {
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--t-1);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+.playBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 24px;
+  border-radius: var(--r-pill);
+  background: var(--t-1);
+  color: #000;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
+}
+.playBtn:hover {
+  transform: scale(1.015);
+  box-shadow: 0 0 28px rgba(255, 255, 255, 0.28);
+}
+.playBtn:active {
+  transform: scale(0.985);
+}
+.playBtn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.favBtn {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
-  font-size: 16px;
-  transition: background var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--t-1);
+  border: 1px solid var(--line-strong);
+  transition: background var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease), color var(--d-micro) var(--ease);
+}
+.favBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--t-2);
+}
+.favBtn svg {
+  width: 22px;
+  height: 22px;
+}
+.favActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-faint);
+  box-shadow: 0 0 18px var(--accent-glow);
 }
 
-.iconBtn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: #ffffff;
+/* Synopsis — aligné à gauche, repliable (« Plus / Moins ») */
+.synopsisWrap {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 40px;
 }
 
 .synopsis {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--t-2);
-  line-height: 1.65;
-  max-width: 680px;
-  margin: 0 0 36px;
+  line-height: 1.62;
+  margin: 0;
+}
+.synopsisClamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
+.moreBtn {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t-1);
+  background: none;
+  border: 0;
+  padding: 0;
+  transition: color var(--d-micro) var(--ease);
+}
+.moreBtn:hover {
+  color: var(--accent);
+}
+
+/* ====================================================================
+   Sections sous le bloc tête (alignées à gauche)
+   ==================================================================== */
 .castBlock {
-  margin-top: 12px;
+  margin-top: 8px;
+  text-align: left;
 }
 
 .castGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 18px 28px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 24px;
 }
 
 .castRow {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  /* Focusable à la télécommande : halo rc-focused arrondi (pas un carré)
-     + respiration pour qu'il n'écrase pas l'avatar. */
   padding: 8px;
   margin: -8px;
   border-radius: 12px;
@@ -267,6 +374,7 @@
 /* ── Sélecteur de version (doublons fusionnés) ── */
 .versionBlock {
   margin: 0 0 32px;
+  text-align: left;
 }
 
 .versionBtns {
@@ -305,12 +413,13 @@
   text-transform: uppercase;
   color: var(--t-3);
   margin: 0 0 18px;
+  text-align: left;
 }
 
-/* ── Side ── */
+/* ── À propos (liste de faits, repliable sur mobile §IV-23) ── */
 .side {
-  border-left: 1px solid var(--line);
-  padding-left: 32px;
+  margin-top: 36px;
+  text-align: left;
 }
 
 .sideTitle {
@@ -319,12 +428,9 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--t-3);
-  margin: 0 0 14px;
+  margin: 0;
 }
 
-/* En-tête « À propos » — bouton plein largeur. Sur desktop il se comporte comme
-   le titre d'avant (chevron masqué, corps toujours visible, pas de curseur). Sur
-   mobile il devient un accordéon repliable (cf. media query §IV-23). */
 .sideHead {
   display: flex;
   align-items: center;
@@ -332,7 +438,7 @@
   width: 100%;
   background: none;
   border: 0;
-  padding: 0;
+  padding: 0 0 14px;
   cursor: default;
   text-align: left;
   color: inherit;
@@ -356,10 +462,10 @@
 
 .factRow {
   display: grid;
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: 110px 1fr;
   gap: 16px;
   font-size: 13px;
-  padding: 10px 0;
+  padding: 11px 0;
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -378,6 +484,7 @@
 /* ── Seasons / Episodes ── */
 .seasonsBlock {
   margin-top: 44px;
+  text-align: left;
 }
 
 .loading {
@@ -530,79 +637,51 @@
 /* ====================================================================
    Responsive
    ==================================================================== */
-@media (max-width: 900px) {
-  .hero {
-    height: 56vh;
-    min-height: 400px;
-    max-height: 620px;
-    border-radius: 12px;
-    width: calc(100% - var(--pad-edge) * 2);
-  }
-  .back { top: 64px; }
-  .body { margin-top: -120px; padding: 0 var(--pad-edge) 64px; }
-  .grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  .side { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 24px; }
-  .title { font-size: 44px; }
-  .castGrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px 18px; }
+@media (min-width: 901px) {
+  /* Sur grand écran : on élargit un peu la colonne et on remonte l'affiche
+     sous la capsule nav flottante (pas tout en haut). */
+  .hero { max-width: 680px; margin-top: var(--topnav-h); }
+  .body { max-width: 680px; }
+  .heroPoster, .art { height: 70vh; }
+  .title { font-size: 40px; }
+  /* « À propos » toujours déplié sur desktop (l'accordéon est mobile only). */
+  .sideHead { padding-bottom: 14px; }
+  .castGrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
 
 @media (max-width: 640px) {
-  /* Bandeau paysage 16:9 plein largeur en haut (image TMDB nette, plus de crop
-     portrait). Le poster + titre s'affichent juste en dessous (cf. .headRow). */
   .hero {
-    height: auto;
-    min-height: 0;
-    aspect-ratio: 16 / 9;
-    max-height: none;
-    /* Remonté tout en haut, juste sous la barre de statut (heure/batterie).
-       Le header flottant (logo/profil) passe par-dessus le haut du bandeau. */
-    margin: var(--safe-top) auto 0;
-    border-radius: 0 0 12px 12px;
-    width: 100%;
+    max-width: none;
+    margin-top: 0;
   }
-  .overlayBottom { height: 60%; }
+  .heroPoster, .art {
+    height: auto;
+    aspect-ratio: 2 / 3;
+    max-height: 70vh;
+    min-height: 0;
+  }
   .back {
-    /* Sous les capsules flottantes du header (logo top-left), sur le bandeau. */
     top: calc(var(--safe-top) + 56px);
-    left: var(--pad-edge);
     height: 32px;
     padding: 0 12px;
     font-size: 12px;
   }
-  /* Léger chevauchement : le poster mord sur le bas du bandeau (style Netflix). */
-  .body { margin-top: -34px; padding: 0 var(--pad-edge) 56px; }
-
-  /* Poster + titre/boutons côte à côte sous le bandeau. */
-  .headRow {
-    display: flex;
-    align-items: flex-end;
-    gap: 14px;
-    margin-bottom: 18px;
-  }
-  .headInfo { flex: 1; min-width: 0; padding-bottom: 2px; }
-  .posterThumb {
-    display: block;
-    width: 100px;
-    flex-shrink: 0;
-    aspect-ratio: 2 / 3;
-    object-fit: cover;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: #0a0a0a;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  .body {
+    max-width: none;
+    margin-top: -110px;
+    padding: 0 20px 64px;
   }
 
-  .title { font-size: 22px; margin-bottom: 6px; line-height: 1.08; }
-  .cat { font-size: 11px; margin-bottom: 8px; }
-  .meta { gap: 10px; font-size: 13px; margin-bottom: 0; }
-  .synopsis { font-size: 14px; margin-bottom: 24px; }
-  .actions { gap: 10px; margin: 18px 0 24px; }
-  .iconBtn { width: 42px; height: 42px; }
+  .title { font-size: 28px; margin-bottom: 12px; }
+  .meta { gap: 9px; font-size: 14px; margin-bottom: 12px; }
+  .ratingRow { gap: 9px; font-size: 14px; margin-bottom: 24px; }
+  .actions { margin-bottom: 28px; }
+  .playBtn { height: 54px; font-size: 15px; }
+  .favBtn { width: 54px; height: 54px; }
+  .synopsis { font-size: 14px; }
 
   /* Accordéon « À propos » : replié par défaut (§IV-23). */
-  .side { border-top: 0; padding-top: 0; }
-  .sideHead { cursor: pointer; padding: 14px 0; border-top: 1px solid var(--line); }
-  .sideTitle { margin: 0; }
+  .sideHead { cursor: pointer; padding: 16px 0; border-top: 1px solid var(--line); }
   .sideChev { display: flex; }
   .sideBody { display: none; padding-bottom: 8px; }
   .sideBodyOpen { display: block; }
@@ -612,20 +691,17 @@
   .castRole { font-size: 11px; }
   .castGrid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
 
-  .factRow { grid-template-columns: 84px 1fr; gap: 12px; font-size: 12px; padding: 8px 0; }
+  .factRow { grid-template-columns: 96px 1fr; gap: 12px; font-size: 12px; padding: 9px 0; }
 
-  /* Episodes : poster + texte empilés sur très petits écrans laissés tels quels,
-     mais on rétrécit la vignette */
   .episode { gap: 12px; padding: 12px 0; }
   .epThumb, .epThumbPlaceholder { width: 96px; height: 54px; }
   .epTitle { font-size: 14px; }
-  .epPlot { font-size: 12px; -webkit-line-clamp: 2; }
+  .epPlot { font-size: 12px; }
   .epPlay { width: 34px; height: 34px; opacity: 1; }
 }
 
 @media (max-width: 420px) {
-  .title { font-size: 19px; }
-  .posterThumb { width: 84px; }
+  .title { font-size: 24px; }
   .epThumb, .epThumbPlaceholder { width: 80px; height: 46px; }
   .versionBtns, .seasons { gap: 6px; }
   .versionBtn, .seasonBtn { padding: 6px 12px; font-size: 11px; }

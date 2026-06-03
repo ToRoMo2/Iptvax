@@ -31,6 +31,10 @@
   --live:         #FF3B30;
   --live-glow-c:  rgba(255, 59, 48, 0.45);
 
+  /* TMDb brand green — badge de note sur les fiches détail */
+  --tmdb:         #21D07A;
+  --tmdb-glow:    rgba(33, 208, 122, 0.35);
+
   /* Radii */
   --r-card:       8px;
   --r-ui:         4px;
