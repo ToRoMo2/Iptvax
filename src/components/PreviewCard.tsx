@@ -5,6 +5,7 @@ import { safeImgUrl } from '../utils/image';
 import { youtubeId } from '../utils/youtube';
 import type { TmdbTrailer } from '../types/tmdb.types';
 import { useI18n } from '../contexts/I18nContext';
+import { isTvDevice } from '../native/tvDetect';
 import styles from './PreviewCard.module.css';
 
 /* ── API YouTube IFrame (chargée une seule fois, globalement) ──────────────
@@ -356,6 +357,9 @@ export function PreviewCard({
   }, [clearTimers]);
 
   const onCellEnter = () => {
+    // Touch screens (phones/tablets) don't have reliable hover — skip preview.
+    // TV remotes bypass this guard via isTvDevice() even when hover:none.
+    if (!window.matchMedia?.('(hover: hover)').matches && !isTvDevice()) return;
     if (closeTimer.current) {
       clearTimeout(closeTimer.current);
       closeTimer.current = null;

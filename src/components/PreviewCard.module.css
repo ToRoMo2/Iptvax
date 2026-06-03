@@ -283,9 +283,13 @@
 .series {}
 
 @media (hover: none) {
-  /* Pas de survol fiable (tactile) → l'aperçu ne se déclenche pas, la carte
-     reste pleinement cliquable. */
+  /* Touch screens: no reliable hover — preview disabled, card fully tappable. */
   .overlay { display: none; }
+  /* Always show fav icon on touch — eliminates the iOS two-tap :hover trap
+     (iOS Safari delays the click event when a :hover rule would change opacity). */
+  .fav { opacity: 1; }
+  /* No 300 ms tap delay (double-tap-zoom prevention). */
+  .card { touch-action: manipulation; }
 }
 
 @media (max-width: 640px) {
