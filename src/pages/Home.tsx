@@ -909,6 +909,7 @@ export function Home() {
                     variant="movie"
                     trailerUrl={g.primary.youtube_trailer}
                     resolveTrailer={() => tmdbService.getTrailer('movie', g.title, g.year)}
+                    resolvePoster={() => tmdbService.lookupPoster('movie', g.title, g.year)}
                     onOpen={() => openMovie(g)}
                   />
                 );
@@ -952,6 +953,7 @@ export function Home() {
                     variant="series"
                     trailerUrl={g.primary.youtube_trailer}
                     resolveTrailer={() => tmdbService.getTrailer('tv', g.title, g.year)}
+                    resolvePoster={() => tmdbService.lookupPoster('tv', g.title, g.year)}
                     onOpen={() => openSeries(g)}
                   />
                 );

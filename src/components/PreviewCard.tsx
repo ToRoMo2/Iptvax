@@ -4,6 +4,7 @@ import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import { safeImgUrl } from '../utils/image';
 import { youtubeId } from '../utils/youtube';
 import type { TmdbTrailer } from '../types/tmdb.types';
+import { useLazyPoster } from '../hooks/useLazyPoster';
 import { useI18n } from '../contexts/I18nContext';
 import { isTvDevice } from '../native/tvDetect';
 import styles from './PreviewCard.module.css';
@@ -81,6 +82,8 @@ interface Props {
   trailerUrl?: string;
   /** Résolveur paresseux TMDB, fourni par la page (couplage services↔pages). */
   resolveTrailer?: (signal: AbortSignal) => Promise<TmdbTrailer | null>;
+  /** Résolveur d'affiche TMDB (paresseux, visible-only) — remplace l'affiche IPTV. */
+  resolvePoster?: () => Promise<string | null>;
   onOpen: () => void;
   onFavorite?: () => void;
 }
@@ -121,6 +124,7 @@ export function PreviewCard({
   isFavorite,
   trailerUrl,
   resolveTrailer,
+  resolvePoster,
   onOpen,
   onFavorite,
 }: Props) {
@@ -140,8 +144,7 @@ export function PreviewCard({
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const poster = safeImgUrl(image);
-  const heroImg = safeImgUrl(backdrop) || poster;
+  const posterRaw = safeImgUrl(image);
   const text = synopsis?.trim() || tmdbOverview?.trim() || '';
 
   const clearTimers = useCallback(() => {
@@ -394,6 +397,11 @@ export function PreviewCard({
       cellRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }
   }, [focused, cellRef]);
+
+  // Affiche TMDB chargée paresseusement (visible-only), substituée à l'IPTV.
+  const tmdbPoster = useLazyPoster(resolvePoster, cellRef);
+  const poster = (tmdbPoster ? safeImgUrl(tmdbPoster) : undefined) ?? posterRaw;
+  const heroImg = safeImgUrl(backdrop) || poster;
 
   return (
     <div

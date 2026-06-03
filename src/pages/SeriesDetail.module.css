@@ -147,6 +147,16 @@
   max-width: 16ch;
 }
 
+/* Logo/titre TMDB (PNG transparent) à la place du texte quand disponible. */
+.titleLogo {
+  width: auto;
+  max-width: min(82%, 420px);
+  max-height: 132px;
+  object-fit: contain;
+  margin: 0 0 16px;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.55));
+}
+
 .meta {
   display: flex;
   align-items: center;
@@ -632,6 +642,105 @@
   opacity: 1;
   color: var(--accent);
   border-color: var(--accent);
+}
+
+/* ====================================================================
+   Popup « Choisir une version » (déclenchée par « Regarder » si > 1 variante)
+   ==================================================================== */
+.versionModal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  animation: vd-fade 180ms var(--ease);
+}
+@keyframes vd-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.versionCard {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  animation: vd-rise 220ms var(--ease);
+}
+@keyframes vd-rise {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.versionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.versionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--t-1);
+}
+.versionClose {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--t-2);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+.versionClose:hover { color: var(--t-1); }
+
+.versionOpts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.versionOpt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--t-1);
+  font-size: 14px;
+  font-weight: 600;
+  transition: border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.versionOpt:hover {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+.versionOpt svg { color: var(--t-2); flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  /* Bottom-sheet sur mobile (cohérent avec QualitySheet Live). */
+  .versionModal { place-items: end stretch; padding: 0; }
+  .versionCard {
+    max-width: none;
+    border-radius: 18px 18px 0 0;
+    padding: 18px 18px calc(18px + var(--safe-bottom));
+    animation: vd-sheet-up 240ms var(--ease);
+  }
+  @keyframes vd-sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
 }
 
 /* ====================================================================

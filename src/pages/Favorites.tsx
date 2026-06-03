@@ -131,6 +131,7 @@ export function Favorites() {
                 variant="movie"
                 isFavorite={isFavorite('movie', m.id)}
                 resolveTrailer={() => tmdbService.getTrailer('movie', cleanTitle(m.name))}
+                resolvePoster={() => tmdbService.lookupPoster('movie', cleanTitle(m.name))}
                 onOpen={() => navigate(`/movie/${m.id}`)}
                 onFavorite={() => toggleFavorite(m)}
               />
@@ -156,6 +157,7 @@ export function Favorites() {
                 variant="series"
                 isFavorite={isFavorite('series', s.id)}
                 resolveTrailer={() => tmdbService.getTrailer('tv', cleanTitle(s.name))}
+                resolvePoster={() => tmdbService.lookupPoster('tv', cleanTitle(s.name))}
                 onOpen={() => navigate(`/series/${s.id}`)}
                 onFavorite={() => toggleFavorite(s)}
               />

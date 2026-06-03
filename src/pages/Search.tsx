@@ -303,6 +303,7 @@ export function Search() {
                   resolveTrailer={() =>
                     tmdbService.getTrailer('movie', g.title, g.year)
                   }
+                  resolvePoster={() => tmdbService.lookupPoster('movie', g.title, g.year)}
                   onOpen={() =>
                     navigate(`/movie/${g.primary.stream_id}`, {
                       state: { movie: g.primary, variants: g.variants },
@@ -344,6 +345,7 @@ export function Search() {
                   resolveTrailer={() =>
                     tmdbService.getTrailer('tv', g.title, g.year)
                   }
+                  resolvePoster={() => tmdbService.lookupPoster('tv', g.title, g.year)}
                   onOpen={() =>
                     navigate(`/series/${g.primary.series_id}`, {
                       state: { series: g.primary, variants: g.variants },

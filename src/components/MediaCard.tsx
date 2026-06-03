@@ -3,6 +3,7 @@ import { useFocusable } from '@noriginmedia/norigin-spatial-navigation';
 import styles from './MediaCard.module.css';
 import { safeImgUrl } from '../utils/image';
 import { channelCode } from '../utils/channel';
+import { useLazyPoster } from '../hooks/useLazyPoster';
 import { useI18n } from '../contexts/I18nContext';
 
 type CardVariant = 'channel' | 'movie' | 'series';
@@ -21,6 +22,8 @@ interface Props {
   badge?: string;
   onClick: () => void;
   onFavorite?: () => void;
+  /** Résolveur d'affiche TMDB (paresseux, visible-only) — remplace l'affiche IPTV. */
+  resolvePoster?: () => Promise<string | null>;
   // Slot optionnel — quand fourni, remplace l'image/placeholder dans la zone
   // « art » de la carte. Utilisé par Live mobile pour monter <ChannelPreview>
   // directement dans la carte sélectionnée (pas de panneau latéral).
@@ -39,6 +42,7 @@ function MediaCardInner({
   badge,
   onClick,
   onFavorite,
+  resolvePoster,
   inlinePreview,
 }: Props) {
   const { t } = useI18n();
@@ -50,9 +54,11 @@ function MediaCardInner({
   }, [focused, ref]);
 
   const [imgError, setImgError] = useState(false);
+  // Affiche TMDB paresseuse (visible-only) substituée à l'IPTV (films/séries).
+  const tmdbPoster = useLazyPoster(resolvePoster, ref);
   // safeImgUrl rejette les URLs relatives (simples noms de fichier) renvoyées par certains
   // serveurs Xtream → évite les 404 dans la console du navigateur.
-  const resolved = safeImgUrl(image);
+  const resolved = (tmdbPoster ? safeImgUrl(tmdbPoster) : undefined) ?? safeImgUrl(image);
   const showImage = Boolean(resolved) && !imgError;
   const isChannel = variant === 'channel';
   const code = channelCode(title);
