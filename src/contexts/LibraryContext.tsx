@@ -13,6 +13,7 @@ import { useIptvProfile } from './IptvProfileContext';
 import { useSubscription } from './SubscriptionContext';
 import { libraryService } from '../services/library.service';
 import { localLibraryService } from '../services/library.local';
+import { historyGroupKey, dedupeHistoryByGroup } from '../utils/history';
 import type { FavoriteItem, WatchHistoryItem, ContentType } from '../types/library.types';
 
 interface LibraryContextValue {
@@ -76,7 +77,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     ]).then(([favs, hist]) => {
       if (cancelled) return;
       setFavorites(favs);
-      setHistory(hist);
+      // Déduplication d'affichage : une seule carte par contenu même si la BDD
+      // contient encore des entrées héritées (variantes/épisodes multiples).
+      setHistory(dedupeHistoryByGroup(hist));
       setLoading(false);
     });
     return () => {
@@ -124,7 +127,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const prev = historyRef.current.find((h) => h.id === item.id);
       const merged: WatchHistoryItem = {
         ...item,
-        // Ne pas écraser une reprise existante en relançant depuis la fiche
+        // Ne pas écraser une reprise existante en relançant la MÊME variante.
         progress: prev?.progress ?? item.progress,
         resumeTime: prev?.resumeTime,
         durationSec: prev?.durationSec,
@@ -132,8 +135,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         subtitleTrack: prev?.subtitleTrack,
         watchedAt: Date.now(),
       };
-      setHistory((list) => [merged, ...list.filter((h) => h.id !== merged.id)].slice(0, 24));
+      // Regroupement : les autres entrées du même contenu (variante ou épisode
+      // différent) sont remplacées par celle-ci → une seule carte par contenu.
+      const gk = historyGroupKey(merged);
+      const stale = historyRef.current.filter(
+        (h) => h.id !== merged.id && historyGroupKey(h) === gk,
+      );
+      setHistory((list) =>
+        [merged, ...list.filter((h) => h.id !== merged.id && historyGroupKey(h) !== gk)].slice(0, 24),
+      );
       lib.upsertHistory(userId, profileId, merged).catch(() => {});
+      stale.forEach((s) => lib.removeHistoryItem(profileId, s.id, s.type).catch(() => {}));
     },
     [userId, profileId, lib],
   );

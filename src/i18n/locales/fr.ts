@@ -192,6 +192,8 @@ const fr = {
     playMovie: '▶ Lire le film',
     play: '▶ Lire',
     watch: 'Regarder',
+    resume: 'Reprendre',
+    changeVersion: 'Changer de version',
     more: 'Plus',
     less: 'Moins',
     version: 'Version',
