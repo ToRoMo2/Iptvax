@@ -18,6 +18,8 @@ export interface TmdbEnrichment {
   poster?: string;
   /** Note /10 (échelle TMDB). */
   rating?: number;
+  /** Durée en minutes (film) ou durée d'un épisode (série). */
+  runtime?: number;
   /** Synopsis FR (fallback EN si FR vide). */
   overview?: string;
   cast: TmdbCastMember[];

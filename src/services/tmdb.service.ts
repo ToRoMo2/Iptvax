@@ -95,6 +95,10 @@ interface TmdbDetails {
   poster_path?: string | null;
   credits?: TmdbCredits;
   images?: { backdrops?: TmdbImage[] };
+  /** Durée en minutes (films). */
+  runtime?: number;
+  /** Durées d'épisode en minutes (séries) — on prend la première. */
+  episode_run_time?: number[];
 }
 interface TmdbSeasonResponse {
   episodes?: Array<{ episode_number: number; still_path?: string | null }>;
@@ -180,6 +184,7 @@ function buildEnrichment(d: TmdbDetails): TmdbEnrichment {
     backdrops,
     poster: img(d.poster_path, POSTER_SIZE),
     rating: d.vote_average && d.vote_average > 0 ? Math.round(d.vote_average * 10) / 10 : undefined,
+    runtime: d.runtime && d.runtime > 0 ? d.runtime : d.episode_run_time?.find((r) => r > 0),
     overview: d.overview?.trim() || undefined,
     cast: mapCast(d.credits),
   };
