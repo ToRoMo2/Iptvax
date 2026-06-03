@@ -15,7 +15,7 @@ import type { FavoriteItem, WatchHistoryItem, ContentType } from '../types/libra
 
 const FAV_PREFIX = 'iptv.local.fav.';
 const HIST_PREFIX = 'iptv.local.hist.';
-const HISTORY_CAP = 24;
+const HISTORY_CAP = 60;
 
 function read<T>(key: string): T[] {
   try {

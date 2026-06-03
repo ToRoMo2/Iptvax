@@ -82,7 +82,7 @@ export const libraryService = {
       )
       .eq('profile_id', profileId)
       .order('watched_at', { ascending: false })
-      .limit(24);
+      .limit(60);
     return (data ?? []).map((r) => rowToHistory(r as HistoryRow));
   },
 
