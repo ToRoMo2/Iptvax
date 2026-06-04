@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
@@ -7,7 +7,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel, titleKey } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey, groupByTitle } from '../utils/catalog';
 import { splitMeta } from '../utils/ratings';
 import { historyGroupKey, resumePosition } from '../utils/history';
 import { fmtRuntime } from '../utils/format';
@@ -24,6 +24,10 @@ import styles from './SeriesDetail.module.css';
 interface LocationState {
   movie?: VodStream;
   variants?: VodStream[];
+  // Posé par la vedette de l'accueil : déclenche « Regarder » au montage (popup
+  // de version si plusieurs variantes, sinon lecture directe) → la vedette se
+  // comporte comme le bouton « Regarder » de la fiche.
+  autoplay?: boolean;
 }
 
 function ChevDown() {
@@ -76,22 +80,41 @@ export function MovieDetail() {
   // Popup « Choisir une version » (ouverte par « Regarder » si > 1 variante).
   const [showVersions, setShowVersions] = useState(false);
 
-  // Deep-link / refresh : pas d'état de navigation → on retrouve le film par id.
+  // Deep-link / refresh / clic historique / vedette accueil : on (re)trouve le
+  // film par id si besoin ET on reconstruit le groupe de variantes (langues /
+  // qualités) depuis le catalogue. Sans ça, arriver ici sans `state.variants`
+  // (historique, lien direct, vedette) collapse les variantes à une seule → le
+  // sélecteur de version disparaît. Le catalogue est mis en cache par
+  // `xtreamService` → pas de fetch superflu (Home l'a déjà chargé).
   useEffect(() => {
-    if (passed || !credentials || !id) return;
-    setLoading(true);
+    if (!credentials || !id) return;
+    // Variantes déjà complètes via l'état de navigation → rien à reconstruire.
+    if (passed && passedVariants && passedVariants.length > 1) return;
+    let alive = true;
+    if (!passed) setLoading(true);
     xtreamService
       .getVodStreams(credentials)
       .then((all) => {
-        const found = all.find((v) => String(v.stream_id) === id) ?? null;
-        if (!found) setError(t('detail.movieNotFound'));
-        setMovie(found);
-        setSelected(found);
-        setVariants(found ? [found] : []);
+        if (!alive) return;
+        const found = passed ?? all.find((v) => String(v.stream_id) === id) ?? null;
+        if (!found) {
+          if (!passed) setError(t('detail.movieNotFound'));
+          return;
+        }
+        const key = titleKey(found.name) || found.name.trim().toLowerCase();
+        const group = groupByTitle(all, (v) => v.name, (v) => v.rating_5based ?? 0).find(
+          (g) => g.key === key,
+        );
+        if (!passed) {
+          setMovie(found);
+          setSelected(found);
+        }
+        setVariants(group && group.variants.length > 1 ? group.variants : [found]);
       })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [passed, credentials, id, t]);
+      .catch((e: Error) => { if (alive && !passed) setError(e.message); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [passed, passedVariants, credentials, id, t]);
 
   const displayTitle = movie ? cleanTitle(movie.name) : '';
   const year = useMemo(
@@ -163,6 +186,24 @@ export function MovieDetail() {
   const handleResume = () => {
     if (resumeEntry) navigate('/player', { state: resumeEntry.playerState });
   };
+
+  // Auto-« Regarder » depuis la vedette de l'accueil : reproduit le bouton de la
+  // fiche (popup de version si plusieurs variantes, sinon lecture directe) une
+  // seule fois. Le drapeau autoplay est retiré de l'historique de navigation
+  // (replace) pour ne pas re-déclencher au retour arrière.
+  const autoWatch = (location.state as LocationState)?.autoplay ?? false;
+  const autoFiredRef = useRef(false);
+  useEffect(() => {
+    if (!autoWatch || autoFiredRef.current || !movie) return;
+    autoFiredRef.current = true;
+    navigate(location.pathname, {
+      replace: true,
+      state: passed ? { movie: passed, variants } : undefined,
+    });
+    if (canResume) handleResume();
+    else handlePlay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoWatch, movie, canResume]);
 
   // Affiche portrait pour le hero : poster TMDB > icône Xtream > backdrop.
   // URL BRUTE (safeImgUrl appliqué au rendu).

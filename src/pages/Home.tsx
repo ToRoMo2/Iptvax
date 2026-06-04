@@ -80,6 +80,13 @@ interface HeroSlide {
   eyebrowKey: TranslationKey;
   bgImage?: string;
   artTag: string;
+  kind: 'movie' | 'series';
+  // Groupe de variantes (langues / qualités) du contenu en vedette. Transmis à
+  // la fiche détail (sélecteur de version) et utilisé pour décider, sur
+  // « Regarder », s'il faut proposer un choix de version plutôt que lancer
+  // directement la variante « primary » (parfois en italien).
+  movieGroup?: TitleGroup<VodStream>;
+  seriesGroup?: TitleGroup<SeriesItem>;
   playerState: PlayerState;
 }
 
@@ -256,6 +263,8 @@ export function Home() {
           eyebrowKey: 'home.trendingMovie',
           bgImage: t.backdrop ?? m.backdrop_path?.[0] ?? m.stream_icon,
           artTag: 'BACKDROP · 16:9',
+          kind: 'movie',
+          movieGroup: g,
           playerState: {
             url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
             fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
@@ -281,6 +290,8 @@ export function Home() {
           eyebrowKey: 'home.trendingSeriesEyebrow',
           bgImage: t.backdrop ?? s.cover,
           artTag: 'BACKDROP · 16:9',
+          kind: 'series',
+          seriesGroup: g,
           playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: t.overview ?? s.plot },
         });
         if (seriesSlides.length >= 3) break;
@@ -308,6 +319,8 @@ export function Home() {
           eyebrowKey: 'home.featuredMovie',
           bgImage: m.backdrop_path?.[0] ?? m.stream_icon,
           artTag: 'BACKDROP · 16:9',
+          kind: 'movie',
+          movieGroup: g,
           playerState: {
             url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
             fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
@@ -336,6 +349,8 @@ export function Home() {
           eyebrowKey: 'home.featuredSeries',
           bgImage: s.cover,
           artTag: 'BACKDROP · 16:9',
+          kind: 'series',
+          seriesGroup: g,
           playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: s.plot },
         });
       }
@@ -513,21 +528,46 @@ export function Home() {
     clearConfirmTimer.current = setTimeout(() => setClearConfirm(false), 3000);
   };
 
+  // « Regarder » : se comporte comme le bouton « Regarder » de la fiche détail.
+  // Série, ou film à plusieurs variantes → on passe par la fiche (avec le groupe
+  // de variantes + autoplay) pour proposer le choix de version / d'épisode au
+  // lieu de lancer aveuglément la variante « primary » (parfois en italien).
+  // Film à variante unique → lecture directe instantanée (aucun choix à faire).
   const playHero = (slide: HeroSlide) => {
-    if (slide.playerState.url) {
+    if (slide.kind === 'series') {
+      const g = slide.seriesGroup;
+      navigate(`/series/${slide.id.replace(/^s/, '')}`, {
+        state: { series: g?.primary, variants: g?.variants, autoplay: true },
+      });
+      return;
+    }
+    const g = slide.movieGroup;
+    if ((g?.variants.length ?? 1) > 1) {
+      navigate(`/movie/${slide.id}`, {
+        state: { movie: g?.primary, variants: g?.variants, autoplay: true },
+      });
+    } else if (slide.playerState.url) {
       navigate('/player', { state: slide.playerState });
     } else {
-      // Série en vedette → fiche détail (choix épisode + sélecteur version).
-      navigate(`/series/${slide.id.replace(/^s/, '')}`);
+      navigate(`/movie/${slide.id}`, {
+        state: { movie: g?.primary, variants: g?.variants, autoplay: true },
+      });
     }
   };
 
-  // « Plus d'infos » : ouvre la fiche détail du contenu en vedette.
+  // « Plus d'infos » : ouvre la fiche détail du contenu en vedette en lui passant
+  // le groupe de variantes → le sélecteur de version est dispo dès l'arrivée.
   const infoHero = (slide: HeroSlide) => {
-    if (slide.playerState.type === 'episode') {
-      navigate(`/series/${slide.id.replace(/^s/, '')}`);
+    if (slide.kind === 'series') {
+      const g = slide.seriesGroup;
+      navigate(`/series/${slide.id.replace(/^s/, '')}`, {
+        state: { series: g?.primary, variants: g?.variants },
+      });
     } else {
-      navigate(`/movie/${slide.id}`);
+      const g = slide.movieGroup;
+      navigate(`/movie/${slide.id}`, {
+        state: { movie: g?.primary, variants: g?.variants },
+      });
     }
   };
 

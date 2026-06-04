@@ -7,7 +7,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel, groupByTitle } from '../utils/catalog';
 import { splitMeta, isFinishedProgress } from '../utils/ratings';
 import { historyGroupKey } from '../utils/history';
 import { nextEpisode } from '../utils/episodes';
@@ -25,6 +25,10 @@ import styles from './SeriesDetail.module.css';
 interface LocationState {
   series?: SeriesItem;
   variants?: SeriesItem[];
+  // Posé par la vedette de l'accueil : déclenche « Regarder » au montage (popup
+  // de version si plusieurs variantes, sinon 1er épisode) → la vedette se
+  // comporte comme le bouton « Regarder » de la fiche.
+  autoplay?: boolean;
 }
 
 function ChevDown() {
@@ -68,7 +72,7 @@ export function SeriesDetail() {
   const seriesMeta = (location.state as LocationState)?.series ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
 
-  const [variants] = useState<SeriesItem[]>(passedVariants ?? (seriesMeta ? [seriesMeta] : []));
+  const [variants, setVariants] = useState<SeriesItem[]>(passedVariants ?? (seriesMeta ? [seriesMeta] : []));
   const [variant, setVariant] = useState<SeriesItem | null>(seriesMeta);
   const [info, setInfo] = useState<SeriesInfo | null>(null);
   const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
@@ -106,6 +110,35 @@ export function SeriesDetail() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [credentials, seriesId]);
+
+  // Reconstruit le groupe de variantes (langues / qualités) depuis le catalogue
+  // quand on arrive sans `state.variants` (clic historique, lien direct, vedette
+  // accueil) → le sélecteur de version fonctionne aussi hors navigation par
+  // carte. Catalogue mis en cache par `xtreamService` → pas de fetch superflu.
+  useEffect(() => {
+    if (!credentials || Number.isNaN(seriesId)) return;
+    // Variantes déjà complètes via l'état de navigation → rien à reconstruire.
+    if (passedVariants && passedVariants.length > 1) return;
+    let alive = true;
+    xtreamService
+      .getSeries(credentials)
+      .then((all) => {
+        if (!alive) return;
+        const self = all.find((s) => s.series_id === seriesId);
+        const name = self?.name ?? seriesMeta?.name;
+        if (!name) return;
+        const key = titleKey(name) || name.trim().toLowerCase();
+        const group = groupByTitle(all, (s) => s.name, (s) => s.rating_5based ?? 0).find(
+          (g) => g.key === key,
+        );
+        if (group && group.variants.length > 1) {
+          setVariants(group.variants);
+          setVariant((cur) => cur ?? self ?? null);
+        }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [credentials, seriesId, passedVariants, seriesMeta]);
 
   // Quand le chargement se termine : si l'utilisateur avait déjà appuyé ↓
   // depuis le bouton Retour, le focus atterrit maintenant sur « Lire ».
@@ -327,6 +360,25 @@ export function SeriesDetail() {
     }
     navigate('/player', { state: resumeEntry.playerState });
   };
+
+  // Auto-« Regarder » depuis la vedette de l'accueil : reproduit le bouton de la
+  // fiche (popup de version si plusieurs variantes, sinon 1er épisode / reprise)
+  // une seule fois, après chargement des épisodes. Le drapeau autoplay est
+  // retiré de l'historique de navigation (replace) → pas de re-déclenchement au
+  // retour arrière.
+  const autoWatch = (location.state as LocationState)?.autoplay ?? false;
+  const autoFiredRef = useRef(false);
+  useEffect(() => {
+    if (!autoWatch || autoFiredRef.current || loading) return;
+    autoFiredRef.current = true;
+    navigate(location.pathname, {
+      replace: true,
+      state: seriesMeta || passedVariants ? { series: seriesMeta ?? undefined, variants: passedVariants ?? undefined } : undefined,
+    });
+    if (canResume) handleResume();
+    else handleWatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoWatch, loading, canResume]);
 
   // Avancement auto de l'historique sur ouverture de la fiche : si l'épisode le
   // plus récent de cette série est terminé (≥ 90 %), on inscrit l'épisode SUIVANT
