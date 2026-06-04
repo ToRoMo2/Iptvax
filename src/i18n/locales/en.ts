@@ -431,22 +431,29 @@ const en: typeof frDict = {
   premium: {
     premium: 'Premium',
     back: 'Back',
-    subActive: '✓ Active subscription',
+    subActive: 'Active subscription',
     youArePremium: 'You are Premium',
     planActive: 'Active subscription',
     planFmt: '{plan} plan',
     endsOn: 'ends on ',
     renewsOn: 'renews on ',
-    paymentConfirmed: '✓ Payment confirmed',
-    activating: '⏳ Activating…',
+    paymentConfirmed: 'Payment confirmed',
+    activating: 'Activating',
     welcome: 'Welcome to Premium!',
     paymentReceived: 'Payment received',
     unlockedAll:
-      'All Premium features are unlocked on this device and every other.',
+      'Your account is active. All Premium features are unlocked on this device and every other.',
     activatingDesc:
-      'We are activating your account… it takes a few seconds. This page updates automatically.',
+      'We are activating your account… it only takes a few seconds. This page updates by itself.',
     continue: 'Continue',
-    lockedFeature: '🔒 {feature} is reserved for Premium members',
+    openingPremium: 'Opening your Premium space…',
+    enterPremium: 'Enter now',
+    activationPending: 'Activation to confirm',
+    activationFailedTitle: 'Activation not confirmed',
+    activationFailedDesc:
+      'Your payment may have been declined or is not confirmed yet. If you were charged, access will unlock shortly — try again in a moment.',
+    retry: 'Try again',
+    lockedFeature: '{feature} is reserved for Premium members',
     unlockAll: 'Unlock all of IPTVAX',
     pitch:
       'Unlimited profiles, sync across all your devices, your personal cinema wall and much more. Cancel anytime.',
@@ -454,7 +461,7 @@ const en: typeof frDict = {
     subscribe: 'Subscribe — {price} {period}',
     redirecting: 'Redirecting to payment…',
     secure:
-      '🔒 Secure payment by Stripe · No commitment · Cancel in 1 click',
+      'Secure payment by Stripe · No commitment · Cancel in 1 click',
     onTv: 'On a TV?',
     scanQr:
       'Scan this code with your phone to pay easily. Unlocking is instant on the TV.',
