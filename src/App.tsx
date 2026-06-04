@@ -138,11 +138,11 @@ function AppContent() {
 // searchParams). Utilise useLayoutEffect pour agir avant le premier paint
 // et éviter le flash d'une nouvelle page déjà scrollée.
 function ScrollToTop() {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   useLayoutEffect(() => {
     document.querySelector<HTMLElement>('.main-content')
       ?.scrollTo({ top: 0, behavior: 'instant' });
-  }, [pathname, search]);
+  }, [pathname]);
   return null;
 }
 
