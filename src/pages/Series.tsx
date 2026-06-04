@@ -88,9 +88,11 @@ export function Series() {
   const { favorites, isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Mode « catégorie complète » : /series?cat=<id> → grille de cette catégorie.
   const activeCat = searchParams.get('cat');
+  // Restaure la query depuis l'URL au remontage (retour depuis la fiche détail).
+  const urlQ = searchParams.get('q') ?? '';
 
   const [categories, setCategories] = useState<SeriesCategory[]>([]);
   // Catalogue COMPLET chargé une fois → bucketé par catégorie côté client.
@@ -98,9 +100,9 @@ export function Series() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
+  const [search, setSearch] = useState(urlQ);
+  const [query, setQuery] = useState(urlQ.length >= MIN_SEARCH_LEN ? urlQ : '');
+  const [showSearch, setShowSearch] = useState(urlQ.length > 0);
 
   // Rail « Populaires » (tendances TMDB) — Premium only (cf. Movies / §X).
   const [popular, setPopular] = useState<TitleGroup<SeriesItem>[]>([]);
@@ -128,6 +130,22 @@ export function Series() {
     if (search.trim().length > 0) setShowSearch(true);
     return () => clearTimeout(id);
   }, [search]);
+
+  // Persiste la query dans l'URL (replace:true = pas de nouvelle entrée d'historique
+  // à chaque frappe). À la navigation retour depuis la fiche, le composant se remonte
+  // avec urlQ renseignée → les résultats sont restaurés.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const q = search.trim();
+        if (q.length >= MIN_SEARCH_LEN) next.set('q', q);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [search, setSearchParams]);
 
   const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
