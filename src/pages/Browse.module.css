@@ -471,13 +471,25 @@
     padding-right: var(--pad-edge);
     padding-top: 6px;
     padding-bottom: 14px;
-    background: rgba(0, 0, 0, 0.92);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.45);
+    -webkit-backdrop-filter: saturate(160%) blur(24px);
+    backdrop-filter: saturate(160%) blur(24px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
   .titleBlock { margin-right: 0; }
-  .searchWrapper { height: 54px; padding: 0 10px 0 20px; }
+  .searchWrapper {
+    height: 54px;
+    padding: 0 10px 0 20px;
+    /* Sur mobile, le header est déjà glazé → la barre s'allège :
+       fond quasi transparent + contour subtil, sans blur propre (le
+       parent fait déjà le travail, les backdrop-filters ne s'empilent
+       pas bien visuellement). */
+    background: rgba(255, 255, 255, 0.07);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
   /* >=16px : évite le zoom iOS au focus (§IV-20). */
   .search { font-size: 16px; }
   .searchClear { width: 32px; height: 32px; }
