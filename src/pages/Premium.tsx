@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentType } from 're
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { TranslationKey } from '../i18n';
 import { AppLogo } from '../components/AppLogo';
@@ -65,6 +66,7 @@ const ACTIVATION_POLL_MAX = 10;
 
 export function Premium({ lockedFeature, onBack }: Props) {
   const { isPremium, subscription, startCheckout, refresh } = useSubscription();
+  const { user, loading: authLoading } = useSupabaseAuth();
   const { t, fmtDate } = useI18n();
   const fmtD = (ms: number | null): string => (ms ? fmtDate(ms) : '—');
   const [params] = useSearchParams();
@@ -125,9 +127,13 @@ export function Premium({ lockedFeature, onBack }: Props) {
     void tick();
   }, [refresh]);
 
+  // On ne sonde que si une session existe : dans l'onglet Stripe du Custom Tab
+  // natif, la page tourne dans le navigateur système sans session Supabase →
+  // l'abonnement y sera toujours « gratuit ». Inutile de sonder (cf. message
+  // « retournez dans l'application » plus bas).
   useEffect(() => {
-    if (checkoutStatus === 'success' && !isPremium) startPolling();
-  }, [checkoutStatus, isPremium, startPolling]);
+    if (checkoutStatus === 'success' && !isPremium && user) startPolling();
+  }, [checkoutStatus, isPremium, user, startPolling]);
 
   // Dès que l'abonnement bascule Premium sur l'écran de confirmation, on relance
   // l'app après une courte pause (le temps de montrer le « Bienvenue »).
@@ -232,7 +238,26 @@ export function Premium({ lockedFeature, onBack }: Props) {
       );
     }
 
-    // 2) Échec/délai : rien n'a basculé après le polling → on l'affiche.
+    // 2) Onglet Stripe natif : la page tourne dans le navigateur système, sans
+    // session → on ne peut pas confirmer le Premium ici. On invite à revenir
+    // dans l'app (qui, elle, détecte l'activation et referme cet onglet).
+    if (!authLoading && !user) {
+      return (
+        <div className={styles.screen}>
+          {header}
+          <div className={`${styles.statusCard} ${styles.statusOk}`}>
+            <div className={`${styles.statusIcon} ${styles.iconOk}`}>
+              <IconCheckCircle size={44} />
+            </div>
+            <div className={styles.activeBadge}>{t('premium.paymentConfirmed')}</div>
+            <h1 className={styles.title}>{t('premium.paymentReceived')}</h1>
+            <p className={styles.sub}>{t('premium.returnToAppDesc')}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // 3) Échec/délai : rien n'a basculé après le polling → on l'affiche.
     if (activationFailed) {
       return (
         <div className={styles.screen}>
@@ -260,7 +285,7 @@ export function Premium({ lockedFeature, onBack }: Props) {
       );
     }
 
-    // 3) En cours : on sonde l'abonnement.
+    // 4) En cours : on sonde l'abonnement.
     return (
       <div className={styles.screen}>
         {header}
