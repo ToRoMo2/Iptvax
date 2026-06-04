@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, useLayoutEffect, lazy, Suspense } from 'react';
 import {
   BrowserRouter,
   HashRouter,
@@ -134,6 +134,18 @@ function AppContent() {
   );
 }
 
+// Remet .main-content en haut à chaque changement de route (pathname ou
+// searchParams). Utilise useLayoutEffect pour agir avant le premier paint
+// et éviter le flash d'une nouvelle page déjà scrollée.
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+  useLayoutEffect(() => {
+    document.querySelector<HTMLElement>('.main-content')
+      ?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname, search]);
+  return null;
+}
+
 function Shell() {
   const { t } = useI18n();
   return (
@@ -141,6 +153,7 @@ function Shell() {
       <div className="layout">
         <RemoteControl />
         <TopNav />
+        <ScrollToTop />
         <main className="main-content">
           <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
           <Routes>
