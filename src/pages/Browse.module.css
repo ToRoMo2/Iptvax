@@ -471,21 +471,20 @@
     padding-right: var(--pad-edge);
     padding-top: 6px;
     padding-bottom: 14px;
-    background: rgba(0, 0, 0, 0.45);
-    -webkit-backdrop-filter: saturate(160%) blur(24px);
-    backdrop-filter: saturate(160%) blur(24px);
-    /* Pas de border-bottom : le topbar-glass du TopNav forme une surface
-       continue avec ce sticky header → une seule zone verre du haut. */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    /* Transparent : le glassmorphism vient du .topbar-glass (TopNav) qui
+       s'étend derrière cette zone. Un seul contexte backdrop-filter → zéro
+       coupure visuelle entre le nav et ce header. */
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-bottom: none;
   }
   .titleBlock { margin-right: 0; }
   .searchWrapper {
     height: 54px;
     padding: 0 10px 0 20px;
-    /* Sur mobile, le header est déjà glazé → la barre s'allège :
-       fond quasi transparent + contour subtil, sans blur propre (le
-       parent fait déjà le travail, les backdrop-filters ne s'empilent
-       pas bien visuellement). */
+    /* Fond légèrement teinté pour distinguer le champ du fond verre.
+       Pas de backdrop-filter propre : .topbar-glass fait le travail. */
     background: rgba(255, 255, 255, 0.07);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
