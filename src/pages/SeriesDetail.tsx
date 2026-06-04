@@ -10,6 +10,7 @@ import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel } from '../utils/catalog';
 import { splitMeta, isFinishedProgress } from '../utils/ratings';
 import { historyGroupKey, resumePosition } from '../utils/history';
+import { nextEpisode } from '../utils/episodes';
 import { fmtRuntime } from '../utils/format';
 import { safeImgUrl } from '../utils/image';
 import { RateBlock } from '../components/RateBlock/RateBlock';
@@ -290,35 +291,30 @@ export function SeriesDetail() {
   // enchaîne alors sur le suivant).
   const canResume = !!resumeEntry;
 
-  // Épisode suivant dans `info` après (saison, n°). Passe à la saison suivante
-  // si l'épisode courant est le dernier de sa saison.
-  const nextEpisode = (data: SeriesInfo, season: number, num: number): Episode | undefined => {
-    const cur = data.episodes[String(season)] ?? [];
-    const idx = cur.findIndex((e) => e.episode_num === num);
-    if (idx >= 0 && idx + 1 < cur.length) return cur[idx + 1];
-    const seasonsNum = Object.keys(data.episodes).map(Number).sort((a, b) => a - b);
-    for (let i = seasonsNum.indexOf(season) + 1; i > 0 && i < seasonsNum.length; i++) {
-      const eps = data.episodes[String(seasonsNum[i])];
-      if (eps?.length) return eps[0];
-    }
-    return undefined;
-  };
-
-  // Cible de reprise : l'épisode en cours (reprise position) s'il n'est pas
-  // terminé, sinon l'épisode SUIVANT (depuis le début). `null` si inconnu.
+  // Cible de reprise :
+  //  - position exploitable (épisode en cours, < seuil terminé) → cet épisode.
+  //  - sinon, épisode TERMINÉ (≥ seuil) sans que l'historique ait déjà avancé →
+  //    l'épisode SUIVANT (depuis le début).
+  //  - sinon (épisode au tout début, p.ex. déjà avancé par le lecteur) → cet
+  //    épisode depuis le début.
+  // `null` si inconnu.
   const resumeTarget = (): { season: number; num: number } | null => {
     const sc = resumeEntry?.playerState?.seriesContext;
     if (!resumeEntry || !sc) return null;
     if (resumePosition(resumeEntry) != null) {
       return { season: sc.currentSeason, num: sc.currentEpisodeNum };
     }
-    const next = info ? nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum) : undefined;
-    return next ? { season: next.season, num: next.episode_num } : null;
+    if (info && isFinishedProgress(resumeEntry.progress)) {
+      const next = nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum);
+      if (next) return { season: next.season, num: next.episode_num };
+    }
+    return { season: sc.currentSeason, num: sc.currentEpisodeNum };
   };
 
   // « Reprendre » : reprise position de l'épisode en cours (relit son
-  // playerState exact → getResume applique position + pistes), sinon lecture du
-  // suivant. Repli : relit la dernière entrée connue.
+  // playerState exact → getResume applique position + pistes) ; si l'épisode est
+  // terminé, enchaîne sur le suivant depuis le début ; sinon (déjà avancé par le
+  // lecteur, position 0) relit l'entrée telle quelle.
   const handleResume = () => {
     if (!resumeEntry) return;
     const sc = resumeEntry.playerState?.seriesContext;
@@ -326,9 +322,11 @@ export function SeriesDetail() {
       navigate('/player', { state: resumeEntry.playerState });
       return;
     }
-    const next = sc && info ? nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum) : undefined;
-    if (next) handlePlayEpisode(next);
-    else navigate('/player', { state: resumeEntry.playerState });
+    if (sc && info && isFinishedProgress(resumeEntry.progress)) {
+      const next = nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum);
+      if (next) { handlePlayEpisode(next); return; }
+    }
+    navigate('/player', { state: resumeEntry.playerState });
   };
 
   // Bouton rond « changer de version » (mode Reprendre) : rejoue la cible de

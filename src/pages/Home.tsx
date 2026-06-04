@@ -480,7 +480,24 @@ export function Home() {
     navigate('/player', { state });
   };
 
-  const playHistory = (item: WatchHistoryItem) => {
+  // Clic sur une carte « Reprendre » → fiche détail du contenu (film/série), la
+  // lecture est lancée depuis cette page (bouton « Reprendre »). Le live n'a pas
+  // de fiche détail → lecture directe.
+  const openHistory = (item: WatchHistoryItem) => {
+    if (item.type === 'series') {
+      const seriesId = item.playerState?.seriesContext?.seriesId;
+      if (seriesId != null) {
+        navigate(`/series/${seriesId}`);
+        return;
+      }
+    } else if (item.type === 'movie') {
+      const streamId = item.id.replace(/^movie-/, '');
+      if (streamId) {
+        navigate(`/movie/${streamId}`);
+        return;
+      }
+    }
+    // Live (ou repli si l'id ne se résout pas) → lecteur direct.
     navigate('/player', { state: item.playerState });
   };
 
@@ -743,8 +760,8 @@ export function Home() {
                   key={item.id}
                   className={`${styles.card} ${styles.cardWide}`}
                   focusedClassName={styles.cardFocused}
-                  onClick={() => playHistory(item)}
-                  onEnter={() => playHistory(item)}
+                  onClick={() => openHistory(item)}
+                  onEnter={() => openHistory(item)}
                   onArrow={upToHero}
                 >
                   <div className={styles.artWide}>
