@@ -457,7 +457,7 @@
   .header {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 0;       /* plus de gap parasite quand la barre est cachée */
     margin-bottom: 0;
     /* Sticky : le header (titre + bouton loupe + barre) suit le scroll et reste
        accessible même tout en bas de la page. S'étend bord-à-bord grâce aux
@@ -474,7 +474,9 @@
     background: rgba(0, 0, 0, 0.45);
     -webkit-backdrop-filter: saturate(160%) blur(24px);
     backdrop-filter: saturate(160%) blur(24px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    /* Pas de border-bottom : le topbar-glass du TopNav forme une surface
+       continue avec ce sticky header → une seule zone verre du haut. */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
   .titleBlock { margin-right: 0; }
   .searchWrapper {
@@ -493,27 +495,30 @@
   /* >=16px : évite le zoom iOS au focus (§IV-20). */
   .search { font-size: 16px; }
   .searchClear { width: 32px; height: 32px; }
-  .searchBadge { font-size: 11px; padding: 3px 9px; }
+  .searchBadge { font-size: 11px; padding: 3px 9px; margin-top: 8px; }
 
-  /* Wrapper d'animation : fermé par défaut */
+  /* Wrapper d'animation : fermé par défaut (height 0, invisible, non-interactif).
+     `flex: none` override la valeur base `flex: 1` pour ne pas forcer une
+     expansion dans le flex-column — sans ça la zone reste visible même fermée. */
   .searchOuter {
+    flex: none;
     max-width: none;
-    display: grid;
-    grid-template-rows: 0fr;
+    display: block;
+    overflow: hidden;
+    max-height: 0;
+    margin-top: 0;
     opacity: 0;
     pointer-events: none;
-    transition: grid-template-rows 300ms cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 240ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .searchOuter > * {
-    overflow: hidden;
-    min-height: 0;
+    transition: max-height 320ms cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 240ms cubic-bezier(0.4, 0, 0.2, 1),
+                margin-top 320ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   /* Ouvert */
   .searchOuter.searchOpen {
-    grid-template-rows: 1fr;
+    max-height: 70px;
     opacity: 1;
     pointer-events: auto;
+    margin-top: 10px;
   }
   .searchOuter.searchOpen .searchWrapper {
     animation: srchReveal 300ms cubic-bezier(0.4, 0, 0.2, 1) both;

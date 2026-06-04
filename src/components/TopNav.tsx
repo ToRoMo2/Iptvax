@@ -112,6 +112,11 @@ export function TopNav() {
 
   return (
     <>
+      {/* ── Bandeau glassmorphism top — mobile uniquement, z-38 (sous les boutons).
+            Fade-in dès le premier scroll pour unifier visuellement la zone fixe
+            du haut (brand / profil / premium) avec le sticky header des pages. ── */}
+      <div className={`topbar-glass${scrolled ? ' scrolled' : ''}`} aria-hidden="true" />
+
       {/* ── Brand — fixé à gauche, cliquable → Accueil ──────────────── */}
       <button
         type="button"
