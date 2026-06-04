@@ -10,6 +10,8 @@ import { useI18n } from '../contexts/I18nContext';
 import type { Episode, LiveChannelRef, LiveStream, PlayerState, SeriesInfo } from '../types/xtream.types';
 import type { TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, groupByTitle, qualityRank, episodeLabel } from '../utils/catalog';
+import { nextEpisode } from '../utils/episodes';
+import { isFinishedProgress } from '../utils/ratings';
 import { buildEpgRows, type EpgRow } from '../utils/epg';
 import styles from './Player.module.css';
 
@@ -260,19 +262,6 @@ export function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyId, state?.type, getResume, history]);
 
-  const handlePersist = useCallback(
-    (p: { position: number; duration: number; audio: number; subtitle: number }) => {
-      if (!historyId || state?.type === 'live') return;
-      saveProgress(historyId, {
-        resumeTime: p.position,
-        durationSec: p.duration,
-        audioTrack: p.audio,
-        subtitleTrack: p.subtitle,
-      });
-    },
-    [historyId, state?.type, saveProgress],
-  );
-
   // ── Panneau « Épisodes » du lecteur (chantier 3) ────────────────────────
   // Quand `state.seriesContext` est posé (par SeriesDetail OU une nav précédente
   // dans le panneau), on re-fetch la SeriesInfo + les stills TMDB de la saison
@@ -333,12 +322,15 @@ export function Player() {
     loadSeasonStills(seriesCtx.currentSeason);
   }, [seriesInfo, seriesCtx, loadSeasonStills]);
 
-  const handlePlayEpisode = useCallback(
+  // Construit l'entrée d'historique + le PlayerState d'un épisode (sans navigation
+  // ni écriture) — partagé entre la lecture manuelle (`handlePlayEpisode`) et
+  // l'avancement auto en fin d'épisode (`handlePersist`).
+  const buildEpisodeEntry = useCallback(
     (ep: Episode) => {
-      if (!credentials || !seriesCtx) return;
+      if (!credentials || !seriesCtx) return null;
       const seriesTitle = seriesCtx.title ?? seriesInfo?.info.name ?? state?.title.split(' – ')[0] ?? '';
       const epLabel = episodeLabel(ep.title, seriesTitle, t('detail.episodeN', { n: ep.episode_num }));
-      const historyId = `episode-${ep.id}`;
+      const epHistoryId = `episode-${ep.id}`;
       const landscape =
         ep.info.movie_image ||
         stillsBySeason[ep.season]?.[ep.episode_num] ||
@@ -351,7 +343,7 @@ export function Player() {
         type: 'episode',
         poster: landscape,
         description: ep.info.plot,
-        historyId,
+        historyId: epHistoryId,
         seriesContext: {
           seriesId: seriesCtx.seriesId,
           title: seriesTitle,
@@ -359,20 +351,67 @@ export function Player() {
           currentEpisodeNum: ep.episode_num,
         },
       };
-      // Sync historique (cohérent avec SeriesDetail.handlePlayEpisode).
-      addToHistory({
-        id: historyId,
-        type: 'series',
+      const item = {
+        id: epHistoryId,
+        type: 'series' as const,
         title: `${seriesTitle} – ${epLabel}`,
         image: landscape ?? '',
         progress: 0,
         subtitle: `S${ep.season} · É${ep.episode_num}`,
         playerState: nextState,
-      });
-      // replace:true → la touche retour ne ré-injecte pas l'épisode précédent.
-      navigate('/player', { state: nextState, replace: true });
+      };
+      return { item, state: nextState };
     },
-    [credentials, seriesCtx, seriesInfo, stillsBySeason, state?.title, t, addToHistory, navigate],
+    [credentials, seriesCtx, seriesInfo, stillsBySeason, state?.title, t],
+  );
+
+  const handlePlayEpisode = useCallback(
+    (ep: Episode) => {
+      const built = buildEpisodeEntry(ep);
+      if (!built) return;
+      // Sync historique (cohérent avec SeriesDetail.handlePlayEpisode).
+      addToHistory(built.item);
+      // replace:true → la touche retour ne ré-injecte pas l'épisode précédent.
+      navigate('/player', { state: built.state, replace: true });
+    },
+    [buildEpisodeEntry, addToHistory, navigate],
+  );
+
+  // ── Reprise + sauvegarde de progression ──────────────────────────────────
+  // Avancement auto de l'historique : quand l'épisode courant franchit le seuil
+  // « terminé », on inscrit l'épisode SUIVANT au tout début → la carte
+  // « Reprendre » de l'accueil et le bouton « Reprendre » du détail enchaînent
+  // l'épisode suivant. Une seule fois par épisode (guard `advancedFromRef`).
+  const advancedFromRef = useRef<string | null>(null);
+  useEffect(() => { advancedFromRef.current = null; }, [historyId]);
+
+  const handlePersist = useCallback(
+    (p: { position: number; duration: number; audio: number; subtitle: number }) => {
+      if (!historyId || state?.type === 'live') return;
+      const finishedEpisode =
+        state?.type === 'episode' &&
+        p.duration > 0 &&
+        isFinishedProgress((p.position / p.duration) * 100);
+      // Épisode déjà terminé ET déjà avancé → ne plus re-promouvoir l'entrée (le
+      // défilement des crédits ne doit pas repasser l'épisode courant devant
+      // l'épisode suivant dans le rail « Reprendre »).
+      if (finishedEpisode && advancedFromRef.current === historyId) return;
+      saveProgress(historyId, {
+        resumeTime: p.position,
+        durationSec: p.duration,
+        audioTrack: p.audio,
+        subtitleTrack: p.subtitle,
+      });
+      if (finishedEpisode && seriesCtx && seriesInfo) {
+        const next = nextEpisode(seriesInfo, seriesCtx.currentSeason, seriesCtx.currentEpisodeNum);
+        if (next) {
+          advancedFromRef.current = historyId;
+          const built = buildEpisodeEntry(next);
+          if (built) addToHistory(built.item);
+        }
+      }
+    },
+    [historyId, state?.type, saveProgress, seriesCtx, seriesInfo, buildEpisodeEntry, addToHistory],
   );
 
   if (!state?.url) {
