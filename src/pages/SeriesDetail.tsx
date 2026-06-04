@@ -9,7 +9,7 @@ import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtre
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
 import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel } from '../utils/catalog';
 import { splitMeta, isFinishedProgress } from '../utils/ratings';
-import { historyGroupKey, resumePosition } from '../utils/history';
+import { historyGroupKey } from '../utils/history';
 import { nextEpisode } from '../utils/episodes';
 import { fmtRuntime } from '../utils/format';
 import { safeImgUrl } from '../utils/image';
@@ -148,8 +148,11 @@ export function SeriesDetail() {
     return () => { alive = false; };
   }, [tmdb, selectedSeason]);
 
-  const handlePlayEpisode = (episode: Episode) => {
-    if (!credentials) return;
+  // Construit l'entrée d'historique + le PlayerState d'un épisode (sans
+  // navigation ni écriture) — partagé entre la lecture manuelle et l'avancement
+  // auto de l'historique vers l'épisode suivant.
+  const buildEpisodeEntry = (episode: Episode) => {
+    if (!credentials) return null;
     const epLabel = episodeLabel(episode.title, displayTitle, t('detail.episodeN', { n: episode.episode_num }));
     const historyId = `episode-${episode.id}`;
     // Image paysage (16:9) pour « Reprendre » + poster vidéo : le still
@@ -180,16 +183,23 @@ export function SeriesDetail() {
         tmdbId: tmdb?.tmdbId,
       },
     };
-    addToHistory({
+    const item = {
       id: historyId,
-      type: 'series',
+      type: 'series' as const,
       title: `${displayTitle} – ${epLabel}`,
       image: landscape ?? '',
       progress: 0,
       subtitle: `S${episode.season} · É${episode.episode_num}`,
       playerState: state,
-    });
-    navigate('/player', { state });
+    };
+    return { item, state };
+  };
+
+  const handlePlayEpisode = (episode: Episode) => {
+    const built = buildEpisodeEntry(episode);
+    if (!built) return;
+    addToHistory(built.item);
+    navigate('/player', { state: built.state });
   };
 
   const findEpisode = (data: SeriesInfo, season: number, num: number): Episode | undefined =>
@@ -291,19 +301,13 @@ export function SeriesDetail() {
   // enchaîne alors sur le suivant).
   const canResume = !!resumeEntry;
 
-  // Cible de reprise :
-  //  - position exploitable (épisode en cours, < seuil terminé) → cet épisode.
-  //  - sinon, épisode TERMINÉ (≥ seuil) sans que l'historique ait déjà avancé →
-  //    l'épisode SUIVANT (depuis le début).
-  //  - sinon (épisode au tout début, p.ex. déjà avancé par le lecteur) → cet
-  //    épisode depuis le début.
+  // Cible de reprise (seuil unique « terminé = ≥ 90 % », cf. isFinishedProgress) :
+  //  - épisode TERMINÉ → l'épisode SUIVANT (depuis le début).
+  //  - sinon → cet épisode (getResume applique la position si exploitable).
   // `null` si inconnu.
   const resumeTarget = (): { season: number; num: number } | null => {
     const sc = resumeEntry?.playerState?.seriesContext;
     if (!resumeEntry || !sc) return null;
-    if (resumePosition(resumeEntry) != null) {
-      return { season: sc.currentSeason, num: sc.currentEpisodeNum };
-    }
     if (info && isFinishedProgress(resumeEntry.progress)) {
       const next = nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum);
       if (next) return { season: next.season, num: next.episode_num };
@@ -311,23 +315,39 @@ export function SeriesDetail() {
     return { season: sc.currentSeason, num: sc.currentEpisodeNum };
   };
 
-  // « Reprendre » : reprise position de l'épisode en cours (relit son
-  // playerState exact → getResume applique position + pistes) ; si l'épisode est
-  // terminé, enchaîne sur le suivant depuis le début ; sinon (déjà avancé par le
-  // lecteur, position 0) relit l'entrée telle quelle.
+  // « Reprendre » : épisode terminé → enchaîne le suivant depuis le début ;
+  // sinon relit l'entrée telle quelle (le lecteur applique la position via
+  // getResume si elle est exploitable, sinon démarre au début).
   const handleResume = () => {
     if (!resumeEntry) return;
     const sc = resumeEntry.playerState?.seriesContext;
-    if (resumePosition(resumeEntry) != null) {
-      navigate('/player', { state: resumeEntry.playerState });
-      return;
-    }
     if (sc && info && isFinishedProgress(resumeEntry.progress)) {
       const next = nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum);
       if (next) { handlePlayEpisode(next); return; }
     }
     navigate('/player', { state: resumeEntry.playerState });
   };
+
+  // Avancement auto de l'historique sur ouverture de la fiche : si l'épisode le
+  // plus récent de cette série est terminé (≥ 90 %), on inscrit l'épisode SUIVANT
+  // au tout début → la carte « Reprendre » de l'accueil reflète l'épisode suivant.
+  // Couvre les épisodes terminés AVANT cette feature (le lecteur n'avait pas
+  // inscrit le suivant). Idempotent : une fois le suivant inscrit (progress 0),
+  // `resumeEntry` pointe dessus → la garde `isFinished` coupe la boucle. Cascade
+  // jusqu'au premier épisode non terminé (rattrapage d'un binge legacy).
+  useEffect(() => {
+    if (!info || !resumeEntry) return;
+    const sc = resumeEntry.playerState?.seriesContext;
+    if (!sc) return;
+    if (!isFinishedProgress(resumeEntry.progress)) return; // pas (encore) terminé
+    const next = nextEpisode(info, sc.currentSeason, sc.currentEpisodeNum);
+    if (!next) return; // dernier épisode connu → rien à avancer
+    const built = buildEpisodeEntry(next);
+    if (built) addToHistory(built.item);
+    // buildEpisodeEntry/addToHistory recréés à chaque rendu ; la boucle est
+    // bornée par les gardes ci-dessus (idempotent). Deps volontairement minimales.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [info, resumeEntry]);
 
   // Bouton rond « changer de version » (mode Reprendre) : rejoue la cible de
   // reprise (épisode en cours ou suivant) depuis une autre source via la popup.
