@@ -25,6 +25,79 @@
   gap: 20px;
 }
 
+/* ── Bannière d'upsell (plafond favoris, tier gratuit) ───────────────────── */
+.limitCta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 32px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--t-1);
+  background: linear-gradient(135deg, rgba(40, 28, 4, 0.55), rgba(18, 13, 2, 0.55));
+  border: 1px solid rgba(240, 192, 53, 0.28);
+  transition: border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+}
+.limitCta:hover {
+  border-color: rgba(240, 192, 53, 0.5);
+  background: linear-gradient(135deg, rgba(48, 34, 6, 0.7), rgba(22, 16, 3, 0.7));
+}
+/* Emphase une fois le plafond atteint */
+.limitCtaFull {
+  border-color: rgba(240, 192, 53, 0.5);
+  box-shadow: 0 0 0 1px rgba(240, 192, 53, 0.12), 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.limitCtaIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #1a0c00;
+  background: linear-gradient(135deg, #b8811f 0%, #f0c035 40%, #e8961a 75%, #c9841c 100%);
+}
+
+.limitCtaBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.limitCtaTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f7e7b8;
+}
+.limitCtaText {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--t-2);
+}
+
+.limitCtaBtn {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #1a0c00;
+  background: linear-gradient(135deg, #f0c035, #e8961a);
+  padding: 8px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .limitCta { gap: 11px; padding: 12px; flex-wrap: wrap; }
+  .limitCtaBtn { width: 100%; text-align: center; padding: 10px; }
+}
+
 /* ── Sections par type (chaînes / films / séries) ────────────────────────── */
 .section {
   margin-bottom: 44px;

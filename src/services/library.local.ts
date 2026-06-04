@@ -17,6 +17,14 @@ const FAV_PREFIX = 'iptv.local.fav.';
 const HIST_PREFIX = 'iptv.local.hist.';
 const HISTORY_CAP = 60;
 
+/**
+ * Plafond de favoris du tier GRATUIT. Le tier Premium (adaptateur Supabase)
+ * reste illimité. C'est un levier d'upsell assumé : passé ce seuil, l'UI
+ * propose de débloquer l'illimité (sync cross-device). Exporté pour que
+ * `LibraryContext` connaisse la limite côté UI sans la dupliquer.
+ */
+export const LOCAL_FAV_CAP = 10;
+
 function read<T>(key: string): T[] {
   try {
     const raw = localStorage.getItem(key);
@@ -48,7 +56,10 @@ export const localLibraryService = {
     const list = read<FavoriteItem>(favKey(profileId)).filter(
       (f) => !(f.type === fav.type && f.id === fav.id),
     );
-    write(favKey(profileId), [fav, ...list]);
+    // Filet de sécurité : on cape le stockage même si l'UI laisse passer un
+    // ajout (la garde primaire est dans LibraryContext.toggleFavorite, qui
+    // bloque + propose Premium avant d'atteindre cette ligne).
+    write(favKey(profileId), [fav, ...list].slice(0, LOCAL_FAV_CAP));
   },
 
   async removeFavorite(profileId: string, type: ContentType, id: string): Promise<void> {

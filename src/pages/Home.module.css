@@ -501,6 +501,19 @@
   color: var(--t-1);
 }
 
+/* CTA doré « Débloquer » remplaçant « Tout vider » sur le rail Reprendre
+   verrouillé (tier gratuit). Tons alignés sur le badge Premium de la navbar. */
+.rowSeeAllPremium {
+  gap: 5px;
+  color: #f0c035;
+  text-transform: none;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+.rowSeeAllPremium:hover {
+  color: #fdd84a;
+}
+
 /* ── Pastille TMDB officielle (logo public/tmdb.png en grosse pastille)
    Réutilisable : taille pilotée par style inline (prop `size`).
    Fond sombre fidèle à la charte TMDB (#032541). Le logo TMDB a déjà ses
@@ -707,6 +720,14 @@
 
 .artImgContain {
   object-fit: contain;
+}
+
+/* Vignette « Reprendre » floutée pour le tier gratuit : on montre le contenu
+   réel de l'utilisateur (teasing désirable) sans le rendre exploitable. Le
+   verrou + l'accroche sont posés par <PremiumLockOverlay>. */
+.lockedThumb {
+  filter: blur(8px) saturate(0.85) brightness(0.7);
+  transform: scale(1.08); /* masque les bords flous */
 }
 
 /* Striped placeholder */
