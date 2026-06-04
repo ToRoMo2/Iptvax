@@ -326,9 +326,42 @@
   display: none; /* desktop : la recherche vit dans la capsule .topnav */
 }
 
+/* ── Bandeau glassmorphism top — mobile uniquement ────────────────────────
+   Couvre la zone 0→--topnav-h pour unifier le fond verre derrière le logo,
+   la loupe et le profil quand le contenu défile en dessous.
+   • z-index 38 : sous les boutons fixes (z-40) et sous le sticky header (z-39).
+   • pointer-events none : les touches passent à travers vers les boutons.
+   • Opacity 0→1 (transition) : l'effet verre est déjà composité en mémoire
+     GPU, on l'amène sans à-coup dès que scrolled est true. */
+.topbar-glass {
+  display: none; /* caché sur desktop, activé dans @media 640px ci-dessous */
+}
+
 @media (max-width: 640px) {
   /* ── Cacher la capsule top sur mobile ─────────────────────────────── */
   .topnav { display: none; }
+
+  /* ── Bandeau glassmorphism — fond verre unifié sous les boutons fixes ─ */
+  .topbar-glass {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--topnav-h);
+    z-index: 38;
+    pointer-events: none;
+    /* Mêmes valeurs que le sticky header (Browse.module.css) → surface continue */
+    background: rgba(0, 0, 0, 0.45);
+    -webkit-backdrop-filter: saturate(160%) blur(24px);
+    backdrop-filter: saturate(160%) blur(24px);
+    /* Fade-in sur opacity : le blur est déjà composité, seule la visibilité change */
+    opacity: 0;
+    transition: opacity 220ms var(--ease);
+  }
+  .topbar-glass.scrolled {
+    opacity: 1;
+  }
 
   /* ── Brand : capsule glass solide (cohérente avec recherche/profil) plutôt
         qu'un logo flottant nu. Posée sous la barre de statut via --safe-top. ── */
