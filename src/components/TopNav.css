@@ -341,21 +341,28 @@
   /* ── Cacher la capsule top sur mobile ─────────────────────────────── */
   .topnav { display: none; }
 
-  /* ── Bandeau glassmorphism — fond verre unifié sous les boutons fixes ─ */
+  /* ── Bandeau glassmorphism — surface continue top nav + sticky header ─
+     Couvre les deux zones en UN SEUL contexte backdrop-filter pour éviter
+     la ligne de jonction visible entre le nav (marque/profil) et le sticky
+     header (Films/Séries/Chaînes). Le header a background:transparent et
+     aucun backdrop-filter propre — le flou vient uniquement d'ici.
+     • height 300px : couvre nav (72px) + header fermé (56px) + header ouvert
+       avec barre de recherche (136px) + marge.
+     • mask gradient : fondu doux vers le bas → pas d'arête dure sur le contenu. */
   .topbar-glass {
     display: block;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: var(--topnav-h);
+    height: 300px;
     z-index: 38;
     pointer-events: none;
-    /* Mêmes valeurs que le sticky header (Browse.module.css) → surface continue */
     background: rgba(0, 0, 0, 0.45);
     -webkit-backdrop-filter: saturate(160%) blur(24px);
     backdrop-filter: saturate(160%) blur(24px);
-    /* Fade-in sur opacity : le blur est déjà composité, seule la visibilité change */
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
     opacity: 0;
     transition: opacity 220ms var(--ease);
   }

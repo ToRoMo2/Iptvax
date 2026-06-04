@@ -301,6 +301,10 @@ button:focus-visible,
   /* Le scrollable principal doit pouvoir scroller jusqu'à révéler le bas
      des pages sans que la bottom-nav le masque. */
   .main-content { padding-bottom: var(--bottomnav-h); }
+
+  /* Scrollbar inutilisable sur mobile — cachée entièrement. */
+  .main-content { scrollbar-width: none; }
+  .main-content::-webkit-scrollbar { display: none; }
 }
 
 @media (max-width: 380px) {
