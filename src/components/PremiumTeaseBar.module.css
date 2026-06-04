@@ -1,0 +1,129 @@
+/* Bandeau d'upsell persistant — voir PremiumTeaseBar.tsx.
+   Centrage sans transform (left/right:0 + margin auto) pour ne pas entrer en
+   conflit avec l'animation d'entrée translateY. */
+
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: 18px;
+  z-index: 45; /* sous la bottom nav (z-50) et les boutons fixes top (z-40 au-dessus) */
+  width: min(560px, calc(100% - 32px));
+  display: flex;
+  align-items: stretch;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(40, 28, 4, 0.92), rgba(18, 13, 2, 0.94));
+  border: 1px solid rgba(240, 192, 53, 0.35);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(240, 192, 53, 0.05);
+  -webkit-backdrop-filter: saturate(160%) blur(20px);
+  backdrop-filter: saturate(160%) blur(20px);
+  animation: v-teasebar-in 460ms var(--ease, ease) both;
+}
+
+@keyframes v-teasebar-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--t-1);
+  text-align: left;
+}
+
+.star {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  color: #1a0c00;
+  background: linear-gradient(135deg, #b8811f 0%, #f0c035 40%, #e8961a 75%, #c9841c 100%);
+  box-shadow: 0 2px 10px rgba(240, 192, 53, 0.4);
+}
+
+/* Conteneur des accroches rotatives : hauteur figée, items empilés en absolu. */
+.benefits {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 1.3em;
+}
+
+.benefit {
+  position: absolute;
+  inset: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f7e7b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 360ms var(--ease, ease),
+    transform 360ms var(--ease, ease);
+}
+
+.benefitActive {
+  opacity: 1;
+  transform: none;
+}
+
+.cta {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1a0c00;
+  background: linear-gradient(135deg, #f0c035, #e8961a);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.close {
+  flex-shrink: 0;
+  width: 38px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  border-left: 1px solid rgba(240, 192, 53, 0.18);
+  color: var(--t-2);
+  cursor: pointer;
+  transition: color var(--d-micro, 120ms) var(--ease, ease);
+}
+.close:hover { color: var(--t-1); }
+
+@media (max-width: 640px) {
+  .bar {
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    width: auto;
+    bottom: calc(var(--bottomnav-h) + 8px);
+    border-radius: 12px;
+  }
+  .benefit { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar { animation: none; }
+  .benefit { transition: opacity 200ms linear; transform: none; }
+}

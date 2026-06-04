@@ -12,6 +12,7 @@ import { PreviewCard } from '../components/PreviewCard';
 import { Focusable } from '../components/Focusable';
 import { HERO_FOCUS_KEY } from '../components/RemoteControl';
 import { ScrollRail } from '../components/ScrollRail';
+import { PremiumLockOverlay } from '../components/PremiumLockOverlay';
 import type { WatchHistoryItem } from '../types/library.types';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
@@ -772,7 +773,12 @@ export function Home() {
       {/* ── Rows ── */}
       <div className={styles.rows}>
 
-        {/* Continue Watching */}
+        {/* Continue Watching
+            Gratuit : le rail reste affiché (les vraies vignettes de
+            l'utilisateur, floutées + verrou) comme teasing — la reprise
+            cross-device est une valeur Premium (§IV-12). La reprise locale
+            sur l'appareil reste active (getResume non touché) ; ici on
+            verrouille seulement l'accès au rail → clic = page Premium. */}
         {resumeRail.length > 0 && (
           <div className={styles.row}>
             <div className={styles.rowHeader}>
@@ -781,12 +787,21 @@ export function Home() {
                 <span className={styles.rowDivider} aria-hidden="true" />
                 <span className={styles.rowCount}>{resumeRail.length}</span>
               </div>
-              <button
-                className={`${styles.rowSeeAll} ${clearConfirm ? styles.clearConfirmActive : ''}`}
-                onClick={clearConfirm ? handleClearAll : handleClearConfirmRequest}
-              >
-                {clearConfirm ? t('home.confirmClear') : t('home.clearAll')}
-              </button>
+              {isPremium ? (
+                <button
+                  className={`${styles.rowSeeAll} ${clearConfirm ? styles.clearConfirmActive : ''}`}
+                  onClick={clearConfirm ? handleClearAll : handleClearConfirmRequest}
+                >
+                  {clearConfirm ? t('home.confirmClear') : t('home.clearAll')}
+                </button>
+              ) : (
+                <button
+                  className={`${styles.rowSeeAll} ${styles.rowSeeAllPremium}`}
+                  onClick={() => navigate('/premium')}
+                >
+                  <span aria-hidden="true">✦</span> {t('upsell.unlock')}
+                </button>
+              )}
             </div>
             <ScrollRail railClassName={styles.rowRail}>
               {resumeRail.map((item) => {
@@ -800,8 +815,8 @@ export function Home() {
                   key={item.id}
                   className={`${styles.card} ${styles.cardWide}`}
                   focusedClassName={styles.cardFocused}
-                  onClick={() => openHistory(item)}
-                  onEnter={() => openHistory(item)}
+                  onClick={() => (isPremium ? openHistory(item) : navigate('/premium'))}
+                  onEnter={() => (isPremium ? openHistory(item) : navigate('/premium'))}
                   onArrow={upToHero}
                 >
                   <div className={styles.artWide}>
@@ -809,7 +824,7 @@ export function Home() {
                       <img
                         src={thumb}
                         alt={item.title}
-                        className={styles.artImg}
+                        className={`${styles.artImg} ${isPremium ? '' : styles.lockedThumb}`}
                         loading="lazy"
                         decoding="async"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -817,26 +832,38 @@ export function Home() {
                     ) : (
                       <ArtPlaceholder tag="THUMBNAIL · 16:9" name={item.title} />
                     )}
-                    <div className={styles.cwOverlay}>
-                      <div className={styles.cwPlayBtn}>
-                        <PlayIcon />
-                      </div>
-                    </div>
-                    <button
-                      className={styles.cwRemoveBtn}
-                      onClick={(e) => { e.stopPropagation(); removeFromHistory(item.id); }}
-                      title={t('home.removeFromHistory')}
-                      aria-label={t('home.removeFromHistory')}
-                    >
-                      <RemoveIcon />
-                    </button>
-                    <div className={styles.cwProgress}>
-                      <span className={styles.cwProgressBar} style={{ width: `${item.progress}%` }} />
-                    </div>
+                    {isPremium ? (
+                      <>
+                        <div className={styles.cwOverlay}>
+                          <div className={styles.cwPlayBtn}>
+                            <PlayIcon />
+                          </div>
+                        </div>
+                        <button
+                          className={styles.cwRemoveBtn}
+                          onClick={(e) => { e.stopPropagation(); removeFromHistory(item.id); }}
+                          title={t('home.removeFromHistory')}
+                          aria-label={t('home.removeFromHistory')}
+                        >
+                          <RemoveIcon />
+                        </button>
+                        <div className={styles.cwProgress}>
+                          <span className={styles.cwProgressBar} style={{ width: `${item.progress}%` }} />
+                        </div>
+                      </>
+                    ) : (
+                      <PremiumLockOverlay
+                        compact
+                        title={t('upsell.resumeLockTitle')}
+                        cta={t('upsell.premium')}
+                      />
+                    )}
                   </div>
                   <div className={styles.cardLabel}>
                     <div className={styles.cardName}>{cardName}</div>
-                    <div className={styles.cardMeta}>{item.subtitle}</div>
+                    <div className={styles.cardMeta}>
+                      {isPremium ? item.subtitle : t('upsell.resumeLockText')}
+                    </div>
                   </div>
                 </Focusable>
                 );

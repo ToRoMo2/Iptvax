@@ -12,13 +12,19 @@ import { useSupabaseAuth } from './SupabaseAuthContext';
 import { useIptvProfile } from './IptvProfileContext';
 import { useSubscription } from './SubscriptionContext';
 import { libraryService } from '../services/library.service';
-import { localLibraryService } from '../services/library.local';
+import { localLibraryService, LOCAL_FAV_CAP } from '../services/library.local';
 import type { FavoriteItem, WatchHistoryItem, ContentType } from '../types/library.types';
 
 interface LibraryContextValue {
   loading: boolean;
   history: WatchHistoryItem[];
   favorites: FavoriteItem[];
+  /** Nombre max de favoris pour le tier courant. `null` = illimité (Premium). */
+  favoritesLimit: number | null;
+  /** Incrémenté à chaque ajout bloqué par la limite (gratuit) → l'UI affiche
+   *  un toast d'upsell. Un nonce plutôt qu'un booléen pour re-déclencher même
+   *  si l'utilisateur retente immédiatement. */
+  favLimitNonce: number;
   isFavorite: (type: ContentType, id: string) => boolean;
   toggleFavorite: (fav: FavoriteItem) => void;
   addToHistory: (item: Omit<WatchHistoryItem, 'watchedAt'>) => void;
@@ -52,6 +58,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favLimitNonce, setFavLimitNonce] = useState(0);
+
+  // Premium → illimité. Gratuit → plafond local (levier d'upsell, §IV-12).
+  const favoritesLimit = isPremium ? null : LOCAL_FAV_CAP;
 
   // Set d'index pour un `isFavorite` O(1) — dérivé de la liste (source unique).
   const favoriteKeys = useMemo(
@@ -98,6 +108,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const key = favKey(fav.type, fav.id);
       const wasFav = favoriteKeys.has(key);
 
+      // Gratuit : ajout bloqué au-delà du plafond → on déclenche l'upsell au
+      // lieu d'ajouter. Le retrait reste toujours permis. (Premium = illimité.)
+      if (!wasFav && favoritesLimit !== null && favorites.length >= favoritesLimit) {
+        setFavLimitNonce((n) => n + 1);
+        return;
+      }
+
       // Mise à jour optimiste : nouveaux favoris en tête de liste.
       setFavorites((prev) =>
         wasFav
@@ -118,7 +135,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         );
       });
     },
-    [userId, profileId, favoriteKeys, lib],
+    [userId, profileId, favoriteKeys, lib, favorites.length, favoritesLimit],
   );
 
   const addToHistory = useCallback(
@@ -214,6 +231,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       loading,
       history,
       favorites,
+      favoritesLimit,
+      favLimitNonce,
       isFavorite,
       toggleFavorite,
       addToHistory,
@@ -222,7 +241,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       saveProgress,
       getResume,
     }),
-    [loading, history, favorites, isFavorite, toggleFavorite, addToHistory, removeFromHistory, clearHistory, saveProgress, getResume],
+    [loading, history, favorites, favoritesLimit, favLimitNonce, isFavorite, toggleFavorite, addToHistory, removeFromHistory, clearHistory, saveProgress, getResume],
   );
 
   return (

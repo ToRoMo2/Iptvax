@@ -7,6 +7,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import { MediaCard } from '../components/MediaCard';
 import { PreviewCard } from '../components/PreviewCard';
+import { IconLock } from '../components/PremiumIcons';
 import { cleanTitle } from '../utils/catalog';
 import type { FavoriteItem } from '../types/library.types';
 import type { LiveChannelRef, PlayerState } from '../types/xtream.types';
@@ -15,9 +16,13 @@ import fav from './Favorites.module.css';
 
 export function Favorites() {
   const { credentials } = useXtream();
-  const { favorites, loading, isFavorite, toggleFavorite } = useLibrary();
+  const { favorites, favoritesLimit, loading, isFavorite, toggleFavorite } = useLibrary();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
+
+  // Tier gratuit : plafond de favoris (levier d'upsell). Premium → null = illimité.
+  const showLimit = favoritesLimit != null;
+  const atLimit = favoritesLimit != null && favorites.length >= favoritesLimit;
 
   const channels = useMemo(
     () => favorites.filter((f) => f.type === 'live'),
@@ -72,10 +77,33 @@ export function Favorites() {
           <p className={styles.pageSub}>
             {loading
               ? t('common.loading')
-              : tc('favorites.countOne', 'favorites.countOther', favorites.length)}
+              : showLimit
+                ? t('favorites.limitNote', { count: favorites.length, max: favoritesLimit ?? 0 })
+                : tc('favorites.countOne', 'favorites.countOther', favorites.length)}
           </p>
         </div>
       </header>
+
+      {/* Bannière d'upsell — tier gratuit uniquement. Toujours visible (rappel
+          de la limite) ; emphase dorée renforcée une fois le plafond atteint. */}
+      {showLimit && !loading && (
+        <button
+          type="button"
+          className={`${fav.limitCta} ${atLimit ? fav.limitCtaFull : ''}`}
+          onClick={() => navigate('/premium')}
+        >
+          <span className={fav.limitCtaIcon}>
+            <IconLock size={20} />
+          </span>
+          <span className={fav.limitCtaBody}>
+            <span className={fav.limitCtaTitle}>{t('favorites.limitTitle')}</span>
+            <span className={fav.limitCtaText}>
+              {t('favorites.limitText', { max: favoritesLimit ?? 0 })}
+            </span>
+          </span>
+          <span className={fav.limitCtaBtn}>{t('favorites.limitBtn')}</span>
+        </button>
+      )}
 
       {loading && (
         <div className={styles.gridLoading}>

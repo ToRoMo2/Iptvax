@@ -19,6 +19,8 @@ import { SocialProvider } from './contexts/SocialContext';
 import { PremiumOnly } from './components/PremiumOnly';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
+import { PremiumTeaseBar } from './components/PremiumTeaseBar';
+import { FavoriteLimitToast } from './components/FavoriteLimitToast';
 import { RemoteControl } from './components/RemoteControl';
 import { AppLogo } from './components/AppLogo';
 import { Login } from './pages/Login';
@@ -182,6 +184,9 @@ function Shell() {
           </Routes>
           </Suspense>
         </main>
+        {/* Upsell ancré (tier gratuit uniquement, auto-masqués si Premium) */}
+        <PremiumTeaseBar />
+        <FavoriteLimitToast />
       </div>
     </div>
   );
