@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -6,6 +6,18 @@ import { useI18n } from '../contexts/I18nContext';
 import type { TranslationKey } from '../i18n';
 import { AppLogo } from '../components/AppLogo';
 import { Focusable } from '../components/Focusable';
+import {
+  IconCheckCircle,
+  IconAlert,
+  IconLock,
+  IconShield,
+  IconUsers,
+  IconCloud,
+  IconFilm,
+  IconGlobe,
+  IconImage,
+  IconBolt,
+} from '../components/PremiumIcons';
 import {
   PLAN_OPTIONS,
   type PlanInterval,
@@ -25,13 +37,15 @@ const PLAN_I18N: Record<
   monthly: { labelKey: 'premium.planMonthly', periodKey: 'premium.periodMonth' },
 };
 
-const PERKS_I18N: { icon: string; titleKey: TranslationKey; descKey: TranslationKey }[] = [
-  { icon: '👥', titleKey: 'premium.perkProfilesTitle', descKey: 'premium.perkProfilesDesc' },
-  { icon: '☁️', titleKey: 'premium.perkSyncTitle', descKey: 'premium.perkSyncDesc' },
-  { icon: '🎬', titleKey: 'premium.perkCineTitle', descKey: 'premium.perkCineDesc' },
-  { icon: '🌐', titleKey: 'premium.perkCommunityTitle', descKey: 'premium.perkCommunityDesc' },
-  { icon: '🖼️', titleKey: 'premium.perkVisualsTitle', descKey: 'premium.perkVisualsDesc' },
-  { icon: '⚡', titleKey: 'premium.perkSupportTitle', descKey: 'premium.perkSupportDesc' },
+type IconCmp = ComponentType<{ size?: number; className?: string }>;
+
+const PERKS_I18N: { Icon: IconCmp; titleKey: TranslationKey; descKey: TranslationKey }[] = [
+  { Icon: IconUsers, titleKey: 'premium.perkProfilesTitle', descKey: 'premium.perkProfilesDesc' },
+  { Icon: IconCloud, titleKey: 'premium.perkSyncTitle', descKey: 'premium.perkSyncDesc' },
+  { Icon: IconFilm, titleKey: 'premium.perkCineTitle', descKey: 'premium.perkCineDesc' },
+  { Icon: IconGlobe, titleKey: 'premium.perkCommunityTitle', descKey: 'premium.perkCommunityDesc' },
+  { Icon: IconImage, titleKey: 'premium.perkVisualsTitle', descKey: 'premium.perkVisualsDesc' },
+  { Icon: IconBolt, titleKey: 'premium.perkSupportTitle', descKey: 'premium.perkSupportDesc' },
 ];
 
 interface Props {
@@ -44,17 +58,28 @@ interface Props {
 const PREMIUM_PUBLIC_URL =
   (import.meta.env.VITE_PREMIUM_URL as string | undefined)?.replace(/\/$/, '') || '';
 
+// Combien de fois (× 2 s) on sonde l'abonnement après le retour de Stripe avant
+// d'afficher l'état « activation à confirmer ». Le webhook met 1–2 s en général ;
+// on laisse une marge confortable avant de proposer un nouvel essai.
+const ACTIVATION_POLL_MAX = 10;
+
 export function Premium({ lockedFeature, onBack }: Props) {
   const { isPremium, subscription, startCheckout, refresh } = useSubscription();
   const { t, fmtDate } = useI18n();
   const fmtD = (ms: number | null): string => (ms ? fmtDate(ms) : '—');
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const [plan, setPlan] = useState<PlanInterval>('yearly');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  const [activationFailed, setActivationFailed] = useState(false);
 
   const checkoutStatus = params.get('status'); // 'success' | 'cancel' | null
+
+  // `isPremium` lu dans les callbacks de polling (sinon valeur figée à la
+  // fermeture du closure).
+  const isPremiumRef = useRef(isPremium);
+  isPremiumRef.current = isPremium;
 
   // QR → ouvre /premium sur le téléphone (paiement difficile sur TV).
   useEffect(() => {
@@ -68,20 +93,49 @@ export function Premium({ lockedFeature, onBack }: Props) {
       .catch(() => setQr(null));
   }, []);
 
-  // Retour de Stripe : on sonde l'abonnement jusqu'au déblocage (le webhook
-  // peut prendre 1–2 s ; le Realtime couvre aussi, ceci est un filet).
+  // Relance complète de l'app sur la racine : re-bootstrappe tous les contextes
+  // (abonnement, profils, bibliothèque…) → l'utilisateur entre directement avec
+  // son compte Premium, sans relancer l'app à la main. `BASE_URL` vaut `/` sur
+  // le web et `./` sur les builds natifs.
+  const relaunch = useCallback(() => {
+    window.location.replace(import.meta.env.BASE_URL || '/');
+  }, []);
+
+  // Retour de Stripe : on sonde l'abonnement jusqu'au déblocage (le webhook met
+  // 1–2 s ; le Realtime couvre aussi, ceci est un filet). Si rien ne bascule au
+  // bout de ~20 s → état « activation à confirmer » avec bouton Réessayer.
   const polling = useRef(false);
-  useEffect(() => {
-    if (checkoutStatus !== 'success' || isPremium || polling.current) return;
+  const startPolling = useCallback(() => {
+    if (polling.current) return;
     polling.current = true;
+    setActivationFailed(false);
     let tries = 0;
     const tick = async () => {
+      if (isPremiumRef.current) { polling.current = false; return; }
       tries += 1;
       await refresh();
-      if (tries < 8) setTimeout(() => void tick(), 2000);
+      if (isPremiumRef.current) { polling.current = false; return; }
+      if (tries >= ACTIVATION_POLL_MAX) {
+        polling.current = false;
+        setActivationFailed(true);
+        return;
+      }
+      setTimeout(() => void tick(), 2000);
     };
     void tick();
-  }, [checkoutStatus, isPremium, refresh]);
+  }, [refresh]);
+
+  useEffect(() => {
+    if (checkoutStatus === 'success' && !isPremium) startPolling();
+  }, [checkoutStatus, isPremium, startPolling]);
+
+  // Dès que l'abonnement bascule Premium sur l'écran de confirmation, on relance
+  // l'app après une courte pause (le temps de montrer le « Bienvenue »).
+  useEffect(() => {
+    if (checkoutStatus !== 'success' || !isPremium) return;
+    const id = setTimeout(relaunch, 1600);
+    return () => clearTimeout(id);
+  }, [checkoutStatus, isPremium, relaunch]);
 
   const handleSubscribe = async () => {
     setError(null);
@@ -93,11 +147,6 @@ export function Premium({ lockedFeature, onBack }: Props) {
       setError(e instanceof Error ? e.message : t('premium.unavailable'));
       setBusy(false);
     }
-  };
-
-  const clearStatus = () => {
-    params.delete('status');
-    setParams(params, { replace: true });
   };
 
   const header = (
@@ -118,7 +167,10 @@ export function Premium({ lockedFeature, onBack }: Props) {
     return (
       <div className={styles.screen}>
         {header}
-        <div className={styles.activeCard}>
+        <div className={`${styles.statusCard} ${styles.statusOk}`}>
+          <div className={`${styles.statusIcon} ${styles.iconOk}`}>
+            <IconCheckCircle size={40} />
+          </div>
           <div className={styles.activeBadge}>{t('premium.subActive')}</div>
           <h1 className={styles.title}>{t('premium.youArePremium')}</h1>
           <p className={styles.sub}>
@@ -138,9 +190,10 @@ export function Premium({ lockedFeature, onBack }: Props) {
             )}
           </p>
           <div className={styles.perksMini}>
-            {PERKS_I18N.map((p) => (
-              <span key={p.titleKey} className={styles.perkChip}>
-                {p.icon} {t(p.titleKey)}
+            {PERKS_I18N.map(({ Icon, titleKey }) => (
+              <span key={titleKey} className={styles.perkChip}>
+                <Icon size={15} />
+                {t(titleKey)}
               </span>
             ))}
           </div>
@@ -151,29 +204,73 @@ export function Premium({ lockedFeature, onBack }: Props) {
 
   /* ── Confirmation paiement ──────────────────────────────────────────── */
   if (checkoutStatus === 'success') {
+    // 1) Succès : compte activé → on montre le « Bienvenue » puis relance auto.
+    if (isPremium) {
+      return (
+        <div className={styles.screen}>
+          {header}
+          <div className={`${styles.statusCard} ${styles.statusOk}`}>
+            <div className={`${styles.statusIcon} ${styles.iconOk}`}>
+              <IconCheckCircle size={44} />
+            </div>
+            <div className={styles.activeBadge}>{t('premium.paymentConfirmed')}</div>
+            <h1 className={styles.title}>{t('premium.welcome')}</h1>
+            <p className={styles.sub}>{t('premium.unlockedAll')}</p>
+            <div className={styles.spinnerRow}>
+              <AppLogo spin size={20} />
+              <span>{t('premium.openingPremium')}</span>
+            </div>
+            <Focusable
+              className={`btn btn-primary ${styles.cta}`}
+              onEnter={relaunch}
+              onClick={relaunch}
+            >
+              {t('premium.enterPremium')}
+            </Focusable>
+          </div>
+        </div>
+      );
+    }
+
+    // 2) Échec/délai : rien n'a basculé après le polling → on l'affiche.
+    if (activationFailed) {
+      return (
+        <div className={styles.screen}>
+          {header}
+          <div className={`${styles.statusCard} ${styles.statusWarn}`}>
+            <div className={`${styles.statusIcon} ${styles.iconWarn}`}>
+              <IconAlert size={44} />
+            </div>
+            <div className={`${styles.activeBadge} ${styles.badgeWarn}`}>
+              {t('premium.activationPending')}
+            </div>
+            <h1 className={styles.title}>{t('premium.activationFailedTitle')}</h1>
+            <p className={styles.sub}>{t('premium.activationFailedDesc')}</p>
+            <div className={styles.statusActions}>
+              <Focusable
+                className={`btn btn-primary ${styles.cta}`}
+                onEnter={startPolling}
+                onClick={startPolling}
+              >
+                {t('premium.retry')}
+              </Focusable>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 3) En cours : on sonde l'abonnement.
     return (
       <div className={styles.screen}>
         {header}
-        <div className={styles.activeCard}>
-          <div className={styles.activeBadge}>
-            {isPremium ? t('premium.paymentConfirmed') : t('premium.activating')}
+        <div className={styles.statusCard}>
+          <div className={styles.statusIcon}>
+            <AppLogo spin size={40} />
           </div>
-          <h1 className={styles.title}>
-            {isPremium ? t('premium.welcome') : t('premium.paymentReceived')}
-          </h1>
-          <p className={styles.sub}>
-            {isPremium ? t('premium.unlockedAll') : t('premium.activatingDesc')}
-          </p>
-          {isPremium && (
-            <Focusable
-              className={`btn btn-primary ${styles.cta}`}
-              onEnter={clearStatus}
-              onClick={clearStatus}
-            >
-              {t('premium.continue')}
-            </Focusable>
-          )}
-          {!isPremium && <AppLogo spin size={28} />}
+          <div className={styles.activeBadge}>{t('premium.activating')}</div>
+          <h1 className={styles.title}>{t('premium.paymentReceived')}</h1>
+          <p className={styles.sub}>{t('premium.activatingDesc')}</p>
         </div>
       </div>
     );
@@ -184,14 +281,12 @@ export function Premium({ lockedFeature, onBack }: Props) {
 
   return (
     <div className={styles.screen}>
-      <div className={styles.brand}>
-        <AppLogo size={26} />
-        IPTVAX <span className={styles.plus}>Premium</span>
-      </div>
+      {header}
 
       <div className={styles.hero}>
         {lockedFeature && (
           <div className={styles.eyebrow}>
+            <IconLock size={15} />
             {t('premium.lockedFeature', { feature: lockedFeature })}
           </div>
         )}
@@ -245,7 +340,10 @@ export function Premium({ lockedFeature, onBack }: Props) {
             )}
           </Focusable>
 
-          <p className={styles.secure}>{t('premium.secure')}</p>
+          <p className={styles.secure}>
+            <IconShield size={15} />
+            {t('premium.secure')}
+          </p>
 
           {/* ── QR TV ── */}
           {qr && (
@@ -261,12 +359,14 @@ export function Premium({ lockedFeature, onBack }: Props) {
 
         {/* ── Avantages ── */}
         <div className={styles.perks}>
-          {PERKS_I18N.map((p) => (
-            <div key={p.titleKey} className={styles.perk}>
-              <span className={styles.perkIcon}>{p.icon}</span>
+          {PERKS_I18N.map(({ Icon, titleKey, descKey }) => (
+            <div key={titleKey} className={styles.perk}>
+              <span className={styles.perkIcon}>
+                <Icon size={22} />
+              </span>
               <div className={styles.perkText}>
-                <span className={styles.perkTitle}>{t(p.titleKey)}</span>
-                <span className={styles.perkDesc}>{t(p.descKey)}</span>
+                <span className={styles.perkTitle}>{t(titleKey)}</span>
+                <span className={styles.perkDesc}>{t(descKey)}</span>
               </div>
             </div>
           ))}

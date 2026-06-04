@@ -434,22 +434,29 @@ const fr = {
   premium: {
     premium: 'Premium',
     back: 'Retour',
-    subActive: '✓ Abonnement actif',
+    subActive: 'Abonnement actif',
     youArePremium: 'Vous êtes Premium',
     planActive: 'Abonnement actif',
     planFmt: 'Formule {plan}',
     endsOn: 'se termine le ',
     renewsOn: 'renouvellement le ',
-    paymentConfirmed: '✓ Paiement confirmé',
-    activating: '⏳ Activation en cours…',
+    paymentConfirmed: 'Paiement confirmé',
+    activating: 'Activation en cours',
     welcome: 'Bienvenue chez Premium !',
     paymentReceived: 'Paiement reçu',
     unlockedAll:
-      'Toutes les fonctionnalités Premium sont débloquées sur cet appareil et tous les autres.',
+      'Votre compte est activé. Toutes les fonctionnalités Premium sont débloquées sur cet appareil et sur tous les autres.',
     activatingDesc:
-      'Nous activons votre compte… cela prend quelques secondes. Cette page se met à jour automatiquement.',
+      'Nous activons votre compte… cela ne prend que quelques secondes. Cette page se met à jour toute seule.',
     continue: 'Continuer',
-    lockedFeature: '🔒 {feature} est réservé aux membres Premium',
+    openingPremium: 'Ouverture de votre espace Premium…',
+    enterPremium: 'Entrer maintenant',
+    activationPending: 'Activation à confirmer',
+    activationFailedTitle: 'Activation non confirmée',
+    activationFailedDesc:
+      "Votre paiement a peut-être été refusé ou n'est pas encore confirmé. Si vous avez bien été débité, l'accès se débloquera sous peu — réessayez dans un instant.",
+    retry: 'Réessayer',
+    lockedFeature: '{feature} est réservé aux membres Premium',
     unlockAll: 'Débloquez tout IPTVAX',
     pitch:
       'Profils illimités, synchronisation sur tous vos appareils, votre mur de cinéma personnel et bien plus. Annulable à tout moment.',
@@ -457,7 +464,7 @@ const fr = {
     subscribe: "S'abonner — {price} {period}",
     redirecting: 'Redirection vers le paiement…',
     secure:
-      '🔒 Paiement sécurisé par Stripe · Sans engagement · Résiliable en 1 clic',
+      'Paiement sécurisé par Stripe · Sans engagement · Résiliable en 1 clic',
     onTv: 'Vous êtes sur une TV ?',
     scanQr:
       'Scannez ce code avec votre téléphone pour payer facilement. Le déblocage est instantané sur la TV.',

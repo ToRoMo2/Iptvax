@@ -18,6 +18,16 @@
   display: none;
 }
 
+/* Site vitrine : le header sticky (`HeaderVitrine`) fournit déjà la marque →
+   on masque la marque interne (sinon double en-tête) et on dégage le haut de
+   la hauteur du header. */
+:global(.vitrine) .screen {
+  padding-top: calc(var(--topnav-h) + 24px);
+}
+:global(.vitrine) .brand {
+  display: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -57,7 +67,9 @@
   max-width: 720px;
 }
 .eyebrow {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 13px;
   font-weight: 600;
   color: var(--accent);
@@ -171,11 +183,16 @@
   gap: 10px;
 }
 .secure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   font-size: 12.5px;
   color: var(--t-3);
   text-align: center;
   margin: 0;
 }
+.secure svg { color: var(--accent); flex-shrink: 0; }
 .error {
   font-size: 14px;
   color: var(--t-1);
@@ -227,9 +244,16 @@
   border-radius: var(--r-card);
 }
 .perkIcon {
-  font-size: 24px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
+  color: var(--accent);
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--r-card);
 }
 .perkText {
   display: flex;
@@ -247,19 +271,52 @@
   line-height: 1.45;
 }
 
-/* ── Déjà Premium / confirmation ── */
-.activeCard {
+/* ── Déjà Premium / confirmation / activation ── */
+.statusCard {
   max-width: 560px;
+  margin: clamp(4px, 3vh, 40px) auto 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 14px;
-  padding: 36px;
+  padding: clamp(28px, 5vw, 44px) clamp(24px, 5vw, 40px);
   background: var(--bg-card);
-  border: 1px solid var(--accent-glow);
+  border: 1px solid var(--line);
   border-radius: var(--radius-xl);
 }
+.statusCard .title { margin: 0; }
+.statusCard .sub { max-width: 42ch; }
+.statusOk { border-color: var(--accent-glow); }
+.statusWarn { border-color: var(--line-strong); }
+
+/* Médaillon d'icône en tête de carte. */
+.statusIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  color: var(--t-2);
+}
+.iconOk {
+  color: var(--accent);
+  background: var(--accent-faint);
+  border-color: var(--accent-glow);
+}
+.iconWarn {
+  color: #f5b54a;
+  background: rgba(245, 181, 74, 0.12);
+  border-color: rgba(245, 181, 74, 0.4);
+}
+
 .activeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
@@ -268,13 +325,42 @@
   padding: 6px 14px;
   border-radius: var(--r-pill);
 }
+.badgeWarn {
+  color: #f5b54a;
+  background: rgba(245, 181, 74, 0.12);
+  border-color: rgba(245, 181, 74, 0.4);
+}
+
+/* Ligne « Ouverture de votre espace… » sous le titre de succès. */
+.spinnerRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--t-3);
+}
+
+.statusActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 6px;
+}
+.statusCard .cta { margin-top: 6px; max-width: 320px; }
+
 .perksMini {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .perkChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12.5px;
   color: var(--t-2);
   background: var(--bg-elev);
@@ -282,6 +368,7 @@
   padding: 5px 12px;
   border-radius: var(--r-pill);
 }
+.perkChip svg { color: var(--accent); flex-shrink: 0; }
 
 /* ====================================================================
    Responsive
@@ -301,5 +388,6 @@
   .tvBox { flex-direction: column; align-items: flex-start; padding: 14px; gap: 12px; }
   .qr { align-self: center; }
 
-  .activeCard { padding: 24px; gap: 12px; max-width: 100%; }
+  .statusCard { padding: 28px 20px; gap: 12px; max-width: 100%; }
+  .statusIcon { width: 68px; height: 68px; }
 }

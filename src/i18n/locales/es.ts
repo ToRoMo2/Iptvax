@@ -431,22 +431,29 @@ const es: typeof frDict = {
   premium: {
     premium: 'Premium',
     back: 'Volver',
-    subActive: '✓ Suscripción activa',
+    subActive: 'Suscripción activa',
     youArePremium: 'Eres Premium',
     planActive: 'Suscripción activa',
     planFmt: 'Plan {plan}',
     endsOn: 'termina el ',
     renewsOn: 'se renueva el ',
-    paymentConfirmed: '✓ Pago confirmado',
-    activating: '⏳ Activando…',
+    paymentConfirmed: 'Pago confirmado',
+    activating: 'Activando',
     welcome: '¡Bienvenido a Premium!',
     paymentReceived: 'Pago recibido',
     unlockedAll:
-      'Todas las funciones Premium están desbloqueadas en este dispositivo y en todos los demás.',
+      'Tu cuenta está activa. Todas las funciones Premium están desbloqueadas en este dispositivo y en todos los demás.',
     activatingDesc:
-      'Estamos activando tu cuenta… tarda unos segundos. Esta página se actualiza automáticamente.',
+      'Estamos activando tu cuenta… solo tarda unos segundos. Esta página se actualiza sola.',
     continue: 'Continuar',
-    lockedFeature: '🔒 {feature} está reservado a los miembros Premium',
+    openingPremium: 'Abriendo tu espacio Premium…',
+    enterPremium: 'Entrar ahora',
+    activationPending: 'Activación por confirmar',
+    activationFailedTitle: 'Activación no confirmada',
+    activationFailedDesc:
+      'Es posible que tu pago haya sido rechazado o que aún no esté confirmado. Si se te ha cobrado, el acceso se desbloqueará en breve — vuelve a intentarlo en un momento.',
+    retry: 'Reintentar',
+    lockedFeature: '{feature} está reservado a los miembros Premium',
     unlockAll: 'Desbloquea todo IPTVAX',
     pitch:
       'Perfiles ilimitados, sincronización en todos tus dispositivos, tu muro de cine personal y mucho más. Cancela cuando quieras.',
@@ -454,7 +461,7 @@ const es: typeof frDict = {
     subscribe: 'Suscribirse — {price} {period}',
     redirecting: 'Redirigiendo al pago…',
     secure:
-      '🔒 Pago seguro con Stripe · Sin compromiso · Cancela en 1 clic',
+      'Pago seguro con Stripe · Sin compromiso · Cancela en 1 clic',
     onTv: '¿Estás en una TV?',
     scanQr:
       'Escanea este código con tu teléfono para pagar fácilmente. El desbloqueo es instantáneo en la TV.',
