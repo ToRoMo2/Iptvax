@@ -453,6 +453,8 @@ const en: typeof frDict = {
     activationFailedDesc:
       'Your payment may have been declined or is not confirmed yet. If you were charged, access will unlock shortly — try again in a moment.',
     retry: 'Try again',
+    returnToAppDesc:
+      'Your payment was received. Return to the IPTVAX app to enjoy your Premium subscription — you can close this tab.',
     lockedFeature: '{feature} is reserved for Premium members',
     unlockAll: 'Unlock all of IPTVAX',
     pitch:

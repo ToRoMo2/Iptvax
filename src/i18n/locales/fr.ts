@@ -456,6 +456,8 @@ const fr = {
     activationFailedDesc:
       "Votre paiement a peut-être été refusé ou n'est pas encore confirmé. Si vous avez bien été débité, l'accès se débloquera sous peu — réessayez dans un instant.",
     retry: 'Réessayer',
+    returnToAppDesc:
+      "Votre paiement a bien été reçu. Retournez dans l'application IPTVAX pour profiter de votre abonnement Premium — vous pouvez fermer cet onglet.",
     lockedFeature: '{feature} est réservé aux membres Premium',
     unlockAll: 'Débloquez tout IPTVAX',
     pitch:
