@@ -39,29 +39,50 @@ export function IptvProfileProvider({ children }: { children: ReactNode }) {
   const [activeProfile, setActiveProfile] = useState<IptvProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Charge la liste des profils du compte au démarrage
+  // Charge la liste des profils du compte au démarrage. ⚠ On retente jusqu'au
+  // succès sans JAMAIS committer une liste vide issue d'une ERREUR : sinon une
+  // erreur transitoire (réseau, JWT pas encore propagé juste après une connexion
+  // mail/Google) ferait croire que le compte n'a aucun profil → l'app router­ait
+  // droit vers la création de profil (l'utilisateur devait relancer l'app). Une
+  // liste vide n'est committée QUE si la requête a réellement abouti.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    setLoading(true);
 
     (async () => {
-      const { data } = await supabase
-        .from('iptv_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
+      let attempt = 0;
+      while (!cancelled) {
+        const { data, error } = await supabase
+          .from('iptv_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
 
-      if (cancelled) return;
-      const list = (data ?? []) as IptvProfile[];
-      setProfiles(list);
+        if (cancelled) return;
 
-      // Restaure le profil actif persisté sur cet appareil
-      const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
-      const restored = savedId ? list.find((p) => p.id === savedId) ?? null : null;
-      if (restored) {
-        setActiveProfile(restored);
+        if (!error) {
+          // Requête aboutie : `data` (même vide) reflète vraiment le compte.
+          const list = (data ?? []) as IptvProfile[];
+          setProfiles(list);
+
+          // Restaure le profil actif persisté sur cet appareil
+          const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+          const restored = savedId ? list.find((p) => p.id === savedId) ?? null : null;
+          if (restored) {
+            setActiveProfile(restored);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Erreur transitoire : on retente (backoff plafonné à 10s) ; `loading`
+        // reste vrai → l'UI reste sur l'écran de chargement des profils, jamais
+        // sur la création.
+        attempt += 1;
+        const wait = Math.min(10000, 1000 * 2 ** Math.min(attempt, 4));
+        await new Promise<void>((r) => setTimeout(r, wait));
       }
-      setLoading(false);
     })();
 
     return () => {
