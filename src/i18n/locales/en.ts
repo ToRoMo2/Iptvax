@@ -36,6 +36,7 @@ const en: typeof frDict = {
     profileConnectFail: 'Unable to connect to the profile “{name}”.',
     checkCredentials: 'Check this profile’s IPTV credentials.',
     serverTemporaryError: 'IPTV server temporarily unavailable. Please retry in a moment.',
+    routeLoadError: 'This section failed to load (unstable connection).',
     changeProfile: 'Switch profile',
   },
   nav: {

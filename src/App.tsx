@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, lazy, Suspense } from 'react';
+import { useEffect, useLayoutEffect, Suspense } from 'react';
 import {
   BrowserRouter,
   HashRouter,
@@ -17,6 +17,8 @@ import { LibraryProvider } from './contexts/LibraryContext';
 import { RatingsProvider } from './contexts/RatingsContext';
 import { SocialProvider } from './contexts/SocialContext';
 import { PremiumOnly } from './components/PremiumOnly';
+import { RouteErrorBoundary } from './components/RouteErrorBoundary';
+import { lazyWithRetry, clearChunkReloadFlags } from './lib/lazyWithRetry';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
 import { PremiumTeaseBar } from './components/PremiumTeaseBar';
@@ -44,24 +46,28 @@ import './styles/app.css';
 // (Capacitor) les chunks sont locaux → chargement quasi instantané ; sur web,
 // le bundle initial fond nettement. Les exports étant nommés, chaque `import()`
 // remappe l'export voulu sur `default` (typage exact préservé → props OK).
-const Player = lazy(() => import('./pages/Player').then((m) => ({ default: m.Player })));
-const SeriesDetail = lazy(() => import('./pages/SeriesDetail').then((m) => ({ default: m.SeriesDetail })));
-const MovieDetail = lazy(() => import('./pages/MovieDetail').then((m) => ({ default: m.MovieDetail })));
-const Search = lazy(() => import('./pages/Search').then((m) => ({ default: m.Search })));
-const Favorites = lazy(() => import('./pages/Favorites').then((m) => ({ default: m.Favorites })));
-const Community = lazy(() => import('./pages/Community').then((m) => ({ default: m.Community })));
-const MemberCine = lazy(() => import('./pages/MemberCine').then((m) => ({ default: m.MemberCine })));
-const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
-const Premium = lazy(() => import('./pages/Premium').then((m) => ({ default: m.Premium })));
-const Watched = lazy(() => import('./pages/Watched').then((m) => ({ default: m.Watched })));
+// `lazyWithRetry` (au lieu de `React.lazy` nu) : un échec de fetch de chunk
+// (réseau mobile flaky, chunk périmé après déploiement) est réessayé au lieu
+// d'être mis en cache définitivement → corrige les onglets « Ma liste » /
+// « Mon ciné » qui devenaient inertes jusqu'au redémarrage de l'app.
+const Player = lazyWithRetry(() => import('./pages/Player').then((m) => ({ default: m.Player })), 'Player');
+const SeriesDetail = lazyWithRetry(() => import('./pages/SeriesDetail').then((m) => ({ default: m.SeriesDetail })), 'SeriesDetail');
+const MovieDetail = lazyWithRetry(() => import('./pages/MovieDetail').then((m) => ({ default: m.MovieDetail })), 'MovieDetail');
+const Search = lazyWithRetry(() => import('./pages/Search').then((m) => ({ default: m.Search })), 'Search');
+const Favorites = lazyWithRetry(() => import('./pages/Favorites').then((m) => ({ default: m.Favorites })), 'Favorites');
+const Community = lazyWithRetry(() => import('./pages/Community').then((m) => ({ default: m.Community })), 'Community');
+const MemberCine = lazyWithRetry(() => import('./pages/MemberCine').then((m) => ({ default: m.MemberCine })), 'MemberCine');
+const Settings = lazyWithRetry(() => import('./pages/Settings').then((m) => ({ default: m.Settings })), 'Settings');
+const Premium = lazyWithRetry(() => import('./pages/Premium').then((m) => ({ default: m.Premium })), 'Premium');
+const Watched = lazyWithRetry(() => import('./pages/Watched').then((m) => ({ default: m.Watched })), 'Watched');
 // ── Vitrine (site web marketing, Phase 5) ─────────────────────────────────
-const VitrineLayout = lazy(() => import('./components/vitrine/VitrineLayout').then((m) => ({ default: m.VitrineLayout })));
-const HomeVitrine = lazy(() => import('./pages/vitrine/HomeVitrine').then((m) => ({ default: m.HomeVitrine })));
-const Downloads = lazy(() => import('./pages/vitrine/Downloads').then((m) => ({ default: m.Downloads })));
-const SettingsVitrine = lazy(() => import('./pages/vitrine/SettingsVitrine').then((m) => ({ default: m.SettingsVitrine })));
-const MentionsLegales = lazy(() => import('./pages/vitrine/MentionsLegales').then((m) => ({ default: m.MentionsLegales })));
-const CGV = lazy(() => import('./pages/vitrine/CGV').then((m) => ({ default: m.CGV })));
-const Confidentialite = lazy(() => import('./pages/vitrine/Confidentialite').then((m) => ({ default: m.Confidentialite })));
+const VitrineLayout = lazyWithRetry(() => import('./components/vitrine/VitrineLayout').then((m) => ({ default: m.VitrineLayout })), 'VitrineLayout');
+const HomeVitrine = lazyWithRetry(() => import('./pages/vitrine/HomeVitrine').then((m) => ({ default: m.HomeVitrine })), 'HomeVitrine');
+const Downloads = lazyWithRetry(() => import('./pages/vitrine/Downloads').then((m) => ({ default: m.Downloads })), 'Downloads');
+const SettingsVitrine = lazyWithRetry(() => import('./pages/vitrine/SettingsVitrine').then((m) => ({ default: m.SettingsVitrine })), 'SettingsVitrine');
+const MentionsLegales = lazyWithRetry(() => import('./pages/vitrine/MentionsLegales').then((m) => ({ default: m.MentionsLegales })), 'MentionsLegales');
+const CGV = lazyWithRetry(() => import('./pages/vitrine/CGV').then((m) => ({ default: m.CGV })), 'CGV');
+const Confidentialite = lazyWithRetry(() => import('./pages/vitrine/Confidentialite').then((m) => ({ default: m.Confidentialite })), 'Confidentialite');
 
 function LoadingScreen({ label }: { label: string }) {
   return (
@@ -127,12 +133,17 @@ function AppContent() {
   }
 
   return (
+    <RouteErrorBoundary
+      message={t('app.routeLoadError')}
+      retryLabel={t('common.retry')}
+    >
     <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
       <Routes>
         <Route path="/player" element={<Player />} />
         <Route path="*" element={<Shell />} />
       </Routes>
     </Suspense>
+    </RouteErrorBoundary>
   );
 }
 
@@ -150,6 +161,9 @@ function ScrollToTop() {
 
 function Shell() {
   const { t } = useI18n();
+  // Une route a fini par se monter → on purge les marqueurs de reload pour
+  // qu'un futur échec (nouveau déploiement) puisse de nouveau recharger.
+  useEffect(() => { clearChunkReloadFlags(); }, []);
   return (
     <div className="app-shell">
       <div className="layout">
@@ -157,6 +171,10 @@ function Shell() {
         <TopNav />
         <ScrollToTop />
         <main className="main-content">
+          <RouteErrorBoundary
+            message={t('app.routeLoadError')}
+            retryLabel={t('common.retry')}
+          >
           <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -183,6 +201,7 @@ function Shell() {
             <Route path="/premium" element={<Premium />} />
           </Routes>
           </Suspense>
+          </RouteErrorBoundary>
         </main>
         {/* Upsell ancré (tier gratuit uniquement, auto-masqués si Premium) */}
         <PremiumTeaseBar />
