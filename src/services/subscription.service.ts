@@ -28,16 +28,38 @@ function rowToSub(r: SubscriptionRow): Subscription {
 
 const FUNCTIONS_BASE = `${(import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '')}/functions/v1`;
 
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export const subscriptionService = {
-  /** Lit l'abonnement du compte. Absence de ligne → tier gratuit. */
+  /**
+   * Lit l'abonnement du compte. ⚠ Distingue STRICTEMENT « pas de ligne »
+   * (tier gratuit légitime) d'une « erreur de lecture » :
+   * `maybeSingle()` renvoie `data:null, error:null` quand il n'y a pas de
+   * ligne — donc une `error` non nulle est TOUJOURS un aléa transitoire
+   * (réseau, JWT pas encore propagé juste après connexion/changement de
+   * compte, RLS le temps que la session s'établisse). On retente ces erreurs ;
+   * un échec persistant est PROPAGÉ (jamais transformé en « gratuit »
+   * silencieux). Sans ça, un membre payant bascule sur l'UI gratuite au
+   * moindre hoquet réseau et doit relancer l'app pour récupérer son Premium.
+   */
   async get(userId: string): Promise<Subscription> {
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('status, plan, current_period_end, cancel_at_period_end')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error || !data) return FREE;
-    return rowToSub(data as SubscriptionRow);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('status, plan, current_period_end, cancel_at_period_end')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!error) {
+        // Requête aboutie : `null` = aucune ligne = tier gratuit légitime.
+        return data ? rowToSub(data as SubscriptionRow) : FREE;
+      }
+      lastError = error;
+      if (attempt < 3) await delay(400 * 2 ** attempt); // 400ms, 800ms, 1.6s
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Lecture de l'abonnement impossible");
   },
 
   /**
