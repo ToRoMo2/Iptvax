@@ -64,29 +64,54 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return false;
     }
-    const sub = await subscriptionService.get(userId);
-    setSubscription(sub);
-    setLoading(false);
-    return computeIsPremium(sub);
+    try {
+      const sub = await subscriptionService.get(userId);
+      setSubscription(sub);
+      setLoading(false);
+      return computeIsPremium(sub);
+    } catch {
+      // Échec persistant : on NE rétrograde PAS en gratuit (un membre payant
+      // ne doit pas perdre son Premium sur un aléa réseau). On garde l'état
+      // courant ; le caller (polling / Realtime) retentera.
+      return false;
+    }
   }, [userId]);
 
   const load = useCallback(async () => {
     await fetchAndApply();
   }, [fetchAndApply]);
 
+  // Chargement initial / changement de compte. On retente jusqu'au succès
+  // (backoff plafonné) tant que l'utilisateur est connecté, sans JAMAIS
+  // committer un état « gratuit » issu d'une erreur : c'est ce qui évite
+  // qu'un membre payant se retrouve sur l'UI gratuite après un hoquet réseau
+  // (avant ce correctif il devait relancer l'app). `loading` reste vrai tant
+  // qu'aucune réponse fiable n'est obtenue → gating optimiste (cf. PremiumOnly).
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    if (!userId) {
+      setSubscription(FREE);
+      setLoading(false);
+      return;
+    }
     (async () => {
-      if (!userId) {
-        setSubscription(FREE);
-        setLoading(false);
-        return;
-      }
-      const sub = await subscriptionService.get(userId);
-      if (!cancelled) {
-        setSubscription(sub);
-        setLoading(false);
+      let attempt = 0;
+      while (!cancelled) {
+        try {
+          const sub = await subscriptionService.get(userId);
+          if (cancelled) return;
+          setSubscription(sub);
+          setLoading(false);
+          return;
+        } catch {
+          // Le service a déjà retenté ses propres aléas (cf. subscription.service)
+          // et abandonné : on patiente (backoff plafonné à 10s) puis on retente.
+          // On ne lâche pas tant que la session est active ; `loading` reste vrai.
+          attempt += 1;
+          const wait = Math.min(10000, 1000 * 2 ** Math.min(attempt, 4));
+          await new Promise<void>((r) => setTimeout(r, wait));
+        }
       }
     })();
     return () => {
