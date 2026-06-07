@@ -77,23 +77,53 @@ function AppContent() {
   const { activeProfile, clearActiveProfile } = useIptvProfile();
   const { t } = useI18n();
 
-  // Préchauffage du lecteur pendant l'inactivité : le chunk Player (avec
-  // hls.js + mpegts.js, ~225 Ko gzip) est exclu du bundle initial (§lazy).
-  // On le charge en arrière-plan une fois l'app interactive → quand
-  // l'utilisateur lance une lecture, le code est déjà en cache (démarrage
-  // instantané) sans avoir alourdi le démarrage de l'app.
+  // Préchauffage des routes lazy pendant l'inactivité. Les chunks secondaires
+  // (Player, fiches détail, recherche, favoris) sont exclus du bundle initial
+  // (§lazy) → au PREMIER clic, le navigateur doit télécharger + parser le chunk,
+  // d'où le délai « plusieurs secondes » ressenti sur l'onglet Recherche et à
+  // l'ouverture d'une fiche. On les précharge en arrière-plan une fois l'app
+  // interactive : quand l'utilisateur y arrive, le code est déjà en cache
+  // (navigation instantanée) sans avoir alourdi le démarrage de l'app. Les
+  // données catalogue, elles, sont déjà chaudes (Home fetch live/vod/series).
+  //
+  // Ordre = priorité d'usage : le lecteur d'abord (hls.js + mpegts.js, le plus
+  // lourd et sur le chemin critique d'une lecture), puis les fiches détail et la
+  // recherche. On les charge séquentiellement (un `import()` lance sa propre
+  // requête réseau) pour ne pas saturer la file de chargement d'un coup.
   useEffect(() => {
     if (!isAuthenticated) return;
     const w = window as typeof window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
       cancelIdleCallback?: (id: number) => void;
     };
-    const warm = () => { void import('./pages/Player'); };
+    // Importeurs paresseux des routes à préchauffer, par priorité décroissante.
+    const warmers: Array<() => Promise<unknown>> = [
+      () => import('./pages/Player'),
+      () => import('./pages/MovieDetail'),
+      () => import('./pages/SeriesDetail'),
+      () => import('./pages/Search'),
+      () => import('./pages/Favorites'),
+    ];
     let idleId = 0;
     let timerId: ReturnType<typeof setTimeout> | null = null;
-    if (w.requestIdleCallback) idleId = w.requestIdleCallback(warm, { timeout: 4000 });
-    else timerId = setTimeout(warm, 2500);
+    let cancelled = false;
+
+    // Charge le chunk i puis enchaîne le suivant quand le navigateur est de
+    // nouveau inactif → préchauffage furtif qui ne dispute jamais le CPU/réseau
+    // au rendu en cours.
+    const warmFrom = (i: number) => {
+      if (cancelled || i >= warmers.length) return;
+      warmers[i]().catch(() => {}).finally(() => {
+        if (cancelled) return;
+        if (w.requestIdleCallback) idleId = w.requestIdleCallback(() => warmFrom(i + 1), { timeout: 4000 });
+        else timerId = setTimeout(() => warmFrom(i + 1), 600);
+      });
+    };
+
+    if (w.requestIdleCallback) idleId = w.requestIdleCallback(() => warmFrom(0), { timeout: 4000 });
+    else timerId = setTimeout(() => warmFrom(0), 2500);
     return () => {
+      cancelled = true;
       if (idleId && w.cancelIdleCallback) w.cancelIdleCallback(idleId);
       if (timerId) clearTimeout(timerId);
     };

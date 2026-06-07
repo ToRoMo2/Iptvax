@@ -304,6 +304,10 @@ const en: typeof frDict = {
     unlock: 'Unlock',
     premium: 'Premium',
     favLimitToast: 'List full ({max}) — Premium for unlimited favorites',
+    popularLockedTitle: 'Trending in real time',
+    popularLockedText:
+      "This week's trending titles in full HD artwork, updated in real time. Premium members only.",
+    popularLockedCta: 'Discover Premium',
   },
   watched: {
     title: 'My cinema',

@@ -391,9 +391,18 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
         // Effacer le sous-titre courant : la frame affichée va être remplacée
         // par le nouveau flux ffmpeg → éviter qu'un cue obsolète persiste.
         setSubtitleText('');
+        // ffmpeg met ~1-2 s à produire sa 1re frame → retenter play() sur
+        // canplay/loadeddata, sinon le lecteur reste figé en pause après bascule.
+        const onFfmpegReady = () => {
+          video.removeEventListener('canplay', onFfmpegReady);
+          video.removeEventListener('loadeddata', onFfmpegReady);
+          video.play().catch(() => { if (video.paused) setStatus('paused'); });
+        };
+        video.addEventListener('canplay', onFfmpegReady);
+        video.addEventListener('loadeddata', onFfmpegReady);
         video.src = url;
         video.load();
-        video.play().catch(() => setStatus('paused'));
+        video.play().catch(() => {/* trop tôt — retry sur canplay/loadeddata */});
         return;
       }
       setStatus('error');
@@ -553,6 +562,35 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
         const keep = sel >= 0 && sel < tracks.length;
         setCurrentAudio(keep ? sel : 0);
         currentAudioRef.current = keep ? sel : 0;
+
+        // Filet anti-silence (lecture NATIVE directe uniquement) : un audio non
+        // décodable par le navigateur (AC3/EAC3/DTS…) produit une vidéo SANS
+        // erreur mais MUETTE. Le probe révèle le codec → si la piste active n'est
+        // pas AAC/MP3/Opus/FLAC, on bascule sur ffmpeg (transcode AAC) à la
+        // position courante. En mode ffmpeg (directSourceRef déjà posé) → no-op.
+        const activeIdx = keep ? sel : 0;
+        const codec = (probe.audio[activeIdx]?.codec ?? '').toLowerCase();
+        const browserAudioOk = ['aac', 'mp3', 'opus', 'flac'].includes(codec);
+        const probeVideo = videoRef.current;
+        if (!directSourceRef.current && sourceUrlRef.current && probeVideo && !browserAudioOk) {
+          const fSrc = sourceUrlRef.current;
+          const pos = currentTimeRef.current || probeVideo.currentTime || 0;
+          directSourceRef.current = fSrc;
+          seekOffsetRef.current = pos;
+          currentTimeRef.current = pos;
+          setStatus('loading');
+          setSubtitleText('');
+          const onAacReady = () => {
+            probeVideo.removeEventListener('canplay', onAacReady);
+            probeVideo.removeEventListener('loadeddata', onAacReady);
+            probeVideo.play().catch(() => { if (probeVideo.paused) setStatus('paused'); });
+          };
+          probeVideo.addEventListener('canplay', onAacReady);
+          probeVideo.addEventListener('loadeddata', onAacReady);
+          probeVideo.src = buildStreamUrl(fSrc, activeIdx, pos > 2 ? pos : undefined);
+          probeVideo.load();
+          probeVideo.play().catch(() => {/* retry sur canplay/loadeddata */});
+        }
       }
 
       // Pistes de sous-titres : TOUJOURS depuis le probe (source de vérité unique)
@@ -615,13 +653,18 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
           return warmNext(i + 1);
         };
 
-        // Délai : laisser le flux vidéo s'établir d'abord. Si l'utilisateur
-        // clique une piste avant, setSubtitle() la fetch à la demande et la
-        // déduplication in-flight serveur évite tout double travail ffmpeg.
+        // Délai : laisser le flux vidéo s'établir d'abord. On le garde court
+        // (1.2 s) pour que la piste prioritaire (sélectionnée / FR) soit en
+        // cache au plus tôt → le clic « sous-titres » est ressenti instantané
+        // sur desktop (où l'extraction ffmpeg du fichier entier est le goulot,
+        // vs rendu natif instantané sur mobile). La sérialisation (un seul
+        // ffmpeg à la fois, par priorité) reste inchangée → pas de saturation.
+        // Si l'utilisateur clique une piste avant, setSubtitle() la fetch à la
+        // demande et la déduplication in-flight serveur évite tout double travail.
         subPrefetchTimerRef.current = setTimeout(() => {
           subPrefetchTimerRef.current = null;
           void warmNext(0);
-        }, 3000);
+        }, 1200);
       }
     }).catch(() => {/* probe échoue silencieusement — fallback sur les pistes natives */});
   }, []);
@@ -876,7 +919,6 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     // avec audio AAC). Déterministe : durée correcte (depuis le probe), seek qui
     // fonctionne (redémarrage avec -ss), audio universel, sélection de pistes.
     sourceUrlRef.current = src;
-    directSourceRef.current = src;
 
     const loadDirect = (streamSrc: string) => {
       video.src = streamSrc;
@@ -895,8 +937,24 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       video.addEventListener('loadeddata', onLoadedData);
     };
 
-    // Démarrage : ffmpeg → MP4 fragmenté avec audio AAC (toujours)
-    loadDirect(buildStreamUrl(src, 0));
+    // ── Démarrage : lecture DIRECTE si le conteneur est décodable nativement ──
+    // mp4/m4v/mov ≈ H.264/AAC → Chromium les lit directement. On sert le fichier
+    // via /api/hlsproxy (passthrough Range → seek natif + démarrage quasi
+    // instantané, comme l'app native) au lieu de tout remuxer par ffmpeg.
+    // Replis AUTOMATIQUES (état de secours = chemin ffmpeg actuel) :
+    //   • vidéo non décodable (HEVC/MKV déguisé) → `onError` bascule sur ffmpeg ;
+    //   • audio non décodable (AC3/DTS, sans erreur émise) → `runProbe` le détecte
+    //     via le codec et bascule (filet anti-silence).
+    // Les autres conteneurs (mkv/ts/avi…) passent direct par ffmpeg (déterministe,
+    // pas de tentative vaine).
+    const fileUrl = extractUpstreamUrl(src);
+    if (/\.(mp4|m4v|mov)(\?|$)/i.test(fileUrl)) {
+      directSourceRef.current = null; // mode NATIF — pas (encore) ffmpeg
+      loadDirect(apiUrl(`/api/hlsproxy?url=${encodeURIComponent(fileUrl)}`));
+    } else {
+      directSourceRef.current = src;  // ffmpeg direct (remux → MP4 fragmenté AAC)
+      loadDirect(buildStreamUrl(src, 0));
+    }
 
     // Probe en parallèle : durée réelle + pistes audio/sous-titres depuis ffprobe
     runProbe(probeSource);
@@ -1180,6 +1238,27 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     }
   }, []);
 
+  // Lance la lecture dès que le flux ffmpeg rechargé est prêt (canplay /
+  // loadeddata), en ignorant un rechargement obsolète (myGen). Sans ça, un
+  // play() lancé juste après video.load() — avant que ffmpeg ait produit sa
+  // 1re frame — échoue et laisse le lecteur figé en pause : c'est la « pause
+  // non voulue » après un changement de piste audio. Même pattern que la
+  // bascule transcodage H.264 (cf. onError).
+  const playWhenReady = useCallback((video: HTMLVideoElement, myGen: number) => {
+    const handler = () => {
+      video.removeEventListener('canplay', handler);
+      video.removeEventListener('loadeddata', handler);
+      if (seekGenRef.current !== myGen) return; // un autre rechargement a pris le relais
+      video.play().catch(() => {
+        if (seekGenRef.current === myGen && video.paused) setStatus('paused');
+      });
+    };
+    video.addEventListener('canplay', handler);
+    video.addEventListener('loadeddata', handler);
+    // Tentative immédiate (cas où le flux est déjà prêt) ; sinon on retentera.
+    video.play().catch(() => {/* trop tôt — retry sur canplay/loadeddata */});
+  }, []);
+
   const setAudio = useCallback((index: number) => {
     // HLS.js
     if (hlsRef.current) {
@@ -1210,9 +1289,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       else seekOffsetRef.current = 0;
       video.src = streamUrl;
       video.load();
-      video.play().catch(() => {
-        if (seekGenRef.current === myGen && video.paused) setStatus('paused');
-      });
+      playWhenReady(video, myGen);
       return;
     }
 
@@ -1238,7 +1315,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       else seekOffsetRef.current = 0;
       video.src = streamUrl;
       video.load();
-      video.play().catch(() => setStatus('paused'));
+      playWhenReady(video, myGen);
       return;
     }
 
@@ -1255,7 +1332,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       }
     }
     setCurrentAudio(index);
-  }, [correctSeekBase]);
+  }, [correctSeekBase, playWhenReady]);
 
   // Désactivation / sélection d'une piste de sous-titres.
   // index = -1 → désactivé. Sinon = index UI 0-based dans subtitleTracks.

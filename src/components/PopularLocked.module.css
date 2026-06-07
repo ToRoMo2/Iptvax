@@ -1,0 +1,106 @@
+/* ── CTA « Populaires » verrouillé (tier gratuit) ─────────────────────────────
+   Rendu à la place du billboard Premium, au même emplacement de tête sur
+   Films / Séries. Branding gold cohérent avec PremiumTeaseBar (le gold premium
+   est volontairement hors palette Aurora — même choix que le bandeau d'upsell).
+   Aligné sur le gutter --pad-edge comme `.spot`/les en-têtes de rail. */
+.wrap {
+  padding: 0 var(--pad-edge);
+}
+
+.card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  min-height: clamp(240px, 34vh, 340px);
+  padding: 48px 28px;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(240, 192, 53, 0.12), transparent 60%),
+    linear-gradient(135deg, rgba(28, 22, 6, 0.92), rgba(12, 12, 14, 0.94));
+  border: 1px solid rgba(240, 192, 53, 0.28);
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(60% 60% at 50% 118%, rgba(240, 192, 53, 0.2), transparent 70%);
+}
+
+.badge {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: #1a0c00;
+  background: linear-gradient(135deg, #b8811f 0%, #f0c035 40%, #e8961a 75%, #c9841c 100%);
+  box-shadow: 0 6px 22px rgba(240, 192, 53, 0.4);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--t-1);
+}
+
+.text {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--t-2);
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  height: 46px;
+  padding: 0 26px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(135deg, #f0c035, #e8961a);
+  color: #1a0c00;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
+}
+.cta:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 24px rgba(240, 192, 53, 0.45);
+}
+/* Halo focus télécommande (TV). */
+.cta:global(.rc-focused) {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 3px rgba(240, 192, 53, 0.6);
+}
+
+@media (max-width: 640px) {
+  .card {
+    min-height: 200px;
+    padding: 36px 20px;
+    gap: 12px;
+  }
+  .badge {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta {
+    transition: none;
+  }
+}

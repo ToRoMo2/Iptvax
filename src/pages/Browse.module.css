@@ -244,6 +244,17 @@
   margin-bottom: var(--row-gap);
 }
 
+/* ── Bascule « Populaires » : billboard desktop vs coverflow mobile ──────────
+   Desktop (≥901px) : PopularSpotlight (billboard paysage). Mobile/tablette :
+   PopularRail (coverflow tactile, inchangé). Rendus tous deux dans le DOM,
+   togglés ici par media query (le coverflow ne monte pas de timer côté JS). */
+.popularDesktop { display: none; }
+.popularMobile { display: block; }
+@media (min-width: 901px) {
+  .popularDesktop { display: block; }
+  .popularMobile { display: none; }
+}
+
 .shelfHeader {
   display: flex;
   align-items: baseline;

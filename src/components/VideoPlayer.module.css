@@ -37,9 +37,12 @@
   transition: opacity 60ms linear;
 }
 
-/* ── Bouton retour × (mobile uniquement, remplace le backBtn de Player.tsx) ── */
+/* ── Bouton retour × (coin haut-gauche — ferme le lecteur).
+   Visible sur desktop ET mobile (gated par `showControls` côté JSX) ;
+   exclu de la TV (overlay télécommande dédié). Top-LEFT volontaire : le
+   haut-droit est réservé au compteur de chaînes en live. ── */
 .mobileBackBtn {
-  display: none; /* affiché via media query mobile ci-dessous */
+  display: flex; /* visible dès que l'overlay est affiché (toutes tailles, hors TV) */
   position: absolute;
   top: 14px;
   left: 14px;
