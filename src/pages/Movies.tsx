@@ -4,11 +4,15 @@ import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { ScrollRail } from '../components/ScrollRail';
 import { PopularRail } from '../components/PopularRail';
+import { PopularSpotlight, type PopularSpotlightItem } from '../components/PopularSpotlight';
+import { PopularLocked } from '../components/PopularLocked';
+import { isTvDevice } from '../native/tvDetect';
 import type { VodCategory, VodStream } from '../types/xtream.types';
 import { groupByTitle, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -18,6 +22,17 @@ const MIN_SEARCH_LEN = 3;
 const RESULT_LIMIT = 80;
 // Nombre de cartes affichées dans un rail avant la carte « Voir tout ».
 const RAIL_PREVIEW = 12;
+
+// Entrée « Populaires » : groupe catalogue + visuel/synopsis TMDB. Le backdrop
+// paysage HD vient de TMDB (les fonds Xtream sont souvent absents → poster
+// portrait zoomé dans le 16:9, illisible) — cf. PopularSpotlight.
+interface PopularEntry {
+  group: TitleGroup<VodStream>;
+  /** Backdrop paysage HD TMDB (tendances). */
+  backdrop?: string;
+  /** Synopsis FR TMDB. */
+  overview?: string;
+}
 
 // ── Icônes inline ───────────────────────────────────────────────────────────
 function ChevronRight() {
@@ -86,6 +101,7 @@ function SeeAllCard({ label, onClick }: { label: string; onClick: () => void }) 
 export function Movies() {
   const { credentials } = useXtream();
   const { favorites, isFavorite, toggleFavorite } = useLibrary();
+  const { isPremium } = useSubscription();
   const { t, tc } = useI18n();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,9 +123,9 @@ export function Movies() {
   const [showSearch, setShowSearch] = useState(urlQ.length > 0);
 
   // Rail « Populaires » (tendances TMDB matchées au catalogue) — Premium only :
-  // tmdbService.isEnabled() est piloté par l'abonnement (cf. §X). Reste vide
-  // pour le tier gratuit → aucune rangée populaire.
-  const [popular, setPopular] = useState<TitleGroup<VodStream>[]>([]);
+  // tmdbService.isEnabled() suit l'abonnement (cf. §X). Reste vide pour le tier
+  // gratuit → le CTA <PopularLocked> est affiché à la place.
+  const [popular, setPopular] = useState<PopularEntry[]>([]);
   const trendingDone = useRef(false);
 
   // ── Chargement catégories + catalogue complet ──────────────────────────────
@@ -180,26 +196,31 @@ export function Movies() {
   }, [allStreams, categories]);
 
   // ── Tendances TMDB → rail « Populaires » (matché au catalogue) ─────────────
+  // Gate sur `isPremium` (source de vérité réactive) : si l'abonnement se résout
+  // après le catalogue, l'effet re-tourne. On retient le backdrop paysage TMDB
+  // par entrée (le hero a besoin d'une image 16:9 HD, absente côté Xtream).
   useEffect(() => {
     if (trendingDone.current || !allStreams || allGroups.length === 0) return;
-    if (!tmdbService.isEnabled()) return;
+    if (!isPremium) return;
     trendingDone.current = true;
     tmdbService
       .getTrending('movie')
       .then((trend) => {
         const map = new Map(allGroups.map((g) => [g.key, g] as const));
-        const matched: TitleGroup<VodStream>[] = [];
+        const matched: PopularEntry[] = [];
         for (const tr of trend) {
           const g = map.get(titleKey(tr.title));
-          if (g) matched.push(g);
+          if (g) matched.push({ group: g, backdrop: tr.backdrop, overview: tr.overview });
           if (matched.length >= 18) break;
         }
         if (matched.length >= 4) setPopular(matched);
+        // Rien (TMDB pas encore activé / aucun match) → autorise une relance.
+        else trendingDone.current = false;
       })
       .catch(() => {
         trendingDone.current = false;
       });
-  }, [allStreams, allGroups]);
+  }, [allStreams, allGroups, isPremium]);
 
   // ── Rail « Ma Liste » (films favoris matchés au catalogue) ─────────────────
   const favGroups = useMemo(() => {
@@ -278,6 +299,30 @@ export function Movies() {
       }
     />
   );
+
+  // Items du billboard « Populaires » desktop (cf. PopularSpotlight). Le visuel
+  // paysage HD et le synopsis viennent de TMDB ; repli Xtream si absent.
+  const popularItems: PopularSpotlightItem[] = popular.map(({ group: g, backdrop, overview }) => ({
+    id: g.primary.stream_id,
+    title: g.title,
+    backdrop: backdrop ?? g.primary.backdrop_path?.[0],
+    poster: g.primary.stream_icon,
+    meta: [g.year, star5Label(g.primary.rating_5based), g.primary.genre?.split('/')[0].trim()]
+      .filter(Boolean)
+      .join(' · '),
+    synopsis: overview ?? g.primary.plot,
+    isFavorite: isFavorite('movie', String(g.primary.stream_id)),
+    onOpen: () => openMovie(g),
+    onFavorite: () =>
+      toggleFavorite({
+        type: 'movie',
+        id: String(g.primary.stream_id),
+        name: g.title,
+        image: g.primary.stream_icon ?? '',
+      }),
+  }));
+  // Billboard desktop sauf sur TV (la TV garde le coverflow navigable au D-pad).
+  const useBillboard = !isTvDevice();
 
   // ── Mode CATÉGORIE COMPLÈTE (?cat=) ─────────────────────────────────────────
   if (activeCat) {
@@ -376,7 +421,11 @@ export function Movies() {
         </div>
       ) : (
         <div className={styles.shelves}>
-          {popular.length > 0 && (
+          {!isPremium ? (
+            <section className={styles.shelf}>
+              <PopularLocked />
+            </section>
+          ) : popular.length > 0 ? (
             <section className={styles.shelf}>
               <div className={styles.shelfHeader}>
                 <div className={styles.shelfTitleGroup}>
@@ -385,9 +434,14 @@ export function Movies() {
                   <span className={styles.shelfCount}>{popular.length}</span>
                 </div>
               </div>
-              <PopularRail>{popular.map((g) => renderCard(g, false))}</PopularRail>
+              {useBillboard && (
+                <PopularSpotlight className={styles.popularDesktop} items={popularItems} />
+              )}
+              <div className={useBillboard ? styles.popularMobile : undefined}>
+                <PopularRail>{popular.map(({ group }) => renderCard(group, false))}</PopularRail>
+              </div>
             </section>
-          )}
+          ) : null}
           {favGroups.length > 0 && (
             <Shelf
               title={t('common.myList')}

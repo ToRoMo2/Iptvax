@@ -72,6 +72,27 @@ const cookieStore = new Map<string, string>();
 // Évite de relancer ffprobe à chaque ouverture du même fichier.
 const probeCache = new Map<string, string>();
 
+// Cache mémoire des images IPTV déjà récupérées (octets bruts), clé = URL source.
+// Beaucoup de serveurs d'icônes IPTV sont lents/instables → re-solliciter
+// l'upstream à chaque (re)chargement de page laisse des affiches « blank ». On
+// mémorise les octets pour servir les requêtes suivantes instantanément (même
+// origine, aucun aller-retour upstream). Borné : nombre d'entrées + taille par
+// image (une affiche fait ~50-300 Ko) ; éviction LRU (le plus ancien d'abord).
+interface ImgCacheEntry { ct: string; body: Buffer; }
+const imgCache = new Map<string, ImgCacheEntry>();
+const IMG_CACHE_MAX_ENTRIES = 600;
+const IMG_CACHE_MAX_BYTES = 4_000_000;
+function imgCachePut(key: string, entry: ImgCacheEntry): void {
+  if (entry.body.length > IMG_CACHE_MAX_BYTES) return;
+  if (imgCache.has(key)) imgCache.delete(key); // re-positionne en fin (LRU)
+  imgCache.set(key, entry);
+  while (imgCache.size > IMG_CACHE_MAX_ENTRIES) {
+    const oldest = imgCache.keys().next().value;
+    if (oldest === undefined) break;
+    imgCache.delete(oldest);
+  }
+}
+
 // Cache des sous-titres extraits (clé = url+track, valeur = WebVTT).
 // Évite de relancer ffmpeg sur tout le fichier à chaque clic utilisateur.
 const subtitleCache = new Map<string, string>();
@@ -224,6 +245,18 @@ function iptvProxyPlugin(): Plugin {
           const targetUrl = reqUrl.searchParams.get('url');
           if (!targetUrl) { res.statusCode = 400; res.end(); return; }
 
+          // Cache hit : sert les octets mémorisés sans toucher l'upstream.
+          const cachedImg = imgCache.get(targetUrl);
+          if (cachedImg) {
+            imgCache.delete(targetUrl); imgCache.set(targetUrl, cachedImg); // LRU touch
+            res.statusCode = 200;
+            res.setHeader('Content-Type', cachedImg.ct);
+            res.setHeader('Content-Length', String(cachedImg.body.length));
+            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+            res.end(cachedImg.body);
+            return;
+          }
+
           // Suivi manuel des redirections (max 3) car node:https/http ne le font pas
           let attempts = 0;
           let current = targetUrl;
@@ -279,9 +312,23 @@ function iptvProxyPlugin(): Plugin {
               const ct = (upstreamRes.headers['content-type'] as string | undefined) ?? 'image/jpeg';
               res.statusCode = 200;
               res.setHeader('Content-Type', ct);
-              // Cache 1 jour : les icônes IPTV changent rarement et représentent
-              // un volume non négligeable de requêtes lors du scroll.
-              res.setHeader('Cache-Control', 'public, max-age=86400');
+              // Immutable + 7 jours : une URL d'icône IPTV est stable (le navigateur
+              // n'a jamais à revalider). Volume non négligeable de requêtes au scroll.
+              res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+              // Tap le flux pour mémoriser l'image (sans ajouter de latence : on
+              // pipe en parallèle). Les prochains chargements seront servis du cache.
+              const chunks: Buffer[] = [];
+              let total = 0;
+              let tooBig = false;
+              upstreamRes.on('data', (c: Buffer) => {
+                if (tooBig) return;
+                total += c.length;
+                if (total > IMG_CACHE_MAX_BYTES) { tooBig = true; chunks.length = 0; }
+                else chunks.push(c);
+              });
+              upstreamRes.on('end', () => {
+                if (!tooBig && chunks.length > 0) imgCachePut(targetUrl, { ct, body: Buffer.concat(chunks) });
+              });
               upstreamRes.pipe(res);
               upstreamRes.on('error', () => { try { res.end(); } catch { /* */ } });
             });

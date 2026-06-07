@@ -306,6 +306,10 @@ const fr = {
     unlock: 'Débloquer',
     premium: 'Premium',
     favLimitToast: 'Liste pleine ({max}) — Premium pour des favoris illimités',
+    popularLockedTitle: 'Populaires en temps réel',
+    popularLockedText:
+      'Les tendances de la semaine en grand format HD, mises à jour en temps réel. Réservé aux membres Premium.',
+    popularLockedCta: 'Découvrir Premium',
   },
   watched: {
     title: 'Mon ciné',

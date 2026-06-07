@@ -211,6 +211,13 @@ export function MovieDetail() {
     () => safeImgUrl(tmdb?.poster ?? movie?.stream_icon ?? movie?.backdrop_path?.[0]),
     [tmdb, movie],
   );
+  // Backdrop paysage (16:9) pour le hero DESKTOP. Repli sur l'affiche si absent
+  // (sur grand écran elle est étirée/assombrie en fond derrière la carte
+  // flottante). Inutilisé en dessous de 901px (masqué par CSS). URL BRUTE.
+  const heroBackdrop = useMemo(
+    () => safeImgUrl(tmdb?.backdrop ?? movie?.backdrop_path?.[0] ?? tmdb?.poster ?? movie?.stream_icon),
+    [tmdb, movie],
+  );
   const genre = movie?.genre;
   const ratingNum = tmdb?.rating ?? (movie?.rating && movie.rating !== '0' ? Number(movie.rating) : undefined);
   const rating = ratingNum && !Number.isNaN(ratingNum) ? ratingNum.toFixed(1) : undefined;
@@ -250,6 +257,11 @@ export function MovieDetail() {
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
+        {/* Desktop (≥901px) : backdrop paysage en fond (masqué en deçà). */}
+        {heroBackdrop && (
+          <img className={styles.heroBackdrop} src={heroBackdrop} alt="" aria-hidden="true" decoding="async" />
+        )}
+        {/* Mobile / tablette : affiche portrait plein cadre. */}
         {heroPoster ? (
           <img className={styles.heroPoster} src={heroPoster} alt={displayTitle} decoding="async" />
         ) : (
@@ -257,6 +269,7 @@ export function MovieDetail() {
             <span className={styles.artTag}>// POSTER · 2:3</span>
           </div>
         )}
+        <div className={styles.overlayLeft} />
         <div className={styles.overlayBottom} />
         <Focusable
           className={styles.back}
@@ -288,6 +301,10 @@ export function MovieDetail() {
         {!loading && !error && movie && (
           <div className={styles.grid}>
             <div className={styles.headRow}>
+              {/* Carte affiche flottante — desktop uniquement (CSS). */}
+              {heroPoster && (
+                <img className={styles.posterFloat} src={heroPoster} alt={displayTitle} decoding="async" />
+              )}
               <div className={styles.headInfo}>
                 {tmdb?.logo ? (
                   <img className={styles.titleLogo} src={safeImgUrl(tmdb.logo)} alt={displayTitle} />

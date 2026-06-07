@@ -43,6 +43,26 @@ app.use((_req, res, next) => {
   next();
 });
 
+// ─── Cache mémoire des images IPTV (octets bruts), clé = URL source ─────────
+// Beaucoup de serveurs d'icônes IPTV sont lents/instables → re-solliciter
+// l'upstream à chaque (re)chargement de page laisse des affiches « blank ». On
+// mémorise les octets pour servir les requêtes suivantes instantanément (même
+// origine, aucun aller-retour upstream) — y compris entre clients sur le VPS.
+// Borné : nombre d'entrées + taille par image ; éviction LRU (plus ancien d'abord).
+const imgCache = new Map();
+const IMG_CACHE_MAX_ENTRIES = 600;
+const IMG_CACHE_MAX_BYTES = 4_000_000;
+function imgCachePut(key, ct, body) {
+  if (body.length > IMG_CACHE_MAX_BYTES) return;
+  if (imgCache.has(key)) imgCache.delete(key); // re-positionne en fin (LRU)
+  imgCache.set(key, { ct, body });
+  while (imgCache.size > IMG_CACHE_MAX_ENTRIES) {
+    const oldest = imgCache.keys().next().value;
+    if (oldest === undefined) break;
+    imgCache.delete(oldest);
+  }
+}
+
 // ─── Endpoint de diagnostic réseau ──────────────────────────────────────────
 // /api/debug-reach?url=http://… — teste si Railway peut atteindre une URL
 app.get('/api/debug-reach', async (req, res) => {
@@ -299,6 +319,17 @@ app.get('/api/img', (req, res) => {
   const { url } = req.query;
   if (!url || typeof url !== 'string') return res.status(400).end();
 
+  // Cache hit : sert les octets mémorisés sans toucher l'upstream.
+  const cachedImg = imgCache.get(url);
+  if (cachedImg) {
+    imgCache.delete(url); imgCache.set(url, cachedImg); // LRU touch
+    res.status(200);
+    res.setHeader('Content-Type', cachedImg.ct);
+    res.setHeader('Content-Length', String(cachedImg.body.length));
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    return res.end(cachedImg.body);
+  }
+
   let attempts = 0;
   let current = url;
   let aborted = false;
@@ -345,7 +376,22 @@ app.get('/api/img', (req, res) => {
       const ct = upstreamRes.headers['content-type'] || 'image/jpeg';
       res.status(200);
       res.setHeader('Content-Type', ct);
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+      // Immutable + 7 jours : une URL d'icône IPTV est stable (le navigateur
+      // n'a jamais à revalider). Volume non négligeable de requêtes au scroll.
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      // Tap le flux pour mémoriser l'image (sans latence : on pipe en parallèle).
+      const chunks = [];
+      let total = 0;
+      let tooBig = false;
+      upstreamRes.on('data', (c) => {
+        if (tooBig) return;
+        total += c.length;
+        if (total > IMG_CACHE_MAX_BYTES) { tooBig = true; chunks.length = 0; }
+        else chunks.push(c);
+      });
+      upstreamRes.on('end', () => {
+        if (!tooBig && chunks.length > 0) imgCachePut(url, ct, Buffer.concat(chunks));
+      });
       upstreamRes.pipe(res);
       upstreamRes.on('error', () => { try { res.end(); } catch (_) { /* */ } });
     });

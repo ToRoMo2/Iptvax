@@ -71,6 +71,16 @@
   pointer-events: none;
 }
 
+/* ── Éléments réservés au layout DESKTOP (≥901px) — masqués par défaut.
+   Sur mobile/tablette, le hero reste l'affiche portrait plein cadre.
+   Sur desktop (cf. @media min-width: 901px) : backdrop paysage en fond +
+   carte affiche flottante par-dessus (layout hybride). ── */
+.heroBackdrop,
+.overlayLeft,
+.posterFloat {
+  display: none;
+}
+
 .back {
   position: absolute;
   top: calc(var(--topnav-h) - 24px);
@@ -809,15 +819,189 @@
    Responsive
    ==================================================================== */
 @media (min-width: 901px) {
-  /* Sur grand écran : on élargit un peu la colonne et on remonte l'affiche
-     sous la capsule nav flottante (pas tout en haut). */
-  .hero { max-width: 680px; margin-top: var(--topnav-h); }
-  .body { max-width: 680px; }
-  .heroPoster, .art { height: 70vh; }
-  .title { font-size: 40px; }
-  /* « À propos » toujours déplié sur desktop (l'accordéon est mobile only). */
-  .sideHead { padding-bottom: 14px; }
-  .castGrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  /* ════════════════════════════════════════════════════════════════════
+     DESKTOP — layout hybride « cinéma » :
+       • backdrop paysage plein largeur en fond du hero,
+       • carte affiche portrait flottante posée par-dessus (à gauche),
+       • titre / méta / note / actions / synopsis à droite (alignés à gauche),
+       • casting, épisodes (grille) et « À propos » en pleine largeur dessous.
+     L'affiche portrait du hero mobile est masquée (remplacée par le backdrop
+     + la carte flottante). Mobile/tablette strictement inchangés.
+     ════════════════════════════════════════════════════════════════════ */
+  .hero {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    height: 60vh;
+    min-height: 480px;
+    max-height: 720px;
+  }
+  /* L'affiche portrait (et son placeholder) cèdent la place au backdrop. */
+  .heroPoster,
+  .art {
+    display: none;
+  }
+  .heroBackdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 22%;
+    filter: brightness(0.5);
+    background-color: #050505;
+  }
+  /* Scrim haut : garde la nav flottante / la marque lisibles sur un backdrop clair. */
+  .hero::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 180px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+    pointer-events: none;
+    z-index: 1;
+  }
+  /* Dégradé gauche : lisibilité du titre par-dessus le backdrop. */
+  .overlayLeft {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.88) 0%,
+      rgba(0, 0, 0, 0.45) 42%,
+      transparent 72%
+    );
+    pointer-events: none;
+  }
+  .overlayBottom {
+    height: 82%;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 0, 0, 0.2) 35%,
+      rgba(0, 0, 0, 0.8) 74%,
+      var(--bg) 100%
+    );
+  }
+  .back {
+    top: calc(var(--topnav-h) - 6px);
+    left: var(--pad-edge);
+  }
+
+  /* ── Corps : large, remonté pour chevaucher le bas du backdrop ── */
+  .body {
+    max-width: 1280px;
+    margin: -170px auto 0;
+    padding: 0 var(--pad-edge) 120px;
+  }
+
+  /* ── Bloc tête : carte affiche flottante (gauche) + infos (droite) ── */
+  .headRow {
+    flex-direction: row;
+    align-items: flex-end;
+    text-align: left;
+    gap: 36px;
+  }
+  .posterFloat {
+    display: block;
+    width: 232px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    flex-shrink: 0;
+    border-radius: var(--r-card);
+    background: #050505;
+    box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--line);
+  }
+  .headInfo {
+    align-items: flex-start;
+    text-align: left;
+    flex: 1;
+    min-width: 0;
+    padding-bottom: 6px;
+  }
+  .title {
+    font-size: 52px;
+    max-width: 20ch;
+    margin-bottom: 16px;
+  }
+  .titleLogo {
+    max-width: min(58%, 460px);
+    max-height: 150px;
+    margin: 0 0 18px;
+  }
+  .meta,
+  .ratingRow {
+    justify-content: flex-start;
+  }
+  .actions {
+    width: auto;
+    max-width: none;
+    margin-bottom: 22px;
+  }
+  .playBtn {
+    flex: 0 0 auto;
+    min-width: 220px;
+  }
+  .synopsisWrap {
+    max-width: 760px;
+    margin-bottom: 0;
+  }
+  .synopsisClamp {
+    -webkit-line-clamp: 4;
+  }
+
+  /* ── Casting ── */
+  .castGrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+  /* ── « À propos » : toujours déplié, faits sur 2 colonnes ── */
+  .sideHead { cursor: default; padding-bottom: 18px; }
+  .sideChev { display: none; }
+  .sideBody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 56px;
+  }
+
+  /* ── Épisodes (séries) : grille de cartes (vignette 16:9 en haut) ── */
+  .episodeList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 22px 20px;
+  }
+  .episode {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    border-bottom: 0;
+    border-radius: var(--r-card);
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    transition: transform var(--d-micro) var(--ease),
+      border-color var(--d-micro) var(--ease),
+      background var(--d-micro) var(--ease);
+  }
+  .episode:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--line-strong);
+    transform: translateY(-3px);
+  }
+  .epThumbWrap { width: 100%; border-radius: 0; }
+  .epThumb,
+  .epThumbPlaceholder {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: 0;
+  }
+  .epInfo { padding: 12px 14px 16px; gap: 5px; }
+  .epPlot { -webkit-line-clamp: 3; }
+  .epPlay { display: none; }
 }
 
 @media (max-width: 640px) {

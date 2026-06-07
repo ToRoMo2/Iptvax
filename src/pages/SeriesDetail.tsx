@@ -413,6 +413,12 @@ export function SeriesDetail() {
     () => safeImgUrl(tmdb?.poster ?? info?.info.cover ?? variant?.cover),
     [tmdb, info, variant],
   );
+  // Backdrop paysage (16:9) pour le hero DESKTOP. Repli sur l'affiche si absent.
+  // Inutilisé en dessous de 901px (masqué par CSS). URL BRUTE.
+  const heroBackdrop = useMemo(
+    () => safeImgUrl(tmdb?.backdrop ?? info?.info.backdrop_path?.[0] ?? tmdb?.poster ?? info?.info.cover ?? variant?.cover),
+    [tmdb, info, variant],
+  );
   const genre = info?.info.genre ?? variant?.genre;
   const ratingRaw = info?.info.rating ?? variant?.rating;
   const ratingNum = tmdb?.rating ?? (ratingRaw && ratingRaw !== '0' ? Number(ratingRaw) : undefined);
@@ -453,8 +459,13 @@ export function SeriesDetail() {
 
   return (
     <div className={styles.page}>
-      {/* Hero — affiche portrait fondue vers le noir */}
+      {/* Hero — desktop : backdrop paysage ; mobile : affiche portrait fondue */}
       <section className={styles.hero}>
+        {/* Desktop (≥901px) : backdrop paysage en fond (masqué en deçà). */}
+        {heroBackdrop && (
+          <img className={styles.heroBackdrop} src={heroBackdrop} alt="" aria-hidden="true" decoding="async" />
+        )}
+        {/* Mobile / tablette : affiche portrait plein cadre. */}
         {heroPoster ? (
           <img className={styles.heroPoster} src={heroPoster} alt={displayTitle} decoding="async" />
         ) : (
@@ -462,6 +473,7 @@ export function SeriesDetail() {
             <span className={styles.artTag}>// POSTER · 2:3</span>
           </div>
         )}
+        <div className={styles.overlayLeft} />
         <div className={styles.overlayBottom} />
         <Focusable
           className={styles.back}
@@ -498,6 +510,10 @@ export function SeriesDetail() {
         {!loading && !error && (
           <div className={styles.grid}>
             <div className={styles.headRow}>
+              {/* Carte affiche flottante — desktop uniquement (CSS). */}
+              {heroPoster && (
+                <img className={styles.posterFloat} src={heroPoster} alt={displayTitle} decoding="async" />
+              )}
               <div className={styles.headInfo}>
                 {tmdb?.logo ? (
                   <img className={styles.titleLogo} src={safeImgUrl(tmdb.logo)} alt={displayTitle} />

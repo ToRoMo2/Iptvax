@@ -304,6 +304,10 @@ const es: typeof frDict = {
     unlock: 'Desbloquear',
     premium: 'Premium',
     favLimitToast: 'Lista llena ({max}) — Premium para favoritos ilimitados',
+    popularLockedTitle: 'Populares en tiempo real',
+    popularLockedText:
+      'Las tendencias de la semana en carátulas HD de gran formato, actualizadas en tiempo real. Solo para miembros Premium.',
+    popularLockedCta: 'Descubrir Premium',
   },
   watched: {
     title: 'Mi cine',

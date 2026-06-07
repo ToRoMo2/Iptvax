@@ -115,11 +115,18 @@ export function Player() {
       return;
     }
     let cancelled = false;
-    xtreamService
-      .getShortEpg(credentials, liveStreamId, 12)
-      .then((r) => { if (!cancelled) setLiveEpg(buildEpgRows(r.epg_listings ?? [])); })
-      .catch(() => { if (!cancelled) setLiveEpg([]); });
-    return () => { cancelled = true; };
+    // Différé : l'EPG passe par /api/xtream (même origine que le manifeste du
+    // flux via /api/hlsproxy) → le lancer tout de suite lui dispute une des ~6
+    // connexions same-origin du navigateur et retarde la première image. C'est
+    // un enrichissement d'overlay (non visible dans la 1re seconde) → on le
+    // décale après l'amorçage du flux.
+    const timer = setTimeout(() => {
+      xtreamService
+        .getShortEpg(credentials, liveStreamId, 12)
+        .then((r) => { if (!cancelled) setLiveEpg(buildEpgRows(r.epg_listings ?? [])); })
+        .catch(() => { if (!cancelled) setLiveEpg([]); });
+    }, 1200);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [credentials, isLive, liveStreamId]);
 
   // ── Catalogue live (zapper avec catégories dans l'overlay) ────────────────
@@ -133,6 +140,12 @@ export function Player() {
   useEffect(() => {
     if (!credentials || !isLive) { setLiveCatalog([]); return; }
     let cancelled = false;
+    // Différé : comme l'EPG, le catalogue du zapper passe par /api/xtream (même
+    // origine que le flux). Il n'est utile qu'à l'ouverture du zapper dans
+    // l'overlay → on le décale pour laisser le manifeste/segments démarrer. Si
+    // l'utilisateur vient de /live, ces deux requêtes sont déjà en cache de
+    // session → ce timer ne fait que retarder un hit cache quasi instantané.
+    const timer = setTimeout(() => {
     Promise.all([
       xtreamService.getLiveCategories(credentials),
       xtreamService.getLiveStreams(credentials),
@@ -164,7 +177,8 @@ export function Player() {
         setLiveCatalog(catalog);
       })
       .catch(() => { if (!cancelled) setLiveCatalog([]); });
-    return () => { cancelled = true; };
+    }, 1200);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [credentials, isLive]);
 
   // Stream_id de la chaîne en cours (= primary du ref courant) → surlignage dans
