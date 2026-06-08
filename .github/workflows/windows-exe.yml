@@ -1,0 +1,82 @@
+# Build automatique de l'installeur Windows (.exe, debug) à chaque push sur `main`,
+# et publication dans une GitHub Release "windows-latest" téléchargeable directement.
+#
+# But : peaufiner la version desktop Electron à distance, comme l'APK Android.
+#   1. Tu pousses du code sur `main` (ou déclenche manuellement).
+#   2. Ce workflow build l'app React + l'installeur NSIS via electron-builder.
+#   3. Le .exe atterrit dans la Release "windows-latest" (lien direct stable).
+#   4. Tu télécharges, tu testes ; si c'est bon → tu poses un vrai tag de version
+#      pour la publier officiellement sur le site (cette Release reste un canal debug).
+#
+# ── Secrets à configurer (Settings → Secrets and variables → Actions) ──
+# Mêmes VITE_* que le build Android — INLINÉS dans le bundle au build (cf. CLAUDE.md §X) :
+#   - VITE_SUPABASE_URL       : URL du projet Supabase
+#   - VITE_SUPABASE_ANON_KEY  : clé anon Supabase
+#   - VITE_TMDB_API_KEY       : clé TMDB v3 (facultatif — vide = dégradation gracieuse)
+#   - VITE_WEB_URL            : URL publique de la vitrine (https://iptvax.com),
+#                               utilisée pour le retour Premium / OAuth.
+# Electron = Option B (CLAUDE.md §XI) : VITE_API_BASE_URL reste VIDE → chemins relatifs,
+# le proxy `server/proxy.cjs` est embarqué sur la loopback. Ne PAS définir VITE_RUNTIME
+# (reste "web" pour Electron).
+#
+# .EXE DEBUG : installeur NSIS NON signé (pas de certificat code-signing). Windows
+# SmartScreen affichera un avertissement "éditeur inconnu" → cliquer "Informations
+# complémentaires" → "Exécuter quand même". Suffisant pour du test.
+
+name: Build Windows EXE (debug)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Annule un build en cours si un nouveau push arrive (économise les minutes CI).
+concurrency:
+  group: windows-exe
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # electron-builder cible le NSIS Windows → runner Windows natif (pas de Wine).
+    runs-on: windows-latest
+    permissions:
+      # Nécessaire pour créer/mettre à jour la Release "windows-latest".
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build React + installeur Windows (NSIS)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_TMDB_API_KEY: ${{ secrets.VITE_TMDB_API_KEY }}
+          VITE_WEB_URL: ${{ secrets.VITE_WEB_URL }}
+          # Empêche electron-builder d'essayer de publier tout seul sur GitHub.
+          # (la publication est gérée par l'étape softprops ci-dessous)
+          GH_TOKEN: ""
+        run: npm run electron:build
+
+      - name: Publish to GitHub Release (windows-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          name: Windows EXE (debug — dernier build)
+          body: |
+            Installeur Windows debug reconstruit automatiquement depuis `main`.
+            Commit : ${{ github.sha }}
+            Build : ${{ github.run_number }} — ${{ github.event.head_commit.message }}
+
+            ⚠️ Non signé : Windows SmartScreen peut afficher "éditeur inconnu".
+          prerelease: true
+          # electron-builder produit l'installeur dans release/ (output défini dans package.json).
+          files: release/*.exe
