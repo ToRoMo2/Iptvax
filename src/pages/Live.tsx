@@ -19,8 +19,22 @@ const MIN_SEARCH_LEN = 3;
 const RESULT_LIMIT = 80;
 // Nombre de cartes affichées dans un rail avant la carte « Voir tout ».
 const RAIL_PREVIEW = 12;
+// Cartes du 1er écran d'une grille (recherche / catégorie) chargées en priorité
+// haute (`eager` + fetchpriority) → les logos visibles apparaissent plus vite.
+const EAGER_COUNT = 18;
+// Rendu progressif des rails de l'overview (cf. Movies) → navigation fluide.
+const INITIAL_RAILS = 8;
+const RAILS_CHUNK = 6;
 
 type LiveGroup = TitleGroup<LiveStream>;
+
+interface LiveRail { id: string; name: string; groups: LiveGroup[] }
+
+// Caches des dérivés lourds par identité du catalogue. `allStreams` provient du
+// cache service (même référence d'un montage à l'autre) → la navigation retour
+// ne recalcule pas le regroupement de milliers de chaînes.
+const allGroupsCache = new WeakMap<LiveStream[], LiveGroup[]>();
+const railsCache = new WeakMap<LiveStream[], { categories: LiveCategory[]; rails: LiveRail[] }>();
 
 // ── Icônes inline ───────────────────────────────────────────────────────────
 function ChevronRight() {
@@ -92,12 +106,28 @@ export function Live() {
   // Restaure la query depuis l'URL au remontage (retour depuis le lecteur).
   const urlQ = searchParams.get('q') ?? '';
 
-  const [categories, setCategories] = useState<LiveCategory[]>([]);
+  // Seed depuis le snapshot synchrone du cache catalogue : au retour sur l'onglet
+  // (cache chaud), l'état initial porte déjà les données → aucun squelette.
+  const [categories, setCategories] = useState<LiveCategory[]>(
+    () => (credentials ? xtreamService.peekLiveCategories(credentials) : null) ?? [],
+  );
   // Catalogue COMPLET chargé une seule fois → bucketé par catégorie côté client
   // (chaque LiveStream porte son category_id). Une seule requête sert les rails,
   // la grille d'une catégorie ET la recherche globale (même schéma que Movies).
-  const [allStreams, setAllStreams] = useState<LiveStream[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [allStreams, setAllStreams] = useState<LiveStream[] | null>(
+    () => (credentials ? xtreamService.peekLiveStreams(credentials) : null),
+  );
+  // ⚠ loading=false UNIQUEMENT si catalogue ET catégories sont en cache : les
+  // rails dépendent des catégories, donc seeder sur le seul catalogue laissait
+  // afficher « aucune chaîne » (grille vide) le temps que les catégories arrivent.
+  const [loading, setLoading] = useState(
+    () =>
+      !(
+        credentials &&
+        xtreamService.peekLiveStreams(credentials) &&
+        xtreamService.peekLiveCategories(credentials)
+      ),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState(urlQ);
@@ -110,17 +140,28 @@ export function Live() {
   // ── Chargement catégories + catalogue complet ──────────────────────────────
   useEffect(() => {
     if (!credentials) return;
-    setLoading(true);
+    let cancelled = false;
+    // Pas de setLoading(true) ici : si l'état a été seedé depuis le cache, on ne
+    // veut PAS revenir au squelette. Le fetch (Promise en cache → résolution
+    // immédiate) ne fait que rafraîchir les données déjà affichées.
     Promise.all([
       xtreamService.getLiveCategories(credentials),
       xtreamService.getLiveStreams(credentials),
     ])
       .then(([cats, all]) => {
+        if (cancelled) return;
         setCategories(cats);
         setAllStreams(all);
       })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [credentials]);
 
   // ── Debounce recherche ─────────────────────────────────────────────────────
@@ -150,28 +191,40 @@ export function Live() {
 
   // ── Catalogue dédupliqué (count + base recherche). Le rang qualité choisit la
   // meilleure variante comme `primary` et trie les variantes (meilleure d'abord). ──
-  const allGroups = useMemo(
-    () => groupByTitle(allStreams ?? [], (s) => s.name, (s) => qualityRank(s.name)),
-    [allStreams],
-  );
+  const allGroups = useMemo(() => {
+    if (!allStreams) return [];
+    let hit = allGroupsCache.get(allStreams);
+    if (!hit) {
+      hit = groupByTitle(allStreams, (s) => s.name, (s) => qualityRank(s.name));
+      allGroupsCache.set(allStreams, hit);
+    }
+    return hit;
+  }, [allStreams]);
 
   // ── Rails par catégorie : bucket par category_id puis groupage par titre ────
-  const rails = useMemo(() => {
+  const rails = useMemo<LiveRail[]>(() => {
     if (!allStreams) return [];
+    const cached = railsCache.get(allStreams);
+    if (cached && cached.categories === categories) return cached.rails;
     const byCat = new Map<string, LiveStream[]>();
     for (const s of allStreams) {
       const arr = byCat.get(s.category_id);
       if (arr) arr.push(s);
       else byCat.set(s.category_id, [s]);
     }
-    return categories
+    const built = categories
       .map((c) => {
         const bucket = byCat.get(c.category_id) ?? [];
         const groups = groupByTitle(bucket, (s) => s.name, (s) => qualityRank(s.name));
         return { id: c.category_id, name: c.category_name, groups };
       })
       .filter((r) => r.groups.length > 0);
+    railsCache.set(allStreams, { categories, rails: built });
+    return built;
   }, [allStreams, categories]);
+
+  // Mont progressif des rails (overview) → premier paint rapide au retour d'onglet.
+  const visibleRails = useProgressiveList(rails, INITIAL_RAILS, RAILS_CHUNK);
 
   // ── Résultats de recherche (filtre sur le catalogue dédupliqué) ────────────
   const searchGroups = useMemo(() => {
@@ -262,13 +315,14 @@ export function Live() {
     return top ? `${top} +${g.variants.length - 1}` : tc('live.qualityCountOne', 'live.qualityCountOther', g.variants.length);
   };
 
-  const renderCard = (g: LiveGroup, listGroups: LiveGroup[], railCard: boolean) => {
+  const renderCard = (g: LiveGroup, listGroups: LiveGroup[], railCard: boolean, priority = false) => {
     const card = (
       <MediaCard
         key={g.primary.stream_id}
         title={g.title || g.primary.name}
         image={g.primary.stream_icon}
         variant="channel"
+        priority={priority}
         isLive
         isFavorite={isFavorite('live', String(g.primary.stream_id))}
         badge={groupBadge(g)}
@@ -311,7 +365,7 @@ export function Live() {
           </div>
         ) : (
           <div className={`${styles.grid} ${styles.gridChannel}`}>
-            {visibleGrid.map((g) => renderCard(g, gridSource, false))}
+            {visibleGrid.map((g, i) => renderCard(g, gridSource, false, i < EAGER_COUNT))}
           </div>
         )}
 
@@ -382,7 +436,7 @@ export function Live() {
 
       {isGlobalSearch ? (
         <div className={`${styles.grid} ${styles.gridChannel}`}>
-          {visibleGrid.map((g) => renderCard(g, searchGroups, false))}
+          {visibleGrid.map((g, i) => renderCard(g, searchGroups, false, i < EAGER_COUNT))}
           {searchGroups.length === 0 && !loading && (
             <p className={styles.empty}>{t('live.none')}</p>
           )}
@@ -417,7 +471,7 @@ export function Live() {
               ))}
             </Shelf>
           )}
-          {rails.map((r) => (
+          {visibleRails.map((r) => (
             <Shelf
               key={r.id}
               title={r.name}

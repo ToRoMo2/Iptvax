@@ -58,27 +58,55 @@ async function apiFetch<T>(creds: XtreamCredentials, params: Record<string, stri
 // avec un TTL. Clé scopée au serveur → un changement de profil/serveur ne
 // sert jamais un cache croisé. `authenticate` n'est JAMAIS caché (doit rester
 // une vérification réseau live). EPG : TTL court (programme « en cours »).
-interface CacheEntry { at: number; data: Promise<unknown>; }
+// `value` : snapshot SYNCHRONE de la donnée une fois la Promise résolue. Les
+// pages (Movies/Series/Live) se démontent à chaque navigation puis se remontent
+// avec `loading=true` + état vide → même quand la Promise est en cache, elles
+// re-rendent un squelette le temps qu'elle re-résolve sur une microtask
+// (flash visible). En exposant la valeur résolue de façon synchrone (`peek*`),
+// la page peut SEED son état initial → aucun squelette sur cache chaud.
+interface CacheEntry { at: number; data: Promise<unknown>; value?: unknown; }
 const catalogCache = new Map<string, CacheEntry>();
 const CATALOG_TTL = 10 * 60_000; // 10 min — catalogue stable sur une session
 const EPG_TTL = 60_000;          // 1 min — le « en cours » doit rester frais
+
+function cacheKey(creds: XtreamCredentials, params: Record<string, string>): string {
+  return `${creds.serverUrl}|${new URLSearchParams(params).toString()}`;
+}
 
 function cachedFetch<T>(
   creds: XtreamCredentials,
   params: Record<string, string>,
   ttl: number,
 ): Promise<T> {
-  const key = `${creds.serverUrl}|${new URLSearchParams(params).toString()}`;
+  const key = cacheKey(creds, params);
   const hit = catalogCache.get(key);
   if (hit && Date.now() - hit.at < ttl) return hit.data as Promise<T>;
 
-  const p = apiFetch<T>(creds, params).catch((err) => {
-    // Ne pas mémoriser un échec : le prochain appel doit pouvoir réessayer.
-    if (catalogCache.get(key)?.data === p) catalogCache.delete(key);
-    throw err;
-  });
-  catalogCache.set(key, { at: Date.now(), data: p });
-  return p;
+  const entry: CacheEntry = { at: Date.now(), data: Promise.resolve() };
+  entry.data = apiFetch<T>(creds, params)
+    .then((v) => {
+      entry.value = v; // snapshot synchrone pour peekCatalog
+      return v;
+    })
+    .catch((err) => {
+      // Ne pas mémoriser un échec : le prochain appel doit pouvoir réessayer.
+      if (catalogCache.get(key) === entry) catalogCache.delete(key);
+      throw err;
+    });
+  catalogCache.set(key, entry);
+  return entry.data as Promise<T>;
+}
+
+// Lecture SYNCHRONE de la donnée déjà résolue (null si absente ou TTL expiré).
+// Sert à seeder l'état initial des pages catalogue → pas de squelette au retour.
+function peekCatalog<T>(
+  creds: XtreamCredentials,
+  params: Record<string, string>,
+  ttl = CATALOG_TTL,
+): T | null {
+  const hit = catalogCache.get(cacheKey(creds, params));
+  if (hit && hit.value !== undefined && Date.now() - hit.at < ttl) return hit.value as T;
+  return null;
 }
 
 /** Vide le cache catalogue (changement de profil/serveur, pull-to-refresh). */
@@ -118,6 +146,23 @@ export const xtreamService = {
       action: 'get_series',
       ...(categoryId ? { category_id: categoryId } : {}),
     }, CATALOG_TTL),
+
+  // ─── Snapshots synchrones (seed de l'état initial des pages catalogue) ────
+  // Mêmes params que les `get*` du catalogue COMPLET (sans category_id) → la clé
+  // de cache coïncide. Renvoie null si rien en cache ou TTL expiré → la page
+  // affiche son squelette et lance le fetch normal (premier chargement / froid).
+  peekLiveCategories: (creds: XtreamCredentials) =>
+    peekCatalog<LiveCategory[]>(creds, { action: 'get_live_categories' }),
+  peekLiveStreams: (creds: XtreamCredentials) =>
+    peekCatalog<LiveStream[]>(creds, { action: 'get_live_streams' }),
+  peekVodCategories: (creds: XtreamCredentials) =>
+    peekCatalog<VodCategory[]>(creds, { action: 'get_vod_categories' }),
+  peekVodStreams: (creds: XtreamCredentials) =>
+    peekCatalog<VodStream[]>(creds, { action: 'get_vod_streams' }),
+  peekSeriesCategories: (creds: XtreamCredentials) =>
+    peekCatalog<SeriesCategory[]>(creds, { action: 'get_series_categories' }),
+  peekSeries: (creds: XtreamCredentials) =>
+    peekCatalog<SeriesItem[]>(creds, { action: 'get_series' }),
 
   getSeriesInfo: (creds: XtreamCredentials, seriesId: number) =>
     cachedFetch<SeriesInfo>(creds, { action: 'get_series_info', series_id: String(seriesId) }, CATALOG_TTL),

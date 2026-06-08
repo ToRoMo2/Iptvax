@@ -77,6 +77,9 @@ interface Props {
   variant: 'movie' | 'series';
   /** Classe additionnelle sur la cellule (ex. largeur fixe dans un rail Home). */
   className?: string;
+  /** Carte au-dessus de la ligne de flottaison (1er écran d'une grille) → l'affiche
+   *  est chargée en `eager` + priorité réseau haute pour apparaître plus vite. */
+  priority?: boolean;
   isFavorite?: boolean;
   /** Trailer YouTube déjà connu (champ Xtream `youtube_trailer`). */
   trailerUrl?: string;
@@ -121,6 +124,7 @@ export function PreviewCard({
   meta,
   variant,
   className,
+  priority,
   isFavorite,
   trailerUrl,
   resolveTrailer,
@@ -420,7 +424,14 @@ export function PreviewCard({
       >
         <div className={styles.art}>
           {poster ? (
-            <img src={poster} alt={title} loading="lazy" decoding="async" className={styles.img} />
+            <img
+              src={poster}
+              alt={title}
+              loading={priority ? 'eager' : 'lazy'}
+              fetchPriority={priority ? 'high' : 'auto'}
+              decoding="async"
+              className={styles.img}
+            />
           ) : (
             <div className={styles.ph}>
               <span className={styles.phName}>{title}</span>

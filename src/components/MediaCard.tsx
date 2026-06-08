@@ -17,6 +17,9 @@ interface Props {
   isLive?: boolean;
   isFavorite?: boolean;
   selected?: boolean;
+  /** Carte au-dessus de la ligne de flottaison (1er écran d'une grille) → l'affiche
+   *  est chargée en `eager` + priorité réseau haute pour apparaître plus vite. */
+  priority?: boolean;
   // Petite pastille en bas à gauche de l'art (ex. « 4 qualités » pour une
   // chaîne Live regroupant plusieurs variantes de qualité).
   badge?: string;
@@ -44,6 +47,7 @@ function MediaCardInner({
   onFavorite,
   resolvePoster,
   inlinePreview,
+  priority,
 }: Props) {
   const { t } = useI18n();
   const { ref, focused } = useFocusable({ onEnterPress: () => onClick() });
@@ -82,7 +86,8 @@ function MediaCardInner({
             src={resolved}
             alt={title}
             onError={() => setImgError(true)}
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : 'auto'}
             decoding="async"
             className={styles.img}
             style={{ objectFit: isChannel ? 'contain' : 'cover' }}
@@ -163,5 +168,6 @@ export const MediaCard = memo(MediaCardInner, (a, b) =>
   a.isFavorite === b.isFavorite &&
   a.selected === b.selected &&
   a.badge === b.badge &&
+  a.priority === b.priority &&
   Boolean(a.inlinePreview) === Boolean(b.inlinePreview),
 );

@@ -242,6 +242,11 @@
 
 .shelf {
   margin-bottom: var(--row-gap);
+  /* Rails hors écran : on saute leur layout + paint (gain de scroll/jank sur les
+     catalogues à 40+ catégories). `contain-intrinsic-size` réserve une hauteur
+     estimée (en-tête + une rangée de posters) → pas de saut de scrollbar. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
 }
 
 /* ── Bascule « Populaires » : billboard desktop vs coverflow mobile ──────────

@@ -17,6 +17,15 @@ import { isNative } from '../lib/platform';
  * @returns Une URL vers le proxy image prête à passer dans <img src>,
  *          ou `undefined` si l'URL d'entrée n'est pas absolue (le composant affichera son fallback).
  */
+// CDN de confiance : certificat valide + aucune CORS requise pour l'affichage
+// d'une <img> cross-origin. On les charge en DIRECT (jamais via /api/img) même
+// sur web/Electron. Bénéfice : le proxy local est plafonné à ~6 connexions
+// concurrentes par origine (HTTP/1.1 sur loopback) ; y faire transiter les
+// affiches TMDB rivalise avec les affiches IPTV et fait traîner l'apparition
+// des posters. En direct, TMDB dispose de son PROPRE pool de connexions
+// (origine distincte) → les deux jeux d'images chargent en parallèle.
+const DIRECT_IMG_PREFIXES = ['https://image.tmdb.org/'];
+
 export function safeImgUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
   const trimmed = url.trim();
@@ -25,5 +34,8 @@ export function safeImgUrl(url: string | undefined | null): string | undefined {
   // contournement de certificat HTTPS expiré qu'offre /api/img devra être géré
   // au niveau du shell natif si nécessaire — voir docs/native-port.md.
   if (isNative) return trimmed;
+  for (const p of DIRECT_IMG_PREFIXES) {
+    if (trimmed.startsWith(p)) return trimmed;
+  }
   return apiUrl(`/api/img?url=${encodeURIComponent(trimmed)}`);
 }

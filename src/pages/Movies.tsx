@@ -22,6 +22,23 @@ const MIN_SEARCH_LEN = 3;
 const RESULT_LIMIT = 80;
 // Nombre de cartes affichées dans un rail avant la carte « Voir tout ».
 const RAIL_PREVIEW = 12;
+// Cartes du 1er écran d'une grille (recherche / catégorie) chargées en priorité
+// haute (`eager` + fetchpriority) → les affiches visibles apparaissent plus vite.
+const EAGER_COUNT = 18;
+// Rendu progressif des rails de l'overview : on MONTE d'abord ces rails (le coût
+// est le montage de centaines de PreviewCard focusables, pas leur paint), puis
+// on étend par paquets pendant les temps morts → navigation entre onglets fluide.
+const INITIAL_RAILS = 8;
+const RAILS_CHUNK = 6;
+
+interface MovieRail { id: string; name: string; groups: TitleGroup<VodStream>[] }
+
+// Caches des dérivés lourds par identité du catalogue. `allStreams` provient du
+// cache service (même référence d'un montage à l'autre) → la navigation retour
+// ne recalcule pas le regroupement (titleKey/cleanTitle sur potentiellement des
+// dizaines de milliers d'items = plusieurs centaines de ms sinon).
+const allGroupsCache = new WeakMap<VodStream[], TitleGroup<VodStream>[]>();
+const railsCache = new WeakMap<VodStream[], { categories: VodCategory[]; rails: MovieRail[] }>();
 
 // Entrée « Populaires » : groupe catalogue + visuel/synopsis TMDB. Le backdrop
 // paysage HD vient de TMDB (les fonds Xtream sont souvent absents → poster
@@ -110,12 +127,28 @@ export function Movies() {
   // Restaure la query depuis l'URL au remontage (retour depuis la fiche détail).
   const urlQ = searchParams.get('q') ?? '';
 
-  const [categories, setCategories] = useState<VodCategory[]>([]);
+  // Seed depuis le snapshot synchrone du cache catalogue : au retour sur l'onglet
+  // (cache chaud), l'état initial porte déjà les données → aucun squelette.
+  const [categories, setCategories] = useState<VodCategory[]>(
+    () => (credentials ? xtreamService.peekVodCategories(credentials) : null) ?? [],
+  );
   // Catalogue COMPLET chargé une seule fois → bucketé par catégorie côté client
   // (chaque VodStream porte son category_id). Une seule requête sert les rails,
   // la grille d'une catégorie ET la recherche globale.
-  const [allStreams, setAllStreams] = useState<VodStream[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [allStreams, setAllStreams] = useState<VodStream[] | null>(
+    () => (credentials ? xtreamService.peekVodStreams(credentials) : null),
+  );
+  // ⚠ loading=false UNIQUEMENT si catalogue ET catégories sont en cache : les
+  // rails dépendent des catégories, donc seeder sur le seul catalogue laissait
+  // afficher « aucun film » (grille vide) le temps que les catégories arrivent.
+  const [loading, setLoading] = useState(
+    () =>
+      !(
+        credentials &&
+        xtreamService.peekVodStreams(credentials) &&
+        xtreamService.peekVodCategories(credentials)
+      ),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState(urlQ);
@@ -131,17 +164,28 @@ export function Movies() {
   // ── Chargement catégories + catalogue complet ──────────────────────────────
   useEffect(() => {
     if (!credentials) return;
-    setLoading(true);
+    let cancelled = false;
+    // Pas de setLoading(true) ici : si l'état a été seedé depuis le cache, on ne
+    // veut PAS revenir au squelette. Le fetch (Promise en cache → résolution
+    // immédiate) ne fait que rafraîchir les données déjà affichées.
     Promise.all([
       xtreamService.getVodCategories(credentials),
       xtreamService.getVodStreams(credentials),
     ])
       .then(([cats, all]) => {
+        if (cancelled) return;
         setCategories(cats);
         setAllStreams(all);
       })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [credentials]);
 
   // ── Debounce recherche ─────────────────────────────────────────────────────
@@ -170,21 +214,28 @@ export function Movies() {
   const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
   // ── Catalogue dédupliqué complet (count d'en-tête + base recherche + match TMDB) ──
-  const allGroups = useMemo(
-    () => groupByTitle(allStreams ?? [], (v) => v.name, (v) => v.rating_5based ?? 0),
-    [allStreams],
-  );
+  const allGroups = useMemo(() => {
+    if (!allStreams) return [];
+    let hit = allGroupsCache.get(allStreams);
+    if (!hit) {
+      hit = groupByTitle(allStreams, (v) => v.name, (v) => v.rating_5based ?? 0);
+      allGroupsCache.set(allStreams, hit);
+    }
+    return hit;
+  }, [allStreams]);
 
   // ── Rails par catégorie : bucket par category_id puis groupage par titre ────
-  const rails = useMemo(() => {
+  const rails = useMemo<MovieRail[]>(() => {
     if (!allStreams) return [];
+    const cached = railsCache.get(allStreams);
+    if (cached && cached.categories === categories) return cached.rails;
     const byCat = new Map<string, VodStream[]>();
     for (const s of allStreams) {
       const arr = byCat.get(s.category_id);
       if (arr) arr.push(s);
       else byCat.set(s.category_id, [s]);
     }
-    return categories
+    const built = categories
       .map((c) => {
         const bucket = byCat.get(c.category_id) ?? [];
         const groups = groupByTitle(bucket, (v) => v.name, (v) => v.rating_5based ?? 0).sort(
@@ -193,7 +244,12 @@ export function Movies() {
         return { id: c.category_id, name: c.category_name, groups };
       })
       .filter((r) => r.groups.length > 0);
+    railsCache.set(allStreams, { categories, rails: built });
+    return built;
   }, [allStreams, categories]);
+
+  // Mont progressif des rails (overview) → premier paint rapide au retour d'onglet.
+  const visibleRails = useProgressiveList(rails, INITIAL_RAILS, RAILS_CHUNK);
 
   // ── Tendances TMDB → rail « Populaires » (matché au catalogue) ─────────────
   // Gate sur `isPremium` (source de vérité réactive) : si l'abonnement se résout
@@ -268,10 +324,11 @@ export function Movies() {
     navigate(`/movie/${g.primary.stream_id}`, { state: { movie: g.primary, variants: g.variants } });
   };
 
-  const renderCard = (g: TitleGroup<VodStream>, railCard: boolean) => (
+  const renderCard = (g: TitleGroup<VodStream>, railCard: boolean, priority = false) => (
     <PreviewCard
       key={g.primary.stream_id}
       className={railCard ? styles.posterCell : undefined}
+      priority={priority}
       title={g.title}
       image={g.primary.stream_icon}
       backdrop={g.primary.backdrop_path?.[0]}
@@ -345,7 +402,7 @@ export function Movies() {
           </div>
         ) : (
           <div className={`${styles.grid} ${styles.gridPoster}`}>
-            {visibleGrid.map((g) => renderCard(g, false))}
+            {visibleGrid.map((g, i) => renderCard(g, false, i < EAGER_COUNT))}
           </div>
         )}
 
@@ -408,7 +465,7 @@ export function Movies() {
 
       {isGlobalSearch ? (
         <div className={`${styles.grid} ${styles.gridPoster}`}>
-          {visibleGrid.map((g) => renderCard(g, false))}
+          {visibleGrid.map((g, i) => renderCard(g, false, i < EAGER_COUNT))}
           {searchGroups.length === 0 && !loading && (
             <p className={styles.empty}>{t('movies.none')}</p>
           )}
@@ -455,7 +512,7 @@ export function Movies() {
               )}
             </Shelf>
           )}
-          {rails.map((r) => (
+          {visibleRails.map((r) => (
             <Shelf
               key={r.id}
               title={r.name}
