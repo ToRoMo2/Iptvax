@@ -202,6 +202,13 @@ function readNativeSubtitleTracks(video: HTMLVideoElement): SubtitleTrack[] {
   return tracks;
 }
 
+// Filet de sécurité (le cas principal — source illisible/0 octet — est déjà
+// détecté en ~1-2 s côté proxy qui répond 422). Ne couvre plus que le cas rare
+// d'un flux qui émet quelques octets puis se fige sans event 'error'. Délai
+// court car la détection rapide vit ailleurs ; assez long pour ne pas piéger un
+// gros seek sur réseau lent.
+const STUCK_DETECT_MS = 12_000;
+
 export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlayerController {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -256,6 +263,19 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
   // Dernière video.currentTime observée — sert à détecter si la vidéo avance vraiment
   // pour débloquer un statut "buffering" qui resterait coincé après-coup.
   const lastTimeRef = useRef(0);
+  // Watchdog "flux illisible" (VOD uniquement) : un flux défectueux que ffmpeg
+  // ne sait pas démuxer peut décoder une seule frame puis se figer en 'paused'
+  // SANS jamais émettre d'event 'error' → l'utilisateur reste sur une image gelée
+  // avec un bouton play inerte, aucun overlay d'erreur. everPlayedRef passe à true
+  // dès qu'une vraie progression est observée ; si le délai expire avant ça, on
+  // bascule en erreur explicite (cf. STUCK_DETECT_MS).
+  const everPlayedRef = useRef(false);
+  const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Verrou d'erreur TERMINALE : une fois posé, plus aucun event tardif du <video>
+  // (pause/waiting/canplay/play d'un flux moribond, ou un play().catch en attente)
+  // ne doit ré-écrire le statut — sinon l'overlay d'erreur clignote puis repasse
+  // sur un bouton pause inerte. Remis à false à chaque nouveau loadSource (Retry).
+  const erroredRef = useRef(false);
 
   const [status, setStatus] = useState<PlayerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -304,6 +324,11 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       if (!video.paused && advanced > 0.05 && advanced < 1) {
         setStatus((s) => (s === 'loading' || s === 'buffering' ? 'playing' : s));
       }
+      // Désarme le watchdog "flux illisible" dès la 1re vraie progression de lecture.
+      if (!video.paused && video.currentTime > 0.1 && !everPlayedRef.current) {
+        everPlayedRef.current = true;
+        if (stuckTimerRef.current) { clearTimeout(stuckTimerRef.current); stuckTimerRef.current = null; }
+      }
     };
     const onDurationChange = () => {
       // Priorité absolue à la durée du probe (vraie durée depuis les métadonnées
@@ -327,10 +352,13 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       if (video.buffered.length > 0)
         setBufferedEnd(video.buffered.end(video.buffered.length - 1) + seekOffsetRef.current);
     };
-    const onPlay    = () => setStatus('playing');
-    const onPause   = () => setStatus('paused');
-    const onWaiting = () => setStatus('buffering');
-    const onPlaying = () => setStatus('playing');
+    // ⚠ Tous gardés par erroredRef : après une erreur terminale, un event tardif
+    // du <video> (pause/waiting/play d'un flux qui avorte) ne doit PAS sortir de
+    // l'état 'error' (sinon overlay → bouton pause inerte).
+    const onPlay    = () => { if (!erroredRef.current) setStatus('playing'); };
+    const onPause   = () => { if (!erroredRef.current) setStatus('paused'); };
+    const onWaiting = () => { if (!erroredRef.current) setStatus('buffering'); };
+    const onPlaying = () => { if (!erroredRef.current) setStatus('playing'); };
     const onVolumeChange = () => {
       setVolumeState(video.volume);
       setIsMuted(video.muted);
@@ -366,7 +394,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
         const onTranscodeReady = () => {
           video.removeEventListener('canplay', onTranscodeReady);
           video.removeEventListener('loadeddata', onTranscodeReady);
-          video.play().catch(() => setStatus('paused'));
+          video.play().catch(() => { if (!erroredRef.current) setStatus('paused'); });
         };
         video.addEventListener('canplay', onTranscodeReady);
         video.addEventListener('loadeddata', onTranscodeReady);
@@ -396,7 +424,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
         const onFfmpegReady = () => {
           video.removeEventListener('canplay', onFfmpegReady);
           video.removeEventListener('loadeddata', onFfmpegReady);
-          video.play().catch(() => { if (video.paused) setStatus('paused'); });
+          video.play().catch(() => { if (video.paused && !erroredRef.current) setStatus('paused'); });
         };
         video.addEventListener('canplay', onFfmpegReady);
         video.addEventListener('loadeddata', onFfmpegReady);
@@ -405,8 +433,18 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
         video.play().catch(() => {/* trop tôt — retry sur canplay/loadeddata */});
         return;
       }
-      setStatus('error');
+      // Erreur TERMINALE : verrou + coupe du flux moribond. Sans ça, un event
+      // tardif (canplay/play/pause du <video> en train d'avorter, ou un
+      // play().catch en attente) ré-écrirait le statut → l'overlay clignote puis
+      // repasse en pause. On pose erroredRef (les handlers d'events l'honorent),
+      // on annule le watchdog et on détache la source.
+      erroredRef.current = true;
+      if (stuckTimerRef.current) { clearTimeout(stuckTimerRef.current); stuckTimerRef.current = null; }
       const finalCode = video.error?.code;
+      try { video.pause(); } catch { /* */ }
+      video.removeAttribute('src');
+      video.load();
+      setStatus('error');
       setError(`Erreur de lecture${finalCode ? ` (code ${finalCode})` : ''}`);
       // Diagnostic : la source est-elle joignable DEPUIS le serveur ? Un backend
       // hébergé sur un VPS dont l'IP (datacenter) est blacklistée par le
@@ -430,6 +468,16 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
               );
             } else if (d?.ok && typeof d.status === 'number' && d.status >= 400) {
               setError(`La source refuse l'accès au serveur (HTTP ${d.status}).`);
+            } else if (d?.ok) {
+              // Source joignable + HTTP OK, mais la lecture a quand même échoué :
+              // le flux est illisible (conteneur/codec non démuxable, ou fichier
+              // défectueux côté fournisseur). ffmpeg étant le démuxeur le plus
+              // capable, on ne peut rien y faire — on le dit clairement plutôt
+              // que de laisser un « code 4 » opaque.
+              setError(
+                'Cette vidéo est illisible : le flux est dans un format non ' +
+                'supporté ou défectueux côté fournisseur. Essayez une autre version.',
+              );
             }
           })
           .catch(() => {/* réseau/timeout — garder le message générique */});
@@ -513,6 +561,7 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       if (nativeAudioTracks) {
         nativeAudioTracks.removeEventListener('addtrack', onAudioTrackAdd);
       }
+      if (stuckTimerRef.current) { clearTimeout(stuckTimerRef.current); stuckTimerRef.current = null; }
     };
   }, []);
 
@@ -731,9 +780,37 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       /\/live\//.test(extractUpstreamUrl(src)) ||
       /\/live\//.test(probeSource);
 
+    // (Ré)arme le watchdog "flux illisible" pour ce VOD. Jamais en live (un flux
+    // live n'a pas de durée et "stalle" légitimement au démarrage). Disarmé dès
+    // la 1re progression réelle (onTimeUpdate) ou par l'event 'error' (onError).
+    everPlayedRef.current = false;
+    erroredRef.current = false;
+    if (stuckTimerRef.current) { clearTimeout(stuckTimerRef.current); stuckTimerRef.current = null; }
+    if (!isLiveStream) {
+      stuckTimerRef.current = setTimeout(() => {
+        stuckTimerRef.current = null;
+        const v = videoRef.current;
+        // Déjà en lecture, ou assez de données bufferisées pour jouer (= flux sain
+        // simplement en pause utilisateur) → ne rien faire. Un flux illisible reste
+        // à readyState bas (0-2 : au plus une frame décodée) et n'a jamais progressé.
+        if (!v || everPlayedRef.current || erroredRef.current || v.readyState >= 3) return;
+        // Erreur TERMINALE collante (cf. onError) : verrou + coupe de la source
+        // pour stopper les tentatives en cours et empêcher tout retour en pause.
+        erroredRef.current = true;
+        try { v.pause(); } catch { /* */ }
+        v.removeAttribute('src');
+        v.load();
+        setStatus('error');
+        setError(
+          'Cette vidéo est illisible : le flux est dans un format non ' +
+          'supporté ou défectueux côté fournisseur. Essayez une autre version.',
+        );
+      }, STUCK_DETECT_MS);
+    }
+
     const tryPlay = () => {
       video.play().catch(() => {
-        setStatus('paused');
+        if (!erroredRef.current) setStatus('paused');
       });
     };
 

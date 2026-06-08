@@ -776,10 +776,17 @@ app.get('/api/stream', (req, res) => {
   } else {
     ffArgs.push('-c:v', 'copy');
   }
+  // Audio : transcodage AAC universel + downmix stéréo. ⚠ Sans `-ac 2`, une
+  // piste 5.1 (6 canaux, fréquente en VF/VOSTFR — ex. Game of Thrones VOSTFR)
+  // garde ses 6 canaux : à 128 kbit/s ça fait ~21 kbit/s/canal → son compressé
+  // « radio/téléphone ». On downmixe en stéréo (ce que fait déjà libVLC côté
+  // mobile, d'où l'absence du bug là-bas) et on monte le débit à 192k pour un
+  // rendu transparent sur la piste stéréo résultante.
   ffArgs.push(
     '-c:a', 'aac',
     '-aac_coder', 'fast',
-    '-b:a', '128k',
+    '-ac', '2',
+    '-b:a', '192k',
   );
   if (seekSec) {
     // Chrome rebase à 0 la timeline d'un fMP4 progressif → video.currentTime
@@ -806,17 +813,34 @@ app.get('/api/stream', (req, res) => {
     if (errBuf.length > 4000) errBuf = errBuf.slice(-2000);
   });
 
-  ff.stdout.pipe(res, { end: true });
+  // ⚠ end:false (et NON end:true) : on gère nous-mêmes la fin de réponse sur
+  // l'event 'close' de ffmpeg. Sinon, quand ffmpeg n'émet AUCUNE donnée (échec
+  // de démux = source illisible, ex. « None of the available extractors »), le
+  // pipe terminait la réponse par un 200 au corps vide → le client attendait.
+  // Là, on détecte « zéro octet » et on répond 422 IMMÉDIATEMENT (≈1-2 s, dès
+  // que ffmpeg sort) → le <video> côté client lève une erreur tout de suite,
+  // sans dépendre du watchdog. Un flux sain (HEVC remuxé, etc.) émet des octets
+  // → on bascule sentBytes=true et la lecture suit son cours normal.
+  let sentBytes = false;
+  ff.stdout.on('data', () => { sentBytes = true; });
+  ff.stdout.pipe(res, { end: false });
   req.on('close', () => ff.kill('SIGTERM'));
 
   ff.on('error', err => {
     process.stderr.write(`[stream] ffmpeg spawn error: ${err.message}\n`);
     if (!res.headersSent) res.status(502).end();
+    else if (!res.writableEnded) res.end();
   });
 
   ff.on('close', code => {
     if (code !== 0 && code !== null) {
       process.stderr.write(`[stream] ffmpeg exited ${code}: ${errBuf.slice(-500)}\n`);
+    }
+    if (!sentBytes && !res.headersSent) {
+      // Aucune donnée média produite → conteneur/codec non démuxable par ffmpeg.
+      res.status(422).end();
+    } else if (!res.writableEnded) {
+      res.end();
     }
   });
 });

@@ -873,7 +873,11 @@ function iptvProxyPlugin(): Plugin {
           ffArgs.push(
             '-c:a', 'aac',
             '-aac_coder', 'fast',  // encodeur AAC le plus rapide (vs twoloop par défaut)
-            '-b:a', '128k',         // qualité standard, encode plus vite que 192k
+            // ⚠ -ac 2 (downmix stéréo) : sans ça une piste 5.1 (6 canaux, fréquente
+            // en VF/VOSTFR) garde ses 6 canaux à 128k ≈ 21 kbit/s/canal → son
+            // « radio/téléphone ». On downmixe en stéréo + 192k (rendu transparent).
+            '-ac', '2',
+            '-b:a', '192k',
           );
           if (seekSec) {
             // Rebase la sortie à ~0 : Chrome normalise de toute façon la
@@ -906,17 +910,30 @@ function iptvProxyPlugin(): Plugin {
             if (errBuf.length > 4000) errBuf = errBuf.slice(-2000);
           });
 
-          ff.stdout.pipe(res, { end: true });
+          // ⚠ end:false : on termine la réponse nous-mêmes sur 'close'. Si ffmpeg
+          // n'émet aucun octet (échec de démux = source illisible), on répond 422
+          // immédiatement (≈1-2 s) au lieu d'un 200 vide qui ferait attendre le
+          // client → erreur affichée tout de suite côté <video>. (cf. proxy.cjs)
+          let sentBytes = false;
+          ff.stdout.on('data', () => { sentBytes = true; });
+          ff.stdout.pipe(res, { end: false });
           req.on('close', () => ff.kill('SIGTERM'));
 
           ff.on('error', (err) => {
             process.stderr.write(`[stream] ffmpeg spawn error: ${err.message}\n`);
             if (!res.headersSent) { res.statusCode = 502; res.end(); }
+            else if (!res.writableEnded) { res.end(); }
           });
 
           ff.on('close', (code) => {
             if (code !== 0 && code !== null) {
               process.stderr.write(`[stream] ffmpeg exited ${code}: ${errBuf.slice(-500)}\n`);
+            }
+            if (!sentBytes && !res.headersSent) {
+              res.statusCode = 422;
+              res.end();
+            } else if (!res.writableEnded) {
+              res.end();
             }
           });
 
