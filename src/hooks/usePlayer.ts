@@ -64,6 +64,21 @@ function isHlsUrl(url: string) {
   return url.includes('.m3u8');
 }
 
+// ── Sous-titres FENÊTRÉS (desktop) ─────────────────────────────────────────
+// On n'extrait plus toute la piste d'un coup (ffmpeg devait lire le fichier
+// distant entier → dizaines de secondes + monopolisation de l'unique connexion
+// autorisée par le fournisseur IPTV). À la place : des fenêtres de quelques
+// minutes autour de la position courante, via fast-seek `-ss` côté serveur, puis
+// fusionnées côté client. Résultat : cues affichées en ~1-2 s comme sur mobile.
+const SUB_WIN = 300;       // longueur d'une fenêtre (s) — grille fixe pour le cache
+const SUB_OVERLAP = 5;     // chevauchement (s) pour ne pas couper une cue en bord de fenêtre
+const SUB_LOOKAHEAD = 1;   // nombre de fenêtres préchargées en avance de la lecture
+
+// Index de la fenêtre contenant l'instant absolu `t` (grille de pas SUB_WIN).
+function subWindowIndex(t: number): number {
+  return Math.max(0, Math.floor((t || 0) / SUB_WIN));
+}
+
 // ── Parser WebVTT robuste ─────────────────────────────────────────────────
 // On fetch et parse les sous-titres nous-mêmes plutôt que d'utiliser <track> :
 // les éléments <track> ont des bugs de timing dans Chrome (mode='hidden' ne
@@ -240,10 +255,18 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
   const currentTimeRef = useRef(0);
   // Compteur de seeks pour invalider les listeners obsolètes (seeks rapides successifs)
   const seekGenRef = useRef(0);
-  // Sous-titres : cues parsées de la piste active (mises à jour quand l'utilisateur change)
+  // Sous-titres : cues FUSIONNÉES de la piste active (toutes les fenêtres chargées,
+  // triées). C'est ce que lit la boucle d'affichage RAF.
   const subCuesRef = useRef<VttCue[]>([]);
-  // Cache par streamIndex absolu pour éviter de re-télécharger en switchant entre pistes
-  const subCuesCacheRef = useRef<Map<number, VttCue[]>>(new Map());
+  // Cache par fenêtre : clé `${streamIndex}#${windowIndex}` → cues de la fenêtre.
+  // Survit aux changements de piste (re-sélectionner une piste déjà vue = instantané).
+  const subWinCacheRef = useRef<Map<string, VttCue[]>>(new Map());
+  // Fenêtres en cours de fetch (mêmes clés) → évite les requêtes en double.
+  const subWinFetchingRef = useRef<Set<string>>(new Set());
+  // streamIndex absolu de la piste de sous-titres ACTIVE (-1 = aucune).
+  const subActiveStreamRef = useRef(-1);
+  // Fenêtres déjà fusionnées dans subCuesRef pour la piste active.
+  const subLoadedWindowsRef = useRef<Set<number>>(new Set());
   // Index UI (0-based) de la piste courante — sert à valider les fetch asynchrones
   const currentSubRef = useRef(-1);
   // Décalage utilisateur en secondes (positif = sous-titres plus tôt)
@@ -276,6 +299,15 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
   // ne doit ré-écrire le statut — sinon l'overlay d'erreur clignote puis repasse
   // sur un bouton pause inerte. Remis à false à chaque nouveau loadSource (Retry).
   const erroredRef = useRef(false);
+  // Miroir du `status` lisible dans les callbacks/effets sans dépendances stale.
+  // Sert à NE PAS ouvrir de connexion sous-titres tant que la vidéo s'établit
+  // (status loading/buffering) : les fournisseurs IPTV limitent souvent les
+  // connexions simultanées → une extraction sous-titres lancée au démarrage volait
+  // le slot au flux vidéo et le laissait coincé en pause (cf. fetchSubWindow).
+  const statusRef = useRef<PlayerStatus>('idle');
+  // Sérialise les extractions de sous-titres : au plus UNE connexion upstream à la
+  // fois (la fenêtre courante puis la suivante en file), jamais une rafale.
+  const subFetchChainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const [status, setStatus] = useState<PlayerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -571,6 +603,11 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     subtitleTracksRef.current = subtitleTracks;
   }, [subtitleTracks]);
 
+  // Miroir du status pour les callbacks/effets (cf. statusRef).
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
   // Extrait l'URL upstream réelle depuis une URL de proxy /api/hlsproxy?url=...
   // Retourne l'URL telle quelle si ce n'est pas un proxy.
   const extractUpstreamUrl = useCallback((proxyUrl: string): string => {
@@ -581,6 +618,95 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
       return proxyUrl;
     }
   }, []);
+
+  // ── Sous-titres fenêtrés : fusion + fetch ──────────────────────────────────
+  // Reconstruit subCuesRef à partir de toutes les fenêtres chargées de la piste
+  // active (tri + dédup des cues identiques issues des zones de chevauchement).
+  const rebuildActiveCues = useCallback(() => {
+    const streamIdx = subActiveStreamRef.current;
+    if (streamIdx < 0) { subCuesRef.current = []; return; }
+    const all: VttCue[] = [];
+    for (const w of subLoadedWindowsRef.current) {
+      const cues = subWinCacheRef.current.get(`${streamIdx}#${w}`);
+      if (cues && cues.length) all.push(...cues);
+    }
+    all.sort((a, b) => a.start - b.start || a.end - b.end);
+    const dedup: VttCue[] = [];
+    for (const c of all) {
+      const p = dedup[dedup.length - 1];
+      if (p && p.start === c.start && p.end === c.end && p.text === c.text) continue;
+      dedup.push(c);
+    }
+    subCuesRef.current = dedup;
+  }, []);
+
+  // Garantit qu'une fenêtre [w] de la piste `streamIdx` est chargée. Cache hit →
+  // fusion immédiate (zéro latence). Sinon fetch d'une seule tranche via /api/subtitle
+  // (start/len) → ffmpeg fast-seek = cues en ~1-2 s. La fenêtre n'est fusionnée que
+  // si la piste est (toujours) active à la résolution. `signal` permet d'annuler un
+  // préchauffage devenu obsolète (changement de source).
+  const fetchSubWindow = useCallback(
+    (streamIdx: number, w: number, signal?: AbortSignal): Promise<void> => {
+      const key = `${streamIdx}#${w}`;
+      // Déjà connue : juste s'assurer qu'elle est fusionnée si la piste est active.
+      // (chemin synchrone, AUCUNE connexion → autorisé même pendant le chargement)
+      if (subWinCacheRef.current.has(key)) {
+        if (subActiveStreamRef.current === streamIdx && !subLoadedWindowsRef.current.has(w)) {
+          subLoadedWindowsRef.current.add(w);
+          rebuildActiveCues();
+        }
+        return Promise.resolve();
+      }
+      if (subWinFetchingRef.current.has(key)) return Promise.resolve();
+      // GARDE-FOU connexion : ne lancer une extraction (= ouvrir une connexion
+      // upstream) QUE si la vidéo est posée (playing/paused). Pendant 'loading'
+      // ou 'buffering', le flux vidéo a besoin de l'unique slot autorisé par le
+      // fournisseur → on diffère. Le préchargement glissant relance dès que le
+      // status repasse à 'playing' (cf. l'effet, qui dépend de `status`).
+      if (statusRef.current !== 'playing' && statusRef.current !== 'paused') {
+        return Promise.resolve();
+      }
+      const mediaUrl = mediaUrlRef.current;
+      if (!mediaUrl) return Promise.resolve();
+
+      subWinFetchingRef.current.add(key);
+      const run = (): Promise<void> => {
+        // Annulée entre-temps (changement de source vide le set) → ne rien faire.
+        if (!subWinFetchingRef.current.has(key)) return Promise.resolve();
+        // Re-vérifie le garde-fou au moment réel de l'exécution (la file a pu
+        // attendre, le status a pu retomber en 'loading' suite à un seek).
+        if (statusRef.current !== 'playing' && statusRef.current !== 'paused') {
+          subWinFetchingRef.current.delete(key);
+          return Promise.resolve();
+        }
+        const start = Math.max(0, w * SUB_WIN - SUB_OVERLAP);
+        const len = SUB_WIN + SUB_OVERLAP * 2;
+        const qs = `url=${encodeURIComponent(mediaUrl)}&track=${streamIdx}` +
+          `&start=${start.toFixed(1)}&len=${len.toFixed(1)}`;
+        return fetch(apiUrl(`/api/subtitle?${qs}`), signal ? { signal } : undefined)
+          .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+          .then((text) => {
+            // On met en cache même une fenêtre vide (scène sans dialogue) → pas de
+            // refetch inutile. Un échec réseau/HTTP part dans .catch et N'est PAS
+            // mis en cache → réessayable au prochain passage.
+            const cues = parseVtt(text);
+            subWinCacheRef.current.set(key, cues);
+            if (subActiveStreamRef.current === streamIdx) {
+              subLoadedWindowsRef.current.add(w);
+              rebuildActiveCues();
+            }
+          })
+          .catch(() => {/* abort/réseau : ne pas marquer chargée → retry possible */})
+          .finally(() => { subWinFetchingRef.current.delete(key); });
+      };
+      // Sérialisation : enchaîne après l'extraction précédente → au plus une
+      // connexion sous-titres simultanée (jamais une rafale fenêtre + lookahead).
+      const p = subFetchChainRef.current.then(run, run);
+      subFetchChainRef.current = p.catch(() => {});
+      return p;
+    },
+    [rebuildActiveCues],
+  );
 
   // Lance ffprobe sur le fichier média + met à jour les pistes audio / sous-titres / durée.
   // Toujours appelé après loadSource, peu importe le mode de lecture (HLS ou direct).
@@ -658,14 +784,12 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
         subtitleTracksRef.current = subTracks;
         setSubtitleTracks(subTracks);
 
-        // Préchauffage du cache client → setSubtitle() trouvera un cache hit
-        // (pas de spinner) pour la piste que l'utilisateur va probablement
-        // choisir. CHANGEMENT CLÉ vs l'ancien comportement : on ne lance plus
-        // TOUTES les pistes en parallèle (chaque /api/subtitle = un ffmpeg qui
-        // lit tout le fichier distant → 10 pistes = 10 ffmpeg concurrents qui
-        // étranglaient le démarrage de la vidéo). On précharge SÉRIELLEMENT,
-        // par PRIORITÉ (piste déjà sélectionnée > langue française > reste),
-        // et APRÈS un délai pour ne jamais concurrencer le flux /api/stream.
+        // Préchauffage : on ne charge plus des pistes ENTIÈRES (chaque
+        // /api/subtitle lisait alors tout le fichier distant → goulot + connexion
+        // monopolisée). On préchauffe UNE fenêtre — celle autour de la position
+        // courante — de la seule piste prioritaire (déjà sélectionnée > française
+        // > première). Ainsi le 1er clic « sous-titres » trouve un cache hit et
+        // s'affiche instantanément, sans concurrencer le flux /api/stream.
         subPrefetchAbortRef.current?.abort();
         if (subPrefetchTimerRef.current !== null) {
           clearTimeout(subPrefetchTimerRef.current);
@@ -682,41 +806,21 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
             t.index === currentSubRef.current ? 0 : isFrench(t) ? 1 : 2;
           return rank(a) - rank(b);
         });
+        const warmTrack = ordered[0];
 
-        const warmNext = async (i: number): Promise<void> => {
-          if (ac.signal.aborted || i >= ordered.length) return;
-          const streamIdx = ordered[i].streamIndex;
-          if (subCuesCacheRef.current.has(streamIdx)) return warmNext(i + 1);
-          try {
-            const r = await fetch(
-              apiUrl(`/api/subtitle?url=${encodeURIComponent(probeSource)}&track=${streamIdx}`),
-              { signal: ac.signal },
-            );
-            if (r.ok) {
-              const cues = parseVtt(await r.text());
-              if (cues.length > 0 && !ac.signal.aborted) {
-                subCuesCacheRef.current.set(streamIdx, cues);
-              }
-            }
-          } catch { /* préchauffage silencieux (abort/réseau) */ }
-          return warmNext(i + 1);
-        };
-
-        // Délai : laisser le flux vidéo s'établir d'abord. On le garde court
-        // (1.2 s) pour que la piste prioritaire (sélectionnée / FR) soit en
-        // cache au plus tôt → le clic « sous-titres » est ressenti instantané
-        // sur desktop (où l'extraction ffmpeg du fichier entier est le goulot,
-        // vs rendu natif instantané sur mobile). La sérialisation (un seul
-        // ffmpeg à la fois, par priorité) reste inchangée → pas de saturation.
-        // Si l'utilisateur clique une piste avant, setSubtitle() la fetch à la
-        // demande et la déduplication in-flight serveur évite tout double travail.
+        // Délai court (1.2 s) : laisser le flux vidéo s'établir avant d'ouvrir la
+        // connexion sous-titres. Si l'utilisateur clique une piste avant, setSubtitle
+        // fetch la fenêtre à la demande (la déduplication in-flight serveur évite
+        // tout double travail).
         subPrefetchTimerRef.current = setTimeout(() => {
           subPrefetchTimerRef.current = null;
-          void warmNext(0);
+          if (ac.signal.aborted || !warmTrack) return;
+          const w = subWindowIndex(currentTimeRef.current);
+          void fetchSubWindow(warmTrack.streamIndex, w, ac.signal);
         }, 1200);
       }
     }).catch(() => {/* probe échoue silencieusement — fallback sur les pistes natives */});
-  }, []);
+  }, [fetchSubWindow]);
 
   const loadSource = useCallback((src: string) => {
     const video = videoRef.current;
@@ -733,9 +837,12 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     currentAudioRef.current = 0;
     currentTimeRef.current = 0;
     lastTimeRef.current = 0;
-    // Vider les sous-titres parsés et le cache
+    // Vider les sous-titres parsés et tous les caches de fenêtres
     subCuesRef.current = [];
-    subCuesCacheRef.current.clear();
+    subWinCacheRef.current.clear();
+    subWinFetchingRef.current.clear();
+    subActiveStreamRef.current = -1;
+    subLoadedWindowsRef.current.clear();
     currentSubRef.current = -1;
     subtitleTracksRef.current = [];
     // Couper tout préchauffage de sous-titres de la source précédente
@@ -1128,6 +1235,27 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // ── Préchargement glissant des fenêtres de sous-titres ─────────────────────
+  // À mesure que la lecture avance (currentTime, mis à jour ~4 Hz), on garde la
+  // fenêtre courante + SUB_LOOKAHEAD fenêtres suivantes chargées pour la piste
+  // active → les sous-titres ne « s'arrêtent » jamais en bord de fenêtre, et un
+  // seek hors zone charge la nouvelle fenêtre dès le tick suivant (~250 ms).
+  // fetchSubWindow court-circuite si la fenêtre est déjà connue/en cours → ce
+  // passage 4×/s est quasi gratuit.
+  useEffect(() => {
+    if (currentSubtitle < 0) return;
+    // Tant que la vidéo s'établit, on ne lance rien (le garde-fou de fetchSubWindow
+    // diffère de toute façon) — mais on dépend de `status` pour RE-déclencher cet
+    // effet dès que la lecture démarre (passage à 'playing'), sinon les fenêtres
+    // différées au démarrage ne seraient jamais relancées avant le prochain tick.
+    if (status !== 'playing' && status !== 'paused') return;
+    const streamIdx = subActiveStreamRef.current;
+    if (streamIdx < 0) return;
+    const w = subWindowIndex(currentTime + subOffsetRef.current);
+    void fetchSubWindow(streamIdx, w);
+    for (let k = 1; k <= SUB_LOOKAHEAD; k++) void fetchSubWindow(streamIdx, w + k);
+  }, [currentTime, currentSubtitle, status, fetchSubWindow]);
+
   // --- Contrôles ---
 
   // Après un restart ffmpeg avec seek, seekOffsetRef est posé de façon
@@ -1418,11 +1546,21 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     setCurrentSubtitle(index);
     currentSubRef.current = index;
 
+    const clearLoadingTimer = () => {
+      if (subLoadingTimerRef.current !== null) {
+        clearTimeout(subLoadingTimerRef.current);
+        subLoadingTimerRef.current = null;
+      }
+    };
+
     // Désactivation
     if (index < 0) {
+      subActiveStreamRef.current = -1;
+      subLoadedWindowsRef.current.clear();
       subCuesRef.current = [];
       setSubtitleText('');
       setSubtitleLoading(false);
+      clearLoadingTimer();
       return;
     }
 
@@ -1435,72 +1573,46 @@ export function usePlayer(url: string | null, mediaUrl?: string | null): WebPlay
     }
     const streamIdx = track.streamIndex;
 
-    // Cache hit (clé = streamIndex absolu, ne cache PAS les VTT vides)
-    const cached = subCuesCacheRef.current.get(streamIdx);
-    if (cached && cached.length > 0) {
-      if (subLoadingTimerRef.current !== null) {
-        clearTimeout(subLoadingTimerRef.current);
-        subLoadingTimerRef.current = null;
-      }
-      subCuesRef.current = cached;
-      setSubtitleLoading(false);
-      return;
-    }
-
     if (!mediaUrlRef.current) {
       console.warn('[subtitle] mediaUrl non défini — extraction impossible');
       setSubtitleLoading(false);
       return;
     }
 
-    subCuesRef.current = [];   // évite les cues de l'ancienne piste pendant le fetch
+    // Bascule sur la nouvelle piste active : on repart d'un jeu de fenêtres vide
+    // (les fenêtres restent en cache par streamIndex → ré-affichées instantanément
+    // si déjà vues). rebuildActiveCues remplira subCuesRef au fil des fusions.
+    subActiveStreamRef.current = streamIdx;
+    subLoadedWindowsRef.current = new Set();
+    subCuesRef.current = [];
     setSubtitleText('');
 
-    // Annule tout timer de chargement précédent (changement de piste rapide)
-    if (subLoadingTimerRef.current !== null) {
-      clearTimeout(subLoadingTimerRef.current);
-      subLoadingTimerRef.current = null;
-    }
-    // Délai avant d'afficher le spinner : si le cache serveur est chaud la réponse
-    // arrive en <150 ms → l'utilisateur ne voit jamais l'indicateur.
-    subLoadingTimerRef.current = setTimeout(() => {
-      subLoadingTimerRef.current = null;
-      if (currentSubRef.current === index) setSubtitleLoading(true);
-    }, 150);
+    // Fenêtre autour de la position de lecture courante (absolue).
+    const w = subWindowIndex(currentTimeRef.current);
+    const curKey = `${streamIdx}#${w}`;
+    const haveCurrent = subWinCacheRef.current.has(curKey);
 
-    // Fetch + parse VTT côté JS. Le serveur extrait la piste demandée du fichier
-    // source via ffmpeg et la convertit en WebVTT. La piste est référencée par
-    // son streamIndex ABSOLU (résistant au filtrage des codecs image par le probe).
-    fetch(apiUrl(`/api/subtitle?url=${encodeURIComponent(mediaUrlRef.current)}&track=${streamIdx}`))
-      .then((r) => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then((text) => {
-        const cues = parseVtt(text);
-        if (cues.length > 0) {
-          subCuesCacheRef.current.set(streamIdx, cues);
-        } else {
-          console.warn(`[subtitle] aucune cue parsée pour streamIndex=${streamIdx}`);
-        }
-        // Si l'utilisateur a changé de piste pendant le fetch, ne pas écraser
-        if (currentSubRef.current === index) {
-          if (subLoadingTimerRef.current !== null) {
-            clearTimeout(subLoadingTimerRef.current);
-            subLoadingTimerRef.current = null;
-          }
-          subCuesRef.current = cues;
-          setSubtitleLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.warn('[subtitle] fetch échoué:', err);
-        if (currentSubRef.current === index) {
-          if (subLoadingTimerRef.current !== null) {
-            clearTimeout(subLoadingTimerRef.current);
-            subLoadingTimerRef.current = null;
-          }
-          setSubtitleLoading(false);
-        }
-      });
-  }, []);
+    clearLoadingTimer();
+    // Spinner seulement si la fenêtre courante n'est pas déjà en cache. Délai de
+    // 150 ms : un cache chaud (préchauffage / fenêtre déjà vue) résout avant →
+    // l'utilisateur ne voit jamais l'indicateur.
+    if (!haveCurrent) {
+      subLoadingTimerRef.current = setTimeout(() => {
+        subLoadingTimerRef.current = null;
+        if (currentSubRef.current === index) setSubtitleLoading(true);
+      }, 150);
+    }
+
+    // Charge la fenêtre courante (instantané si en cache) → affichage immédiat,
+    // puis les fenêtres en avance pour la suite de la lecture.
+    void fetchSubWindow(streamIdx, w).then(() => {
+      if (currentSubRef.current === index) {
+        clearLoadingTimer();
+        setSubtitleLoading(false);
+      }
+    });
+    for (let k = 1; k <= SUB_LOOKAHEAD; k++) void fetchSubWindow(streamIdx, w + k);
+  }, [fetchSubWindow]);
 
   const toggleFullscreen = useCallback(async () => {
     const wrapper = wrapperRef.current;

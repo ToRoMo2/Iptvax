@@ -559,7 +559,24 @@ app.get('/api/subtitle', async (req, res) => {
     return res.status(400).end();
   }
 
-  const cacheKey = `${targetUrl}#${trackIdx}`;
+  // Mode FENÊTRÉ (desktop) : extraction d'une seule tranche [start, start+len]
+  // autour de la position de lecture, au lieu de tout le fichier. Le fast-seek
+  // `-ss` fait sauter ffmpeg par Range HTTP près du bon offset → il ne démuxe
+  // que quelques minutes → les cues arrivent en ~1-2 s (vs dizaines de s sur un
+  // gros MKV distant), et la connexion upstream est libérée vite. C'est décisif :
+  // les fournisseurs IPTV limitent souvent les connexions simultanées, donc un
+  // extract « fichier entier » monopolisait l'unique slot et bloquait l'affichage
+  // des sous-titres jusqu'à ce qu'une action (seek/changement audio) coupe le
+  // flux vidéo et libère le slot. `start` absent → extraction complète
+  // (comportement historique, rétro-compatible avec tout appelant existant).
+  const startSec = req.query.start != null ? parseFloat(req.query.start) : NaN;
+  const lenSec = req.query.len != null ? parseFloat(req.query.len) : NaN;
+  const windowed =
+    Number.isFinite(startSec) && startSec >= 0 && Number.isFinite(lenSec) && lenSec > 0;
+
+  const cacheKey = windowed
+    ? `${targetUrl}#${trackIdx}#${startSec}+${lenSec}`
+    : `${targetUrl}#${trackIdx}`;
   res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=3600');
 
@@ -581,10 +598,23 @@ app.get('/api/subtitle', async (req, res) => {
   if (cookies) headerLines.push(`Cookie: ${cookies}`);
   ffArgs.push('-headers', headerLines.join('\r\n') + '\r\n');
   ffArgs.push('-multiple_requests', '1');
+  if (windowed) {
+    // -ss AVANT -i = fast-seek d'entrée (saut Range HTTP, ne lit pas tout depuis 0).
+    ffArgs.push('-ss', String(startSec));
+  }
   ffArgs.push('-i', targetUrl);
   // Index ABSOLU (0:N) plutôt que 0:s:N — le probe filtre les codecs image,
   // décalant les indices relatifs. L'absolu reste valide quoi qu'il arrive.
   ffArgs.push('-map', `0:${trackIdx}`);
+  if (windowed) {
+    // -t = durée de la fenêtre, mesurée depuis le point de seek (timeline rebasée
+    // à 0 par `-ss`, sans `-copyts` → pas d'ambiguïté sur la borne). Puis
+    // -output_ts_offset re-décale les timestamps de +startSec pour qu'ils
+    // redeviennent ABSOLUS → les cues portent leur temps réel et s'alignent sur
+    // la timeline absolue du client (même technique éprouvée que /api/stream).
+    ffArgs.push('-t', String(lenSec));
+    ffArgs.push('-output_ts_offset', String(startSec));
+  }
   ffArgs.push('-c:s', 'webvtt');
   ffArgs.push('-f', 'webvtt');
   ffArgs.push('pipe:1');

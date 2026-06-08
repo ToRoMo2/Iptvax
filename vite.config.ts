@@ -634,7 +634,19 @@ function iptvProxyPlugin(): Plugin {
             res.statusCode = 400; res.end(); return;
           }
 
-          const cacheKey = `${targetUrl}#${trackIdx}`;
+          // Mode FENÊTRÉ : voir server/proxy.cjs (/api/subtitle) pour le détail.
+          // `start`+`len` → extraction d'une seule tranche via fast-seek `-ss`
+          // (cues quasi-instantanées) ; absents → extraction complète historique.
+          const startParam = reqUrl.searchParams.get('start');
+          const lenParam = reqUrl.searchParams.get('len');
+          const startSec = startParam != null ? parseFloat(startParam) : NaN;
+          const lenSec = lenParam != null ? parseFloat(lenParam) : NaN;
+          const windowed =
+            Number.isFinite(startSec) && startSec >= 0 && Number.isFinite(lenSec) && lenSec > 0;
+
+          const cacheKey = windowed
+            ? `${targetUrl}#${trackIdx}#${startSec}+${lenSec}`
+            : `${targetUrl}#${trackIdx}`;
           res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
           res.setHeader('Cache-Control', 'public, max-age=3600');
           res.setHeader('Access-Control-Allow-Origin', '*');
@@ -665,11 +677,18 @@ function iptvProxyPlugin(): Plugin {
           if (cookies) headerLines.push(`Cookie: ${cookies}`);
           ffArgs.push('-headers', headerLines.join('\r\n') + '\r\n');
           ffArgs.push('-multiple_requests', '1');
+          if (windowed) ffArgs.push('-ss', String(startSec)); // fast-seek d'entrée
           ffArgs.push('-i', targetUrl);
           // On utilise l'index ABSOLU de stream (0:N) plutôt que 0:s:N car le probe
           // filtre les codecs image (PGS/DVB) → 0:s:N ne correspondrait plus à la
           // numérotation côté JS. L'index absolu reste valide quoi qu'il arrive.
           ffArgs.push('-map', `0:${trackIdx}`);
+          if (windowed) {
+            // -t = durée de la fenêtre depuis le seek ; -output_ts_offset re-rend
+            // les timestamps absolus (cf. server/proxy.cjs pour le détail).
+            ffArgs.push('-t', String(lenSec));
+            ffArgs.push('-output_ts_offset', String(startSec));
+          }
           ffArgs.push('-c:s', 'webvtt');
           ffArgs.push('-f', 'webvtt');
           ffArgs.push('pipe:1');
