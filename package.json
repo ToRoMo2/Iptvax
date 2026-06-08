@@ -23,7 +23,8 @@
     "server": "node server/proxy.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "gen:icons": "node scripts/generate-android-icons.mjs"
+    "gen:icons": "node scripts/generate-android-icons.mjs",
+    "gen:icons:win": "node scripts/generate-win-icon.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.5",
@@ -89,7 +90,8 @@
       "output": "release"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     }
   }
 }
