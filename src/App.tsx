@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
-import { isWebOS, isTizen, isVitrine } from './lib/platform';
+import { isWebOS, isTizen, isVitrine, isElectron } from './lib/platform';
 import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
@@ -22,6 +22,7 @@ import { TopNav } from './components/TopNav';
 import { PremiumTeaseBar } from './components/PremiumTeaseBar';
 import { FavoriteLimitToast } from './components/FavoriteLimitToast';
 import { RemoteControl } from './components/RemoteControl';
+import { TitleBar } from './components/TitleBar';
 import { AppLogo } from './components/AppLogo';
 import { Login } from './pages/Login';
 import { TvPairing } from './pages/TvPairing';
@@ -349,13 +350,17 @@ function App() {
   // BrowserRouter reste inchangé sur web/Capacitor (https://localhost/ → ok).
   const Router = (isWebOS || isTizen) ? HashRouter : BrowserRouter;
   return (
-    <Router>
-      <I18nProvider>
-        <SupabaseAuthProvider>
-          {isVitrine ? <VitrineGate /> : <AppGate />}
-        </SupabaseAuthProvider>
-      </I18nProvider>
-    </Router>
+    <>
+      {/* Barre de titre maison (fenêtre Electron frameless — cf. TitleBar.tsx). */}
+      {isElectron && <TitleBar />}
+      <Router>
+        <I18nProvider>
+          <SupabaseAuthProvider>
+            {isVitrine ? <VitrineGate /> : <AppGate />}
+          </SupabaseAuthProvider>
+        </I18nProvider>
+      </Router>
+    </>
   );
 }
 

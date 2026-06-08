@@ -66,6 +66,23 @@ declare global {
     electron?: {
       openExternal: (url: string) => Promise<{ ok: boolean; error?: string }>;
       onAuthCallback: (handler: (url: string) => void) => () => void;
+      /** Contrôles de la fenêtre frameless (titlebar maison). */
+      window: {
+        minimize: () => void;
+        maximize: () => void;
+        close: () => void;
+        isMaximized: () => Promise<boolean>;
+        toggleFullscreen: () => void;
+        exitFullscreen: () => void;
+        onMaxStateChange: (handler: (isMax: boolean) => void) => () => void;
+        onFullscreenChange: (handler: (isFs: boolean) => void) => () => void;
+      };
+      /** Lecteur natif mpv (cf. src/native/electronMpv.ts). */
+      mpv: {
+        available: () => Promise<boolean>;
+        call: (method: string, args?: unknown[]) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
+        onEvent: (handler: (ev: unknown) => void) => () => void;
+      };
     };
   }
 }

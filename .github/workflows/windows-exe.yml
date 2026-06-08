@@ -63,6 +63,11 @@ jobs:
           VITE_WEB_URL: ${{ secrets.VITE_WEB_URL }}
         run: npm run build
 
+      - name: Récupérer le binaire mpv natif (lecteur Electron)
+        # mpv.exe (~112 Mo) n'est pas versionné → téléchargé depuis une release figée
+        # (intégrité SHA-256 vérifiée) et embarqué via extraResources (cf. CLAUDE.md §XI).
+        run: npm run fetch:mpv
+
       - name: Package installeur Windows (NSIS)
         # --publish never : sinon electron-builder détecte le CI et tente de publier
         # tout seul sur GitHub → échoue faute de GH_TOKEN. La publication est gérée

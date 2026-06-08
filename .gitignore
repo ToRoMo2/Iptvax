@@ -29,6 +29,10 @@ supabase/.temp
 # Electron — sortie d'electron-builder (installeurs Windows .exe, dossiers unpacked)
 release
 
+# Dossier scratch local : binaire mpv natif (~112 Mo, via `npm run fetch:mpv`) +
+# clips de test générés. Rien ici n'est versionné (récupéré/régénéré à la demande).
+vendor/
+
 # Signature APK Android — secrets, NE JAMAIS commiter
 *.keystore
 *.jks

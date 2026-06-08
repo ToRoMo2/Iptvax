@@ -59,6 +59,14 @@ export interface PlayerController {
   usesNativeSurface?: boolean;
   adjustSubtitleOffset: (delta: number) => void;
   setSubtitleOffset: (value: number) => void;
+  /**
+   * Optionnel — utilisé quand les sous-titres sont rendus par une surface NATIVE
+   * (mpv/Electron) : remonte les sous-titres au-dessus de l'overlay des contrôles
+   * quand il apparaît (le pendant natif du `.wrapper.showControls .subtitleOverlay`
+   * CSS du rendu web). No-op / absent pour les lecteurs qui rendent les sous-titres
+   * en React (web) ou nativement à position fixe.
+   */
+  setSubtitleRaised?: (raised: boolean) => void;
   toggle: () => void;
   seek: (time: number) => void;
   setVolume: (v: number) => void;

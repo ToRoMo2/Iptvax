@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { useXtream } from '../context/XtreamContext';
-import { isNative } from '../lib/platform';
+import { isNative, isElectron } from '../lib/platform';
+import { isElectronMpvReady } from '../native/electronMpv';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
@@ -437,8 +438,13 @@ export function Player() {
     );
   }
 
+  // `native-video-surface` rend le conteneur transparent pour laisser voir la
+  // surface vidéo native DERRIÈRE la WebView (libVLC/AVPlay/mpv). En Electron,
+  // c'est le cas SEULEMENT quand mpv est actif (sinon le repli <video>/proxy a
+  // besoin d'un fond opaque pour les bandes letterbox).
+  const nativeSurface = isNative || (isElectron && isElectronMpvReady());
   return (
-    <div className={`${styles.page} ${isNative ? 'native-video-surface' : ''}`}>
+    <div className={`${styles.page} ${nativeSurface ? 'native-video-surface' : ''}`}>
       <div className={styles.playerWrapper}>
         <VideoPlayer
           url={activeUrl}

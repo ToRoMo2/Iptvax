@@ -7,8 +7,9 @@
 // historique, juste hébergé localement. Les flux sortent par l'IP résidentielle
 // de l'utilisateur → plus de blocage 403 d'IP datacenter (cf. docs/native-port.md §1).
 
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
+const { mpv } = require('./mpv.cjs');
 
 // Réécriture des chemins ffmpeg/ffprobe pour la lecture en bundle asar.
 // Les binaires de `ffmpeg-static` / `ffprobe-static` ne peuvent pas s'exécuter
@@ -123,7 +124,20 @@ async function bootstrap() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    backgroundColor: '#000',
+    minWidth: 880,
+    minHeight: 560,
+    // ── Fenêtre frameless + transparente (lecteur natif mpv) ──────────────────
+    // Le lecteur natif mpv rend sa surface vidéo DERRIÈRE la WebView via --wid
+    // (cf. electron/mpv.cjs + CLAUDE.md §XI). Pour que la zone transparente du
+    // player la laisse voir, la fenêtre doit être transparente. La transparence
+    // est figée à la création → on la pose toujours ; hors lecture, l'app peint
+    // un fond opaque (`html,body,#root { background: var(--bg) }`) donc le rendu
+    // reste identique au mode framed. `frame:false` impose un titlebar maison
+    // (cf. src/components/TitleBar.tsx) — contrôles fenêtre via IPC window:*.
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    show: false, // évite un flash transparent (bureau visible) avant le 1er paint
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -131,6 +145,85 @@ async function bootstrap() {
       nodeIntegration: false,
       sandbox: false, // libère l'accès Node pour le preload si on en a besoin plus tard
     },
+  });
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+
+  // ── Pont fenêtre (titlebar maison) ─────────────────────────────────────────
+  // Plein écran BORDERLESS (setBounds) plutôt que setFullScreen : sur une fenêtre
+  // `transparent:true` frameless, le vrai plein écran OS ne s'affiche pas
+  // correctement (et l'API Fullscreen HTML a un ::backdrop opaque qui masque la
+  // surface mpv → écran noir). On redimensionne la fenêtre aux bornes de l'écran
+  // + alwaysOnTop (couvre la barre des tâches) ; mpv (enfant --wid) suit la taille.
+  let fsSavedBounds = null;
+  const setBorderlessFullscreen = (on) => {
+    if (!mainWindow) return;
+    if (on && !fsSavedBounds) {
+      fsSavedBounds = mainWindow.getBounds();
+      const disp = screen.getDisplayMatching(mainWindow.getBounds());
+      mainWindow.setBounds(disp.bounds);
+      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    } else if (!on && fsSavedBounds) {
+      mainWindow.setAlwaysOnTop(false);
+      mainWindow.setBounds(fsSavedBounds);
+      fsSavedBounds = null;
+    } else {
+      return;
+    }
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('iptvax:window-fs-state', fsSavedBounds !== null);
+    }
+  };
+
+  ipcMain.on('iptvax:window', (_event, action) => {
+    if (!mainWindow) return;
+    if (action === 'minimize') mainWindow.minimize();
+    else if (action === 'maximize') {
+      if (mainWindow.isMaximized()) mainWindow.unmaximize();
+      else mainWindow.maximize();
+    } else if (action === 'close') mainWindow.close();
+    else if (action === 'toggle-fullscreen') setBorderlessFullscreen(fsSavedBounds === null);
+    else if (action === 'exit-fullscreen') setBorderlessFullscreen(false);
+  });
+  ipcMain.handle('iptvax:window-is-maximized', () => !!(mainWindow && mainWindow.isMaximized()));
+  const sendMaxState = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('iptvax:window-max-state', mainWindow.isMaximized());
+    }
+  };
+  mainWindow.on('maximize', sendMaxState);
+  mainWindow.on('unmaximize', sendMaxState);
+
+  // ── Pont lecteur natif mpv ─────────────────────────────────────────────────
+  // mpv est démarré paresseusement à la 1re lecture (évite un process mpv quand
+  // l'utilisateur ne lit rien), embarqué dans la fenêtre via son HWND. Une seule
+  // instance pour la session, réutilisée via `loadfile replace`.
+  mpv.setEventSink((ev) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('iptvax:mpv-event', ev);
+    }
+  });
+  const ensureMpv = async () => {
+    if (!mpv.available()) throw new Error('mpv indisponible');
+    const hwnd = mainWindow.getNativeWindowHandle().readBigUInt64LE(0).toString();
+    await mpv.start(hwnd);
+  };
+  // Méthodes autorisées depuis le renderer (whitelist — pas d'appel arbitraire).
+  const MPV_METHODS = new Set([
+    'load', 'play', 'pause', 'seek', 'setVolume', 'setMute', 'setAudio',
+    'setSubtitle', 'setSubScale', 'setSubColor', 'setSubBackColor', 'setSubBold',
+    'setSubPos', 'setSubDelay', 'stop',
+  ]);
+  ipcMain.handle('iptvax:mpv-available', () => mpv.available());
+  ipcMain.handle('iptvax:mpv', async (_event, method, args) => {
+    if (!MPV_METHODS.has(method)) return { ok: false, error: 'method not allowed' };
+    try {
+      if (method === 'load') await ensureMpv();
+      const result = await mpv[method](...(Array.isArray(args) ? args : []));
+      return { ok: true, result: result ?? null };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
   });
 
   // Liens externes (ex. paiement Stripe sur iptvax.com) → navigateur par défaut.
@@ -163,6 +256,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async (e) => {
+  // Tuer mpv en premier (process enfant séparé → sinon zombie sous Windows).
+  try { mpv.dispose(); } catch { /* ignore */ }
   if (!serverHandle) return;
   // Laisser le proxy fermer ses sockets (ffmpeg pipes inclus) avant le exit.
   e.preventDefault();

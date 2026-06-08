@@ -15,9 +15,10 @@
     "build:webos": "node scripts/build-webos.mjs",
     "cap:sync": "npm run build:capacitor && cap sync",
     "cap:android": "cap open android",
-    "electron:dev": "electron .",
-    "electron:start": "npm run build && electron .",
-    "electron:build": "npm run build && electron-builder",
+    "fetch:mpv": "node scripts/fetch-mpv.mjs",
+    "electron:dev": "npm run fetch:mpv && electron .",
+    "electron:start": "npm run fetch:mpv && npm run build && electron .",
+    "electron:build": "npm run fetch:mpv && npm run build && electron-builder",
     "start": "NODE_ENV=production node server/proxy.cjs",
     "server": "node server/proxy.cjs",
     "lint": "eslint .",
@@ -74,8 +75,15 @@
     "files": [
       "dist/**",
       "electron/**",
+      "!electron/spike-*.cjs",
       "server/**",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/mpv/mpv.exe",
+        "to": "mpv/mpv.exe"
+      }
     ],
     "directories": {
       "output": "release"

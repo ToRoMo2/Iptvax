@@ -325,3 +325,15 @@ html.iptvax-native-playback #root,
 html.iptvax-native-playback .native-video-surface {
   background: transparent !important;
 }
+
+/* ── Barre de titre maison (Electron frameless — voir TitleBar.tsx, §XI) ──────
+   La fenêtre est frameless (requis par la surface mpv derrière la WebView). On
+   réserve un strip en haut en posant `--safe-top` à la hauteur de la barre : la
+   chrome fixe de l'app (brand/topnav/profil) intègre déjà `var(--safe-top)` dans
+   son `top:` → elle descend automatiquement sous la barre, sans toucher à leur
+   CSS. Hors Electron, `--safe-top` reste `env(safe-area-inset-top)` → inchangé. */
+:root { --titlebar-h: 30px; }
+html.electron-chrome { --safe-top: var(--titlebar-h); }
+/* Plein écran natif (lecteur mpv) : la barre de titre est masquée → on libère le
+   strip pour que la vidéo occupe toute la hauteur. */
+html.electron-chrome.electron-fullscreen { --safe-top: 0px; }

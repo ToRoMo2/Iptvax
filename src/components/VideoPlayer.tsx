@@ -3,7 +3,9 @@ import { usePlayer, type WebPlayerController } from '../hooks/usePlayer';
 import { useNativePlayer } from '../hooks/useNativePlayer';
 import { useWebOSPlayer } from '../hooks/useWebOSPlayer';
 import { useTizenPlayer } from '../hooks/useTizenPlayer';
-import { isNative, isCapacitor, isWebOS, isTizen } from '../lib/platform';
+import { useElectronPlayer } from '../hooks/useElectronPlayer';
+import { isElectronMpvReady } from '../native/electronMpv';
+import { isNative, isCapacitor, isWebOS, isTizen, isElectron } from '../lib/platform';
 import { volumeControl } from '../native/volumeControl';
 import { isTvDevice } from '../native/tvDetect';
 import { safeImgUrl } from '../utils/image';
@@ -145,6 +147,18 @@ const NATIVE_SUB_COLOR: Record<SubColor, number> = {
 };
 const NATIVE_SUB_BG_OPACITY: Record<SubBg, number> = { none: 0, semi: 160, solid: 235 };
 
+// ── Mapping prefs → options mpv (Electron — sous-titres rendus par mpv).
+// Avantage mpv vs libVLC : ces propriétés s'appliquent À CHAUD (pas de
+// reconstruction du moteur). sub-scale en facteur, couleur/fond en hex.
+const MPV_SUB_SCALE: Record<SubSize, number> = { sm: 0.7, md: 1.0, lg: 1.45, xl: 1.95 };
+const MPV_SUB_COLOR: Record<SubColor, string> = {
+  white: '#ffffff', yellow: '#ffe066', cyan: '#00d4ff', green: '#7eff7e',
+};
+// sub-back-color = boîte derrière le texte (#aarrggbb). none → transparent.
+const MPV_SUB_BACK: Record<SubBg, string> = {
+  none: '#00000000', semi: '#99000000', solid: '#ec000000',
+};
+
 export function VideoPlayer({
   url,
   title,
@@ -202,6 +216,17 @@ export function VideoPlayer({
     color: NATIVE_SUB_COLOR[subColor],
     bgOpacity: NATIVE_SUB_BG_OPACITY[subBg],
   };
+  const mpvSubStyle = {
+    scale: MPV_SUB_SCALE[subSize],
+    color: MPV_SUB_COLOR[subColor],
+    back: MPV_SUB_BACK[subBg],
+  };
+
+  // Electron (Windows) : lecteur natif mpv si le binaire est présent (résolu au
+  // boot, cf. initElectronMpv) ; sinon repli sur le proxy ffmpeg (`usePlayer`).
+  // `isElectron` est figé au module et `isElectronMpvReady()` au boot → la
+  // branche est stable pour la vie du composant (hooks conditionnels sûrs).
+  const useElectronNative = isElectron && isElectronMpvReady();
 
   /* eslint-disable react-hooks/rules-of-hooks */
   const player: WebPlayerController = isCapacitor
@@ -210,7 +235,9 @@ export function VideoPlayer({
       ? useWebOSPlayer(url, mediaUrl)
       : isTizen
         ? useTizenPlayer(url, mediaUrl)
-        : usePlayer(url, mediaUrl);
+        : useElectronNative
+          ? useElectronPlayer(url, mediaUrl, { isLive: !!isLiveType, subStyle: mpvSubStyle })
+          : usePlayer(url, mediaUrl);
   /* eslint-enable react-hooks/rules-of-hooks */
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsVisibleRef = useRef(controlsVisible);
@@ -336,6 +363,14 @@ export function VideoPlayer({
   const isLoading = player.status === 'loading' || player.status === 'buffering';
   const hasError = player.status === 'error';
   const isPlaying = player.status === 'playing';
+
+  // Bascule one-shot pour le backdrop de chargement de la surface native (mpv).
+  // Une fois que mpv a rendu sa première frame (isPlaying → true), le backdrop
+  // disparaît définitivement jusqu'au prochain changement de source — il ne
+  // revient PAS à la pause, au seek ou au changement de piste audio.
+  const [backdropDone, setBackdropDone] = useState(false);
+  useEffect(() => { setBackdropDone(false); }, [url]);
+  useEffect(() => { if (isPlaying) setBackdropDone(true); }, [isPlaying]);
 
   // ── Zapper live : bande basse à deux vues (chaînes / programme) ───────────
   // Le zapper s'affiche dès qu'on a un catalogue navigable + un sélecteur. Le
@@ -811,6 +846,15 @@ export function VideoPlayer({
 
   const showControls = controlsVisible || !isPlaying || hasError;
 
+  // Sous-titres rendus par une surface NATIVE (mpv/Electron) : les remonter
+  // au-dessus de l'overlay des contrôles quand il apparaît, en tandem (le CSS
+  // `.wrapper.showControls .subtitleOverlay` ne pilote que le rendu web React).
+  // No-op pour les autres lecteurs (`setSubtitleRaised` absent).
+  const raiseSubtitle = player.setSubtitleRaised;
+  useEffect(() => {
+    raiseSubtitle?.(showControls);
+  }, [showControls, raiseSubtitle]);
+
   // Saisons disponibles + épisodes de la saison sélectionnée (panneau Épisodes).
   // `episodesBySeason` est un Record<string, Episode[]> (clés numériques str).
   const epSeasons: number[] = episodesBySeason
@@ -899,12 +943,24 @@ export function VideoPlayer({
           );
         }
         if (useNativeSurface) {
+          // Backdrop TMDB paysage pendant le chargement — évite que le fond
+          // transparent de la fenêtre Electron laisse voir le bureau.
+          // Pour la TV live : icône canal carrée → on préfère du noir uni.
+          // Pour VOD/série : `poster` = tmdb.backdrop HD 16:9 (MovieDetail /
+          // buildEpisodeEntry posent déjà l'image paysage TMDB dans l'état).
+          const backdropSrc = !isLiveType ? safeImgUrl(poster) : undefined;
           return (
-            <div
-              className={`${styles.video} native-video-surface`}
-              onClick={onSurfaceClick}
-              onTouchEnd={handleSurfaceTouchEnd}
-            />
+            <>
+              <div
+                className={`${styles.video} native-video-surface`}
+                onClick={onSurfaceClick}
+                onTouchEnd={handleSurfaceTouchEnd}
+              />
+              <div
+                className={`${styles.nativeBackdrop}${backdropDone ? ` ${styles.nativeBackdropDone}` : ''}`}
+                style={backdropSrc ? { backgroundImage: `url(${backdropSrc})` } : undefined}
+              />
+            </>
           );
         }
         return (

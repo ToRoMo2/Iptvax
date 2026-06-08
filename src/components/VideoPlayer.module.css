@@ -44,7 +44,9 @@
 .mobileBackBtn {
   display: flex; /* visible dès que l'overlay est affiché (toutes tailles, hors TV) */
   position: absolute;
-  top: 14px;
+  /* + var(--safe-top) : dégage la barre de titre Electron (et la barre de statut
+     sur natif Android) — inerte sur web/mobile où --safe-top vaut 0. */
+  top: calc(14px + var(--safe-top));
   left: 14px;
   z-index: 22;
   width: 36px;
@@ -193,6 +195,40 @@
   /* pas de border-radius : overflow:hidden sur le parent s'en charge */
   background: rgba(255, 255, 255, 0.9);
   transition: height 40ms linear;
+}
+
+/* ── Backdrop de chargement — surface native Electron (mpv) ─────────────────
+   Pendant les ~1-2 s avant que mpv rende la première frame, la fenêtre
+   Electron est transparente (--wid + transparent:true) → le bureau est visible.
+   Ce div couvre la zone avec le backdrop TMDB paysage (HD, passé via `poster`),
+   avec un dégradé sombre pour que le spinner reste lisible. Il se fond à
+   opacity:0 dès que le lecteur passe en `playing` (transition 0.4 s — même
+   timing qu'un fade-in Netflix). pointer-events:none → les clics passent. */
+.nativeBackdrop {
+  position: absolute;
+  inset: 0;
+  background-color: #000;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+.nativeBackdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.15) 50%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+  pointer-events: none;
+}
+.nativeBackdropDone {
+  opacity: 0;
 }
 
 /* ── Center overlays (loading / error / idle) ── */
@@ -465,7 +501,9 @@
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 28px 56px 28px 220px;
+  /* padding-top + var(--safe-top) : passe sous la barre de titre Electron
+     (inerte sur web/mobile, --safe-top = 0). */
+  padding: calc(28px + var(--safe-top)) 56px 28px 220px;
   z-index: 2;
 }
 

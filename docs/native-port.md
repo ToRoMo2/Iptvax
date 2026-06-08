@@ -282,6 +282,63 @@ VTT inchangés).
   - ⚙️ **Config requise côté Supabase** : ajouter `iptvax://auth-callback`
     dans Authentication → URL Configuration → **Redirect URLs**. Sans ça,
     Supabase refuse la redirection vers le protocole custom.
+- **3c — Lecteur natif mpv** ✅ *(fait — 2026-06-08 ; spike validé, à valider sur contenu réel)*
+  - **Problème** : l'Option B (proxy ffmpeg embarqué) lit correctement mais
+    rejoue le défaut perf du web — remux MP4 fragmenté pour le `<video>` de
+    Chromium → démarrage 5-10 s (pire en HEVC/x265 ré-encodé temps réel), seek =
+    redémarrage ffmpeg, back-seek non instantané (Chrome rebase la timeline).
+    Le mobile est rapide car **libVLC décode directement** sur l'appareil.
+  - **Solution** : basculer le desktop sur un **lecteur natif mpv** qui décode
+    DIRECTEMENT l'URL Xtream upstream (HEVC/AC3/MKV/MPEG-TS) depuis l'IP
+    résidentielle, sans proxy ni remux → démarrage 1-2 s, seek/back-seek quasi
+    instantanés. mpv piloté **100 % en IPC JSON** (`--input-ipc-server`, named
+    pipe Windows) → aucune compilation native / node-gyp.
+  - **Spike de faisabilité (make-or-break)** : afficher la surface mpv DERRIÈRE
+    la WebView transparente. Deux approches prototypées (`electron/spike-mpv.cjs`,
+    captures dans `docs/spike/`) :
+    - **(A) embedding `--wid`** (une fenêtre `transparent:true`, mpv enfant du
+      HWND Electron) → **✅ retenue** : Chromium z-ordonne sa couche web
+      AU-DESSUS de l'enfant mpv, la zone transparente du player révèle la vidéo,
+      l'UI (bandeaux/contrôles) reste par-dessus. Exactement le modèle
+      Android/Tizen.
+    - **(B) deux fenêtres** (vidéo opaque dessous + UI transparente dessus) →
+      écartée : la fenêtre hôte mpv repeint sa page web opaque PAR-DESSUS l'enfant
+      mpv → trou noir ; le correctif (page hôte transparente) la fait retomber
+      sur (A). Aucun gain, plomberie de synchro en plus.
+  - **Fenêtre frameless + transparente** : (A) impose `frame:false` +
+    `transparent:true` sur la `BrowserWindow` (`electron/main.cjs`) → barre de
+    titre maison `src/components/TitleBar.tsx` (drag + min/max/close via IPC
+    `window:*`), placée dans le strip vacant en haut grâce à `--safe-top` =
+    hauteur du titlebar (`html.electron-chrome`, `main.tsx`) — la chrome fixe de
+    l'app (brand/topnav/profil, qui intègrent déjà `var(--safe-top)`) descend
+    sous la barre sans collision. Hors lecture, l'app peint un fond opaque → rendu
+    identique au mode framed.
+  - **Pièces** : `electron/mpv.cjs` (contrôleur main : spawn `--wid` +
+    `--input-ipc-server`, client IPC JSON, `observe_property`, events normalisés
+    time/duration/state/tracks/volume) ; `electron/preload.cjs` (pont
+    `window.electron.mpv` + `window.electron.window`) ; `src/native/electronMpv.ts`
+    (bridge typé + `initElectronMpv()` boot) ; `src/hooks/useElectronPlayer.ts`
+    (`PlayerController` via IPC) ; dispatch dans `VideoPlayer.tsx` (`isElectron &&
+    isElectronMpvReady()` → mpv, sinon repli `usePlayer`).
+  - **URL directe + en-têtes** : l'URL reçue est proxifiée (`/api/hlsproxy?url=…`,
+    mode web) ; `useElectronPlayer` en ré-extrait l'upstream direct et le donne à
+    mpv. UA/Referer/Origin alignés sur le proxy (§IV-8) : live → UA VLC sans
+    Referer/Origin (`.m3u8`) ; VOD/série → UA navigateur + Referer/Origin
+    (fichier direct). Le proxy reste pour le NON-lecture (images, etc.).
+  - **Binaire** : `mpv.exe` hors-repo (`npm run fetch:mpv` → `vendor/mpv/`,
+    release figée + SHA-256), embarqué via `extraResources` → `resources/mpv/`.
+    Le workflow CI `windows-exe.yml` ajoute l'étape `fetch:mpv` avant le package.
+  - **Validations faites** : spike surface (A) ✅ ; contrôleur IPC de bout en
+    bout (load/seek/pause/play/volume/tracks/state) contre un clip réel ✅ ;
+    fenêtre frameless + titlebar + app non transparente dans l'app réelle
+    connectée ✅ ; `npm run build` + `npm run lint` zéro erreur ✅.
+  - **À valider sur contenu réel** (compte IPTV utilisateur) : lecture VOD/série
+    (MKV/HEVC), seek instantané, switch pistes audio/sous-titres depuis un vrai
+    conteneur, live MPEG-TS + zapper (§IV-28), reprise (§IV-13), packaging NSIS
+    installé (résolution `resources/mpv/mpv.exe`).
+  - **Garde-fous préservés** : modes web pur / natifs mobiles-TV **strictement
+    inchangés** ; le chemin `usePlayer`/proxy reste le repli Electron si mpv
+    manque ; dispatch toujours via `VideoPlayer.tsx` + `usesNativeSurface`.
 
 ### Phase 4 — Tizen & webOS
 

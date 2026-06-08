@@ -1,0 +1,60 @@
+/* Barre de titre maison (Electron frameless) — voir TitleBar.tsx + CLAUDE.md §XI.
+   Occupe le strip vacant de --titlebar-h en haut de la fenêtre. z-index très haut
+   (au-dessus de toute la chrome app ET du lecteur). Fond opaque = chrome fenêtre. */
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar-h, 30px);
+  z-index: 100000;
+  display: flex;
+  align-items: stretch;
+  background: #0b0b0f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  user-select: none;
+}
+
+/* Zone de déplacement de la fenêtre (Electron : -webkit-app-region: drag). */
+.titlebar-drag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.titlebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--t-3, #9aa);
+}
+
+.titlebar-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--t-2, #c8c8d0);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--t-1, #fff);
+}
+
+.titlebar-close:hover {
+  background: #e81123;
+  color: #fff;
+}
