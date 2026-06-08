@@ -55,16 +55,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build React + installeur Windows (NSIS)
+      - name: Build React (bundle Vite)
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_TMDB_API_KEY: ${{ secrets.VITE_TMDB_API_KEY }}
           VITE_WEB_URL: ${{ secrets.VITE_WEB_URL }}
-          # Empêche electron-builder d'essayer de publier tout seul sur GitHub.
-          # (la publication est gérée par l'étape softprops ci-dessous)
-          GH_TOKEN: ""
-        run: npm run electron:build
+        run: npm run build
+
+      - name: Package installeur Windows (NSIS)
+        # --publish never : sinon electron-builder détecte le CI et tente de publier
+        # tout seul sur GitHub → échoue faute de GH_TOKEN. La publication est gérée
+        # par l'étape softprops ci-dessous.
+        run: npx electron-builder --win --publish never
 
       - name: Publish to GitHub Release (windows-latest)
         uses: softprops/action-gh-release@v2
