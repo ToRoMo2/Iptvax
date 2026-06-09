@@ -321,7 +321,12 @@ export function VideoPlayer({
       closePanel();
       return;
     }
-    if (panelKind === null && player.status === 'playing') {
+    // Audio + sous-titres : la lecture CONTINUE (changement de piste instantané
+    // sur mpv/natif, style des sous-titres appliqué à chaud) → ne pas mettre en
+    // pause, c'est plus gênant qu'utile. Seuls qualité/épisodes (changement de
+    // source) gardent la pause auto.
+    const pausesPlayback = kind === 'quality' || kind === 'episodes';
+    if (pausesPlayback && panelKind === null && player.status === 'playing') {
       player.toggle();
       pausedByPanelRef.current = true;
     }
@@ -683,7 +688,8 @@ export function VideoPlayer({
     const handleKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       // Escape ferme le panneau inline en priorité (reprend la lecture si on
-      // l'avait pausée).
+      // l'avait pausée). Le plein écran et le retour catalogue sont gérés par le
+      // handler global de Player.tsx (source unique pour la navigation).
       if (e.key === 'Escape' && panelKind !== null) {
         e.preventDefault();
         closePanel();

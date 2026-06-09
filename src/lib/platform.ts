@@ -74,6 +74,10 @@ declare global {
         isMaximized: () => Promise<boolean>;
         toggleFullscreen: () => void;
         exitFullscreen: () => void;
+        /** Déplacement custom de la fenêtre (titlebar) — snap « haut = agrandir ». */
+        dragStart: () => void;
+        dragMove: () => void;
+        dragEnd: () => void;
         onMaxStateChange: (handler: (isMax: boolean) => void) => () => void;
         onFullscreenChange: (handler: (isFs: boolean) => void) => () => void;
       };

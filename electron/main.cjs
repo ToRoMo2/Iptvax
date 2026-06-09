@@ -34,6 +34,15 @@ const { startServer } = require(path.join(__dirname, '..', 'server', 'proxy.cjs'
 
 const isDev = !app.isPackaged;
 
+// ─── Anti-rechargement quand une autre fenêtre recouvre Iptvax ───────────────
+// Sur une fenêtre `transparent:true` (lecteur mpv), quand une autre fenêtre la
+// recouvre entièrement, le calcul d'occlusion natif de Chromium marque la
+// WebView « cachée » et libère sa surface GPU ; au retour (fenêtre retirée), la
+// surface est recréée → la page se RECHARGE (le lecteur repart). On désactive ce
+// calcul d'occlusion : la WebView garde sa surface, plus de rechargement. À
+// poser avant `app.whenReady()`.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
 // ─── Protocole custom pour le retour OAuth (Phase 3b) ────────────────────────
 // Pendant le clic « Se connecter avec Google » dans Electron, on ouvre l'URL
 // d'autorisation Supabase dans le navigateur système (cookies Chrome/Edge déjà
@@ -144,6 +153,9 @@ async function bootstrap() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // libère l'accès Node pour le preload si on en a besoin plus tard
+      // Ne pas brider les timers/RAF quand la fenêtre est masquée/occultée — la
+      // lecture mpv continue, l'UI doit rester cohérente au retour (cf. occlusion).
+      backgroundThrottling: false,
     },
   });
 
@@ -153,8 +165,18 @@ async function bootstrap() {
   // Plein écran BORDERLESS (setBounds) plutôt que setFullScreen : sur une fenêtre
   // `transparent:true` frameless, le vrai plein écran OS ne s'affiche pas
   // correctement (et l'API Fullscreen HTML a un ::backdrop opaque qui masque la
-  // surface mpv → écran noir). On redimensionne la fenêtre aux bornes de l'écran
-  // + alwaysOnTop (couvre la barre des tâches) ; mpv (enfant --wid) suit la taille.
+  // surface mpv → écran noir). On redimensionne simplement la fenêtre aux bornes
+  // de l'écran ; mpv (enfant --wid) suit la taille.
+  //
+  // ⚠ PAS de `setAlwaysOnTop` (ni de toggle focus/blur). Le « toujours au-dessus »
+  // empêchait une autre fenêtre de passer devant le lecteur, et le relâcher au
+  // blur ne corrige pas le cas « je saisis directement une fenêtre » : Win32
+  // HWND_NOTOPMOST RE-élève la fenêtre AU-DESSUS de toutes les non-topmost (donc
+  // au-dessus de celle qu'on vient d'activer) → elle repassait derrière ; et
+  // Electron n'expose aucun « move to bottom » pour compenser. En z-order naturel,
+  // glisser une fenêtre par-dessus ou Alt-Tab se comporte comme en plein écran
+  // navigateur (YouTube). La fenêtre couvrant tout l'écran au premier plan, le
+  // shell Windows masque la barre des tâches de lui-même.
   let fsSavedBounds = null;
   const setBorderlessFullscreen = (on) => {
     if (!mainWindow) return;
@@ -162,9 +184,7 @@ async function bootstrap() {
       fsSavedBounds = mainWindow.getBounds();
       const disp = screen.getDisplayMatching(mainWindow.getBounds());
       mainWindow.setBounds(disp.bounds);
-      mainWindow.setAlwaysOnTop(true, 'screen-saver');
     } else if (!on && fsSavedBounds) {
-      mainWindow.setAlwaysOnTop(false);
       mainWindow.setBounds(fsSavedBounds);
       fsSavedBounds = null;
     } else {
@@ -193,6 +213,47 @@ async function bootstrap() {
   };
   mainWindow.on('maximize', sendMaxState);
   mainWindow.on('unmaximize', sendMaxState);
+
+  // ── Déplacement custom + snap « glisser en haut = agrandir » ───────────────
+  // La fenêtre est transparente (lecteur mpv) → Windows désactive l'Aero Snap
+  // natif et `-webkit-app-region: drag` ne maximise pas au bord haut. On pilote
+  // donc le déplacement nous-mêmes : le titlebar envoie start/move/end (pointer
+  // capture) et on suit le curseur ; au relâchement collé en haut de l'écran, on
+  // maximise (l'équivalent du snap natif). `getCursorScreenPoint`/`setPosition`
+  // sont tous deux en DIP → l'offset reste cohérent (y compris multi-écran).
+  const SNAP_TOP_PX = 6;
+  let winDrag = null;
+  ipcMain.on('iptvax:window-drag', (_event, phase) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (phase === 'start') {
+      const cursor = screen.getCursorScreenPoint();
+      // Glisser une fenêtre maximisée la restaure sous le curseur (standard OS).
+      if (mainWindow.isMaximized()) {
+        const max = mainWindow.getBounds();
+        const relX = max.width > 0 ? (cursor.x - max.x) / max.width : 0.5;
+        mainWindow.unmaximize();
+        const r = mainWindow.getBounds();
+        mainWindow.setPosition(Math.round(cursor.x - r.width * relX), Math.round(cursor.y - 15));
+      }
+      const [wx, wy] = mainWindow.getPosition();
+      winDrag = { offsetX: cursor.x - wx, offsetY: cursor.y - wy, moved: false };
+    } else if (phase === 'move') {
+      if (!winDrag) return;
+      winDrag.moved = true;
+      const p = screen.getCursorScreenPoint();
+      mainWindow.setPosition(p.x - winDrag.offsetX, p.y - winDrag.offsetY);
+    } else if (phase === 'end') {
+      if (!winDrag) return;
+      const { moved } = winDrag;
+      winDrag = null;
+      // Snap seulement après un vrai déplacement (pas un simple clic sur le
+      // titre alors que la fenêtre est déjà collée en haut).
+      if (!moved) return;
+      const cursor = screen.getCursorScreenPoint();
+      const wa = screen.getDisplayNearestPoint(cursor).workArea;
+      if (cursor.y <= wa.y + SNAP_TOP_PX) mainWindow.maximize();
+    }
+  });
 
   // ── Pont lecteur natif mpv ─────────────────────────────────────────────────
   // mpv est démarré paresseusement à la 1re lecture (évite un process mpv quand
