@@ -285,30 +285,89 @@
   .title { font-size: 34px; }
 }
 
+/* ── Mobile : refonte « settings natif » (cartes groupées + segmented control) ── */
 @media (max-width: 640px) {
-  .title { font-size: 24px; }
-  .sub { font-size: 13px; }
-  .header { margin-bottom: 22px; }
-  .tabs { gap: 6px; margin-bottom: 22px; }
-  .tab { height: 32px; padding: 0 12px; font-size: 12px; }
-  .content { gap: 28px; }
+  /* clearance bottom-nav déjà gérée par .main-content → padding bas modéré */
+  .page {
+    padding: calc(var(--topnav-h) + 4px) var(--pad-edge) 40px;
+  }
 
+  .title { font-size: 26px; }
+  .sub { font-size: 13px; }
+  .header { margin-bottom: 18px; }
+
+  /* Tab bar → segmented control plein-largeur, 3 colonnes égales, sans scroll */
+  .tabs {
+    gap: 4px;
+    margin-bottom: 24px;
+    max-width: 100%;
+    padding: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+  }
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-pill);
+    font-size: 13px;
+  }
+  .tab svg { flex-shrink: 0; }
+  .tabActive { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
+
+  /* Sections → cartes OLED groupées avec en-tête inline */
+  .content { gap: 22px; }
+  .section {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 2px 16px;
+    overflow: hidden;
+  }
+  .sectionLabel {
+    margin: 0;
+    padding: 15px 0 9px;
+    font-size: 11px;
+  }
+
+  /* Rows : restent horizontales (label / valeur), dernière sans séparateur */
   .row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    gap: 14px;
     padding: 14px 0;
   }
-  .rowValue { text-align: left; max-width: 100%; font-size: 13px; }
-  .rowLabel { font-size: 13px; }
+  .row:last-child { border-bottom: none; }
+  .rowLabel { font-size: 13.5px; }
   .rowDesc { font-size: 12px; }
+  .rowValue { font-size: 13px; max-width: 58%; overflow-wrap: anywhere; }
 
-  /* Toggle reste à droite, row "compacte" */
-  .row:has(.toggle) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+  /* Rows à action (bouton / select) → empilées, cible tactile pleine largeur */
+  .row:has(.logoutBtn) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .logoutBtn {
+    width: 100%;
+    justify-content: center;
+    height: 46px;
   }
 
-  .logoutBtn { width: 100%; justify-content: center; }
+  /* Version chip centrée sous la dernière carte */
+  .versionChip {
+    justify-content: center;
+    padding-top: 4px;
+  }
+}
+
+/* ── Ultra-compact : segmented control plus dense ── */
+@media (max-width: 380px) {
+  .tab { gap: 4px; font-size: 12px; }
+  .section { padding: 2px 13px; }
 }
