@@ -59,7 +59,8 @@
   cursor: pointer;
   transition: color var(--d-micro) var(--ease),
               background var(--d-micro) var(--ease),
-              border-color var(--d-micro) var(--ease);
+              border-color var(--d-micro) var(--ease),
+              transform var(--d-micro) var(--ease);
 }
 
 .tab:hover {
@@ -72,6 +73,9 @@
   background: #FFFFFF;
   border-color: #FFFFFF;
 }
+
+.tab svg { transition: transform var(--d-micro) var(--ease); }
+.tab:hover svg { transform: scale(1.12); }
 
 /* ── Content area ── */
 .content {
@@ -86,6 +90,12 @@
   display: flex;
   flex-direction: column;
 }
+
+/* Conteneur de colonne : transparent par défaut (display:contents → les
+   sections remontent dans .content, l'ordre du DOM est préservé). Il ne
+   devient une vraie colonne flex qu'en disposition 2 colonnes (≥ 1000px),
+   donc mobile et écrans étroits restent strictement inchangés. */
+.col { display: contents; }
 
 .sectionLabel {
   font-size: 12px;
@@ -144,7 +154,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: var(--r-ui);
+  border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -152,11 +162,13 @@
 
 .badgeActive {
   border: 1px solid var(--accent-glow);
+  background: var(--accent-faint);
   color: var(--accent);
 }
 
 .badgeExpired {
-  border: 1px solid var(--live-glow);
+  border: 1px solid var(--live-glow-c);
+  background: rgba(255, 59, 48, 0.10);
   color: var(--live);
 }
 
@@ -228,6 +240,82 @@
   background: #000;
 }
 
+/* ── Action button — Premium / gestion (accent) ── */
+.premiumBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--r-ui);
+  border: 1px solid var(--accent-glow);
+  background: var(--accent-faint);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--d-micro) var(--ease),
+              color var(--d-micro) var(--ease),
+              border-color var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease),
+              transform var(--d-micro) var(--ease);
+}
+
+.premiumBtn:hover {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  box-shadow: 0 0 26px -2px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.premiumBtn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* ── Select control (langue) ── */
+.selectBtn {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 40px;
+  padding: 0 36px 0 16px;
+  border-radius: var(--r-ui);
+  border: 1px solid var(--line-strong);
+  background-color: rgba(255, 255, 255, 0.04);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  color: var(--t-1);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color var(--d-micro) var(--ease),
+              background-color var(--d-micro) var(--ease);
+}
+
+.selectBtn:hover {
+  border-color: var(--accent);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.selectBtn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.selectBtn option {
+  background: var(--bg-elev);
+  color: var(--t-1);
+}
+
 /* ── Logout / destructive ── */
 .logoutBtn {
   display: inline-flex;
@@ -236,7 +324,7 @@
   height: 40px;
   padding: 0 18px;
   border-radius: var(--r-ui);
-  border: 1px solid var(--live-glow);
+  border: 1px solid var(--live-glow-c);
   background: transparent;
   color: var(--live);
   font-family: inherit;
@@ -246,18 +334,22 @@
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--d-micro) var(--ease),
-              border-color var(--d-micro) var(--ease);
+              border-color var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease),
+              transform var(--d-micro) var(--ease);
 }
 
 .logoutBtn:hover {
   background: rgba(255, 59, 48, 0.10);
   border-color: var(--live);
+  box-shadow: 0 0 22px -4px var(--live-glow-c);
+  transform: translateY(-1px);
 }
 
 .logoutBtn:focus-visible {
   outline: none;
   border-color: var(--live);
-  box-shadow: 0 0 0 2px var(--live-glow);
+  box-shadow: 0 0 0 2px var(--live-glow-c);
 }
 
 /* ── Version chip ── */
@@ -276,6 +368,215 @@
   height: 4px;
   border-radius: 50%;
   background: var(--t-4);
+}
+
+/* ====================================================================
+   LANDSCAPE POLISH (≥ 641px) — cartes glassmorphism, hovers, entrée.
+   Le mobile portrait (≤ 640px) reste volontairement plat (déjà poli) :
+   tout le « chrome » verre est confiné ici pour ne pas le toucher.
+   ==================================================================== */
+@media (min-width: 641px) {
+  /* Tab bar → segmented control en verre */
+  .tabs {
+    gap: 4px;
+    padding: 5px;
+    width: max-content;
+    max-width: 100%;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .tab {
+    height: 34px;
+    border-color: transparent;
+  }
+  .tab:hover {
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--t-1);
+  }
+  .tabActive,
+  .tabActive:hover {
+    color: #000;
+    background: #FFFFFF;
+    border-color: transparent;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Cartes */
+  .content { gap: 16px; }
+
+  .section {
+    position: relative;
+    padding: 20px 24px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+    box-shadow: 0 2px 18px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    overflow: hidden;
+    transition: transform var(--d-page) var(--ease),
+                border-color var(--d-page) var(--ease),
+                box-shadow var(--d-page) var(--ease),
+                background var(--d-page) var(--ease);
+    animation: settings-rise 0.5s var(--ease) backwards;
+  }
+
+  /* Halo accent diffus, révélé au survol */
+  .section::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(130% 90% at 100% 0%, var(--accent-faint), transparent 55%);
+    transition: opacity var(--d-page) var(--ease);
+  }
+
+  .section:hover {
+    transform: translateY(-3px);
+    border-color: var(--line-strong);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.02));
+    box-shadow: 0 16px 44px -10px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .section:hover::after { opacity: 1; }
+
+  /* Étiquette de section : barre accent lumineuse */
+  .sectionLabel {
+    position: relative;
+    padding-left: 14px;
+    margin-bottom: 12px;
+  }
+  .sectionLabel::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  /* Lignes : débordent jusqu'aux bords de la carte pour le survol */
+  .row {
+    margin: 0 -24px;
+    padding: 15px 24px;
+    transition: background var(--d-micro) var(--ease);
+  }
+  .row:hover { background: rgba(255, 255, 255, 0.025); }
+  .row:last-child { border-bottom: none; }
+
+  /* Entrée échelonnée des cartes (par colonne — les deux colonnes
+     s'animent en parallèle de haut en bas). nth-child est basé sur le DOM,
+     donc fonctionne quel que soit le display de .col. */
+  .col > *:nth-child(1) { animation-delay: 0s; }
+  .col > *:nth-child(2) { animation-delay: 0.07s; }
+  .col > *:nth-child(3) { animation-delay: 0.14s; }
+  .col > *:nth-child(4) { animation-delay: 0.21s; }
+
+  /* Bandeau de version → pastille verre */
+  .versionChip {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 10px 18px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: var(--t-2);
+    animation: settings-rise 0.5s var(--ease) backwards;
+  }
+}
+
+/* ====================================================================
+   GRAND ÉCRAN (≥ 1000px) — bloc centré (X et Y), deux colonnes de cartes
+   à hauteur égale qui se terminent sur la même ligne (rectangle net, pas
+   de carte qui dépasse). L'ordre du DOM est préservé (.col en display:flex
+   ici, display:contents ailleurs) → mobile / écrans étroits inchangés.
+   La densité verticale est resserrée pour tout afficher sans scroll.
+   En dessous (641–999px) on garde la colonne unique : 2 colonnes y
+   rendraient les lignes label/valeur/bouton trop à l'étroit.
+   ==================================================================== */
+@media (min-width: 1000px) {
+  /* Centrage du bloc entier dans la zone utile (sous la nav flottante).
+     min-height (pas height) : si le contenu dépasse, il scrolle au lieu
+     d'être rogné ; s'il tient, il se centre verticalement. */
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: calc(var(--topnav-h) + 8px);
+    padding-bottom: 36px;
+  }
+
+  /* En-tête + onglets centrés horizontalement, compactés */
+  .header {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .title { font-size: 30px; }
+  .tabs { margin-bottom: 18px; }
+
+  /* Deux colonnes de largeur égale, étirées à la même hauteur */
+  .content {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 14px;
+    width: 100%;
+    max-width: 1040px;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  /* La dernière carte de la colonne la plus courte s'étire pour combler
+     l'espace → les deux colonnes finissent sur la même ligne (rectangle).
+     Dans la colonne la plus haute, il n'y a pas d'espace à combler. */
+  .col > .section:last-child { flex: 1 1 auto; }
+
+  /* Cartes compactes */
+  .section {
+    margin-bottom: 0;
+    padding: 12px 20px;
+  }
+  .sectionLabel { margin-bottom: 8px; }
+  .row {
+    margin: 0 -20px;
+    padding: 10px 20px;
+  }
+}
+
+@keyframes settings-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section,
+  .versionChip { animation: none; }
+  .section,
+  .row,
+  .tab,
+  .premiumBtn,
+  .logoutBtn { transition: none; }
+  .section:hover { transform: none; }
 }
 
 /* ====================================================================
@@ -310,5 +611,7 @@
     justify-content: space-between;
   }
 
-  .logoutBtn { width: 100%; justify-content: center; }
+  .logoutBtn,
+  .premiumBtn,
+  .selectBtn { width: 100%; justify-content: center; }
 }

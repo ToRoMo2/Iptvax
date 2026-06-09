@@ -147,6 +147,7 @@ export function Settings() {
           {/* ── Account tab ── */}
           {tab === 'account' && (
             <>
+              <div className={styles.col}>
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>{t('settings.subscription')}</div>
                 <div className={styles.row}>
@@ -179,7 +180,7 @@ export function Settings() {
                     </div>
                   </div>
                   <button
-                    className={styles.logoutBtn}
+                    className={styles.premiumBtn}
                     onClick={() => navigate('/premium')}
                   >
                     {isPremium ? t('settings.manage') : t('common.goPremium')}
@@ -203,7 +204,9 @@ export function Settings() {
                   <InfoRow label={t('settings.activeConnections')} value={userInfo.active_cons} />
                 </section>
               )}
+              </div>
 
+              <div className={styles.col}>
               {credentials && (
                 <section className={styles.section}>
                   <div className={styles.sectionLabel}>{t('settings.server')}</div>
@@ -234,7 +237,7 @@ export function Settings() {
                       </div>
                     </div>
                     <button
-                      className={styles.logoutBtn}
+                      className={styles.premiumBtn}
                       onClick={() => navigate('/premium')}
                     >
                       {t('common.goPremium')}
@@ -267,7 +270,7 @@ export function Settings() {
                     <div className={styles.rowDesc}>{t('settings.languageDesc')}</div>
                   </div>
                   <select
-                    className={styles.logoutBtn}
+                    className={styles.selectBtn}
                     value={locale}
                     onChange={(e) => setLocale(e.target.value as Locale)}
                     aria-label={t('settings.language')}
@@ -278,12 +281,14 @@ export function Settings() {
                   </select>
                 </div>
               </section>
+              </div>
             </>
           )}
 
           {/* ── Playback tab ── */}
           {tab === 'playback' && (
             <>
+              <div className={styles.col}>
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>{t('settings.autoplaySection')}</div>
                 <ToggleRow
@@ -312,19 +317,23 @@ export function Settings() {
                   onChange={setHwDecode}
                 />
               </section>
+              </div>
 
+              <div className={styles.col}>
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>{t('settings.streamFormat')}</div>
                 <InfoRow label={t('settings.liveTv')} value={t('settings.liveTvVal')} muted />
                 <InfoRow label={t('settings.moviesLabel')} value={t('settings.moviesVal')} muted />
                 <InfoRow label={t('settings.seriesLabel')} value={t('settings.seriesVal')} muted />
               </section>
+              </div>
             </>
           )}
 
           {/* ── About tab ── */}
           {tab === 'about' && (
             <>
+              <div className={styles.col}>
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>Iptvax</div>
                 <InfoRow label={t('settings.version')} value="2.4.0" />
@@ -332,7 +341,9 @@ export function Settings() {
                 <InfoRow label={t('settings.framework')} value="React 18 · Vite · TypeScript" muted />
                 <InfoRow label={t('settings.videoRender')} value="HLS.js · Video.js" muted />
               </section>
+              </div>
 
+              <div className={styles.col}>
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>{t('settings.features')}</div>
                 <InfoRow label={t('settings.liveTv')} value={t('settings.supported')} />
@@ -350,6 +361,7 @@ export function Settings() {
                 <span>v2.4.0</span>
                 <span className={styles.versionDot} />
                 <span>{t('settings.tlsSecure')}</span>
+              </div>
               </div>
             </>
           )}
