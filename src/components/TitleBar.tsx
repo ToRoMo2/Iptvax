@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import './TitleBar.css';
 
 /**
@@ -15,6 +15,7 @@ import './TitleBar.css';
 export function TitleBar() {
   const [isMax, setIsMax] = useState(false);
   const [isFs, setIsFs] = useState(false);
+  const draggingRef = useRef(false);
   const win = typeof window !== 'undefined' ? window.electron?.window : undefined;
 
   useEffect(() => {
@@ -35,9 +36,34 @@ export function TitleBar() {
 
   if (!win || isFs) return null;
 
+  // Déplacement custom : la fenêtre transparente n'a pas le drag natif
+  // (`-webkit-app-region`) ni l'Aero Snap. On pilote le move via pointer capture
+  // → le main suit le curseur et maximise si relâché en haut (cf. main.cjs).
+  const onDragPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    draggingRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    win.dragStart();
+  };
+  const onDragPointerMove = () => {
+    if (draggingRef.current) win.dragMove();
+  };
+  const onDragPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* déjà relâché */ }
+    win.dragEnd();
+  };
+
   return (
     <div className="titlebar">
-      <div className="titlebar-drag">
+      <div
+        className="titlebar-drag"
+        onPointerDown={onDragPointerDown}
+        onPointerMove={onDragPointerMove}
+        onPointerUp={onDragPointerUp}
+        onDoubleClick={() => win.maximize()}
+      >
         <span className="titlebar-title">Iptvax</span>
       </div>
       <div className="titlebar-controls">

@@ -36,6 +36,13 @@ contextBridge.exposeInMainWorld('electron', {
     toggleFullscreen: () => ipcRenderer.send('iptvax:window', 'toggle-fullscreen'),
     /** Force la sortie du plein écran (ex. au démontage du lecteur). */
     exitFullscreen: () => ipcRenderer.send('iptvax:window', 'exit-fullscreen'),
+    /** Déplacement custom de la fenêtre (titlebar) — la fenêtre transparente
+     *  n'a pas le drag/snap natif. Émis depuis les events pointer du titlebar :
+     *  `start` au pointerdown, `move` au pointermove, `end` au pointerup (snap
+     *  « agrandir » si relâché en haut de l'écran). */
+    dragStart: () => ipcRenderer.send('iptvax:window-drag', 'start'),
+    dragMove: () => ipcRenderer.send('iptvax:window-drag', 'move'),
+    dragEnd: () => ipcRenderer.send('iptvax:window-drag', 'end'),
     /** Notifie le renderer des changements maximisé/restauré (icône du bouton). */
     onMaxStateChange: (handler) => {
       if (typeof handler !== 'function') return () => {};

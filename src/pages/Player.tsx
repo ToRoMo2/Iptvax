@@ -94,9 +94,28 @@ export function Player() {
     [channelIndex, selectChannel],
   );
 
+  // En plein écran (Electron borderless), Échap doit SORTIR du plein écran, pas
+  // quitter le lecteur. On suit l'état plein écran de la fenêtre via le pont
+  // Electron (ref lue dans le handler clavier ci-dessous). Hors Electron
+  // (web/TV/mobile), `window.electron` est absent → ref figée à false →
+  // comportement historique (Échap = retour catalogue).
+  const fullscreenRef = useRef(false);
+  useEffect(() => {
+    const w = typeof window !== 'undefined' ? window.electron?.window : undefined;
+    if (!w) return;
+    return w.onFullscreenChange((fs) => { fullscreenRef.current = fs; });
+  }, []);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') navigate(-1);
+      if (e.key !== 'Escape') return;
+      const w = window.electron?.window;
+      if (w && fullscreenRef.current) {
+        // Plein écran → en sortir (le lecteur reste ouvert).
+        w.exitFullscreen();
+        return;
+      }
+      navigate(-1);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -479,13 +498,15 @@ export function Player() {
           resume={resume}
           onPersist={handlePersist}
           // Panneau « Épisodes » : props transmises uniquement si seriesContext
-          // est posé (déclenche l'affichage du bouton dans la rangée).
+          // est posé (déclenche l'affichage du bouton dans la rangée). Le bouton
+          // est piloté par `onPlayEpisode` → il doit RESTER undefined pour un film
+          // (pas de seriesCtx), sinon il s'affiche à tort sur les VOD.
           episodesBySeason={seriesCtx ? seriesInfo?.episodes : undefined}
           currentSeason={seriesCtx?.currentSeason}
           currentEpisodeNum={seriesCtx?.currentEpisodeNum}
           stillsBySeason={stillsBySeason}
           onLoadSeasonStills={loadSeasonStills}
-          onPlayEpisode={handlePlayEpisode}
+          onPlayEpisode={seriesCtx ? handlePlayEpisode : undefined}
         />
       </div>
       {state.description && (
