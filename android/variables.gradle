@@ -13,4 +13,8 @@ ext {
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
     cordovaAndroidVersion = '10.1.1'
+    // Lecteur natif AndroidX Media3 (ExoPlayer) — remplace libVLC (voir
+    // docs/native-port.md). ⚠ Si tu compiles l'extension FFmpeg pour l'audio
+    // Dolby (AC3/EAC3/DTS), elle DOIT être buildée depuis la MÊME version.
+    media3Version = '1.4.1'
 }

@@ -19,8 +19,9 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // libVLC ne ship que des binaires natifs par ABI. On limite aux ABIs
-        // utiles (téléphones + box Android TV) pour ne pas embarquer x86.
+        // Media3 cœur est pur Java (pas de .so). L'extension FFmpeg (audio Dolby,
+        // optionnelle) ship en revanche des binaires natifs par ABI → on limite
+        // aux ABIs utiles (téléphones + box Android TV) pour ne pas gonfler l'APK.
         // Pour un build release multi-APK, préférer `splits { abi { ... } }`.
         ndk {
             abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
@@ -64,9 +65,22 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
-    // Lecteur natif libVLC (Phase 2c — voir docs/native-port.md). libvlc-all
-    // embarque le moteur VLC + ses binaires natifs ; remplace ffmpeg côté natif.
-    implementation "org.videolan.android:libvlc-all:3.6.5"
+    // Lecteur natif AndroidX Media3 / ExoPlayer (voir docs/native-port.md).
+    // Remplace libVLC : ExoPlayer émet les cues sous-titres en direct (onCues)
+    // → rendu dans l'overlay React (restyle instantané, comme mpv sur desktop).
+    implementation "androidx.media3:media3-exoplayer:$media3Version"
+    implementation "androidx.media3:media3-exoplayer-hls:$media3Version"
+    implementation "androidx.media3:media3-datasource:$media3Version"
+    implementation "androidx.media3:media3-common:$media3Version"
+    // ⚠ AUDIO DOLBY (AC3/EAC3/DTS) : ExoPlayer s'appuie sur les décodeurs
+    // matériels de l'appareil. Beaucoup de téléphones n'ont PAS de décodeur
+    // Dolby → ces pistes seraient muettes. Pour couvrir ces codecs il faut
+    // l'extension FFmpeg de Media3, qui n'existe PAS en artefact Maven et doit
+    // être COMPILÉE depuis les sources avec le NDK (même version $media3Version).
+    // Une fois buildée et placée comme module Gradle local, décommenter :
+    //   implementation project(':media3-decoder-ffmpeg')
+    // Le RenderersFactory est déjà en mode EXTENSION_PREFER (MediaPlayerPlugin).
+    // Procédure détaillée : docs/native-port.md (section « Extension FFmpeg »).
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
