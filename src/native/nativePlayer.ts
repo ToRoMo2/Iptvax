@@ -22,6 +22,12 @@ export interface NativeSubtitleTrack {
   index: number;
   name: string;
   language: string;
+  /**
+   * `true` = sous-titre TEXTE (rendu dans l'overlay React, restyle instantané) ;
+   * `false` = sous-titre IMAGE (PGS/VobSub/DVB, rendu nativement par la
+   * SubtitleView — non restylable, l'offset React ne s'applique pas).
+   */
+  isText?: boolean;
 }
 
 /** Niveau de qualité vidéo (HLS) exposé par Media3 (ABR débrayable). */
