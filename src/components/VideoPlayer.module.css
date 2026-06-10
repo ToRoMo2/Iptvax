@@ -1491,6 +1491,15 @@
   .channelName { font-size: 11px; }
   .epgCell { width: 124px; padding: 6px 8px; }
   .epgCellTitle { -webkit-line-clamp: 1; font-size: 11px; }
+  /* Sous-titres : viewport paysage court → les valeurs desktop (96px, et 200px
+     quand les contrôles s'affichent) les placent beaucoup trop haut (au milieu,
+     sous le cluster lecture central). On les abaisse : près du bas par défaut,
+     remontés juste AU-DESSUS de la barre de progression quand l'overlay est
+     visible (sous le cluster central, pas dedans). */
+  .subtitleOverlay,
+  .subtitleLoading { bottom: 24px; }
+  .wrapper.showControls .subtitleOverlay,
+  .wrapper.showControls .subtitleLoading { bottom: 88px; }
 }
 
 /* ── Bande EPG live (bas de l'overlay) ────────────────────────────────────── */
