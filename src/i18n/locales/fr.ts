@@ -224,7 +224,6 @@ const fr = {
     buffering: 'Mise en mémoire tampon…',
     loading: 'Chargement…',
     subtitlesLoading: 'Chargement des sous-titres…',
-    applyingSubtitleStyle: 'Application du style…',
     error: 'Erreur de lecture',
     tryOriginal: 'Essayer le format original',
     onAir: 'EN DIRECT',

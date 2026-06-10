@@ -230,7 +230,7 @@ export function VideoPlayer({
 
   /* eslint-disable react-hooks/rules-of-hooks */
   const player: WebPlayerController = isCapacitor
-    ? useNativePlayer(url, mediaUrl, nativeSubStyle)
+    ? useNativePlayer(url, mediaUrl, nativeSubStyle, !!isLiveType)
     : isWebOS
       ? useWebOSPlayer(url, mediaUrl)
       : isTizen
@@ -368,12 +368,6 @@ export function VideoPlayer({
   const isLoading = player.status === 'loading' || player.status === 'buffering';
   const hasError = player.status === 'error';
   const isPlaying = player.status === 'playing';
-  // `true` pendant qu'un lecteur natif (libVLC) recharge le flux pour appliquer
-  // un nouveau STYLE de sous-titres. On masque alors le gros overlay de
-  // chargement (la lecture n'a pas vraiment été coupée) au profit d'un discret
-  // indicateur + du backdrop. Toujours `false` sur les lecteurs qui restylent
-  // réellement à chaud (mpv) ou en React (web).
-  const isRestyling = player.subtitleStyling === true;
 
   // Bascule one-shot pour le backdrop de chargement de la surface native (mpv).
   // Une fois que mpv a rendu sa première frame (isPlaying → true), le backdrop
@@ -989,7 +983,7 @@ export function VideoPlayer({
                 onTouchEnd={handleSurfaceTouchEnd}
               />
               <div
-                className={`${styles.nativeBackdrop}${(backdropDone && !isRestyling) ? ` ${styles.nativeBackdropDone}` : ''}`}
+                className={`${styles.nativeBackdrop}${backdropDone ? ` ${styles.nativeBackdropDone}` : ''}`}
                 style={backdropSrc ? { backgroundImage: `url(${backdropSrc})` } : undefined}
               />
             </>
@@ -1047,16 +1041,6 @@ export function VideoPlayer({
         <div className={styles.subtitleLoading}>
           <span className={styles.subtitleLoadingDot} />
           {t('player.subtitlesLoading')}
-        </div>
-      )}
-
-      {/* Indicateur discret « application du style des sous-titres » — le flux
-          recharge brièvement côté natif (libVLC ne restyle pas à chaud). Pas de
-          gros overlay : la lecture n'a pas vraiment été coupée. */}
-      {isRestyling && (
-        <div className={styles.restylePill}>
-          <span className={styles.restyleSpinner} />
-          {t('player.applyingSubtitleStyle')}
         </div>
       )}
 

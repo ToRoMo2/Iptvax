@@ -222,7 +222,6 @@ const es: typeof frDict = {
     buffering: 'Almacenando en búfer…',
     loading: 'Cargando…',
     subtitlesLoading: 'Cargando subtítulos…',
-    applyingSubtitleStyle: 'Aplicando estilo…',
     error: 'Error de reproducción',
     tryOriginal: 'Probar el formato original',
     onAir: 'EN DIRECTO',

@@ -222,7 +222,6 @@ const en: typeof frDict = {
     buffering: 'Buffering…',
     loading: 'Loading…',
     subtitlesLoading: 'Loading subtitles…',
-    applyingSubtitleStyle: 'Applying style…',
     error: 'Playback error',
     tryOriginal: 'Try the original format',
     onAir: 'ON AIR',

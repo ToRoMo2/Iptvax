@@ -13,6 +13,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TvDetectPlugin.class);
         // Plugin de contrôle du volume média système (Chantier 4 — slider volume lecteur).
         registerPlugin(VolumeControlPlugin.class);
+        // Extraction on-device des sous-titres texte (rendu React, restyle instantané).
+        registerPlugin(SubtitleExtractorPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
