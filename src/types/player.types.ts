@@ -48,15 +48,6 @@ export interface PlayerController {
   currentSubtitle: number;
   subtitleText: string;
   subtitleLoading: boolean;
-  /**
-   * Optionnel — `true` pendant qu'un changement de STYLE des sous-titres
-   * (taille/couleur/fond) est appliqué par un lecteur natif qui ne sait pas
-   * restyler à chaud (libVLC 3.x → bref rechargement du flux). La couche UI
-   * masque alors le gros overlay « Chargement » (la lecture n'a pas vraiment
-   * été interrompue) au profit d'un discret indicateur + backdrop. Absent /
-   * `false` pour les lecteurs qui restylent réellement à chaud (mpv) ou en
-   * React (web). */
-  subtitleStyling?: boolean;
   subtitleOffset: number;
   /**
    * `true` quand la vidéo est rendue par une surface NATIVE (plan hardware sous

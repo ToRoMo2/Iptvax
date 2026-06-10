@@ -295,40 +295,8 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Indicateur discret « application du style des sous-titres » — pastille
-   flottante bas-centre, le flux recharge en coulisse (libVLC 3.x). */
-.restylePill {
-  position: absolute;
-  left: 50%;
-  bottom: calc(96px + var(--safe-bottom));
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 16px;
-  border-radius: var(--r-pill);
-  background: rgba(14, 16, 20, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  color: var(--t-1);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-  z-index: 9;
-  animation: vp-fade-pop 220ms var(--ease);
-}
-
-.restyleSpinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.22);
-  border-top-color: var(--accent);
-  animation: spin 0.7s linear infinite;
-  box-shadow: 0 0 10px var(--accent-glow);
-}
+/* (Le restyle des sous-titres natif réutilise simplement l'overlay de
+   chargement standard `.loadingCard`, débouncé côté useNativePlayer.) */
 
 .spinner {
   width: 48px;
