@@ -230,7 +230,7 @@ export function VideoPlayer({
 
   /* eslint-disable react-hooks/rules-of-hooks */
   const player: WebPlayerController = isCapacitor
-    ? useNativePlayer(url, mediaUrl, nativeSubStyle)
+    ? useNativePlayer(url, mediaUrl, nativeSubStyle, !!isLiveType)
     : isWebOS
       ? useWebOSPlayer(url, mediaUrl)
       : isTizen
