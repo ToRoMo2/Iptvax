@@ -42,7 +42,8 @@ serveur à payer.
 | Sujet | Décision | Raison |
 |---|---|---|
 | Enrobage mobile/TV | **Capacitor** | Conserve l'UI React/CSS existante (React Native = réécriture totale) |
-| Lecteur natif | **libVLC** | Lit tout (MKV, HEVC, MPEG-TS, sous-titres) — la raison d'être de ffmpeg |
+| Lecteur natif (Android) | **AndroidX Media3 / ExoPlayer** (depuis 2026-06-10, remplace libVLC) | Cues sous-titres en direct (`onCues`) → overlay React → restyle/switch **instantanés** (libVLC 3.x recréait le moteur) ; expose les niveaux HLS ; ⚠ audio Dolby AC3/EAC3/DTS = extension FFmpeg à compiler (voir §4 Phase 2c) |
+| Lecteur natif (TV/Windows) | **AVPlay (Tizen) · `<video>`/Luna (webOS) · mpv (Windows)** | Équivalents directs par plateforme ; voir Phases 3/4 |
 | Windows | **Electron** | Option B possible : embarquer `server/proxy.cjs` en local (IP résidentielle) → réutilise tout l'existant |
 | Ordre des plateformes | Android → Android TV → Windows → Tizen/webOS | Audience + difficulté croissante |
 | Mode d'exécution | `VITE_RUNTIME` (`web` \| `capacitor` \| `tizen` \| `webos`), figé au build | Une valeur par shell ; `isNative` = union des 3 sous-modes natifs (bascule data layer commune) ; Electron reste sur `web` (Option B) |
@@ -92,7 +93,7 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
   - `AndroidManifest.xml` : `android:usesCleartextTraffic="true"` — Android
     bloque le HTTP en clair par défaut (API 28+), or les serveurs Xtream sont
     massivement en HTTP simple. Indispensable aussi pour le streaming (2c).
-- **2c — Lecteur natif libVLC** ✅ *(fait — 2026-05-22 ; à valider sur appareil)*
+- **2c — Lecteur natif libVLC** ⚠️ *(HISTORIQUE — remplacé par Media3, voir 2c-bis. Conservé pour le contexte des décisions de surface/lifecycle.)*
   - **Plugin maison** `VlcPlayer` — aucun plugin Capacitor libVLC communautaire
     maintenu n'existe → plugin local dans le projet Android :
     `android/app/src/main/java/com/iptvax/app/VlcPlayerPlugin.java`, enregistré
@@ -117,6 +118,49 @@ Pur refactor dans le repo actuel, sans code natif, sans rien casser côté web.
     audio/sous-titres énumérées via libVLC. Niveaux de qualité HLS non exposés
     (`levels` vide → menu qualité masqué) ; bouton plein écran masqué (l'app
     native est déjà plein écran).
+- **2c-bis — Migration libVLC → AndroidX Media3 / ExoPlayer** 🟡 *(code livré 2026-06-10 ; à valider sur appareil)*
+  - **Pourquoi** : libVLC 3.x ne sait pas restyler les sous-titres à chaud
+    (`sub-text-scale`/`freetype-*` sont des options de MODULE) → chaque
+    changement de taille/couleur reconstruisait le moteur (~1 s de reload). Le
+    contournement `MediaExtractor` (extraction texte on-device) était peu fiable
+    sur les MKV distants. **Media3 émet les cues TEXTE en direct** via
+    `Player.Listener.onCues` → on les rend dans l'overlay React → **restyle +
+    switch de piste instantanés**, comme mpv sur desktop.
+  - **Plugin** : `MediaPlayerPlugin.java` (nom Capacitor `NativePlayer`),
+    remplace `VlcPlayerPlugin.java`. Crée un `ExoPlayer`
+    (`DefaultRenderersFactory` en `EXTENSION_RENDERER_MODE_PREFER`), rend la
+    vidéo sur une `SurfaceView` derrière la WebView (mêmes plombings
+    `iptvax-native-playback` + `usesNativeSurface`). Events `state`/`time`/
+    `tracks`/**`cues`**. Sélection audio/CC/qualité via `TrackSelectionOverride`.
+    En-têtes HTTP par flux (§IV-8) via `DefaultHttpDataSource.Factory`
+    (`MediaSource` construit par chargement). Lifecycle simplifié : ExoPlayer
+    gère seul la surface (pas de detach/reattach manuel).
+  - **JS** : `src/native/nativePlayer.ts` (interface + event `cues`) remplace
+    `vlcPlayer.ts`. `useNativePlayer.ts` réécrit : buffer de cues + boucle
+    150 ms (affichage à `currentTime + offset`, position interpolée à l'horloge
+    murale entre les events `time`), expose les **niveaux HLS** (`levels`).
+  - **Supprimés** : `VlcPlayerPlugin.java`, `SubtitleExtractorPlugin.java`,
+    `src/native/vlcPlayer.ts`, `src/native/subtitleExtractor.ts`, dépendance
+    Gradle `libvlc-all`.
+  - **Gains** : restyle/switch sous-titres instantanés ; menu qualité HLS
+    fonctionnel ; une seule connexion fournisseur (plus de 2ᵉ flux extracteur) ;
+    seek avec index de keyframes.
+  - **⚠ Audio Dolby (AC3/EAC3/DTS) — extension FFmpeg à compiler**. ExoPlayer
+    décode en **matériel** : HEVC/H.264/AAC/MP3/FLAC/Opus = OK partout, mais
+    AC3/EAC3/DTS (fréquents sur les films) sont **muets sur beaucoup de
+    téléphones**. Couverture via l'**extension FFmpeg de Media3**, **non publiée
+    sur Maven** → à builder soi-même :
+    1. Cloner Media3 à la version utilisée : `git clone https://github.com/androidx/media.git && cd media && git checkout 1.4.1`.
+    2. Installer le **NDK** (via Android Studio SDK Manager) + définir `ANDROID_NDK_HOME`.
+    3. `cd libraries/decoder_ffmpeg/src/main/jni`, suivre le `README.md` : cloner FFmpeg (release matching), exporter `FFMPEG_PATH`/`NDK_PATH`/`HOST_PLATFORM`, lister les codecs voulus dans `ENABLED_DECODERS` (au minimum `ac3 eac3 dca mlp truehd`), puis `./build_ffmpeg.sh`.
+    4. Builder l'AAR : depuis la racine Media3, `./gradlew :lib-decoder-ffmpeg:assembleRelease` → récupérer l'`.aar` dans `libraries/decoder_ffmpeg/buildout/...`.
+    5. Intégrer l'AAR au projet Android (`android/app/libs/` + `implementation files('libs/media3-decoder-ffmpeg.aar')`, ou en module `:media3-decoder-ffmpeg`) puis décommenter la ligne prévue dans `android/app/build.gradle`.
+    6. Aucune autre modif : le `DefaultRenderersFactory` est déjà en
+       `EXTENSION_RENDERER_MODE_PREFER` → l'extension est utilisée dès qu'elle est
+       présente. Vérifier sur un film à piste AC3/EAC3 que le son sort.
+  - **À valider sur device** (non compilable en CI sans SDK/NDK) : lecture
+    VOD/série/live, couverture codec (surtout Dolby), seek, switch audio/CC/
+    qualité, restyle sous-titres instantané, fournisseurs stricts.
 - **2d — Android TV** ✅ *(fait — 2026-05-22 ; à valider sur box/émulateur TV)*
   - **Manifeste** : catégorie `LEANBACK_LAUNCHER` ajoutée à l'intent-filter
     MAIN → l'app apparaît sur le home Android TV. `uses-feature`
@@ -764,6 +808,7 @@ binaires (`iptvax.apk`, `Iptvax-Setup.exe`, `com.iptvax.app_1.0.0_all.ipk`,
 | 2026-05-31 | Chantier 6 (incrément 2/2) — Refonte catalogue Films/Séries en **rails** (le « zoom desktop » qui obligeait à scroller en X+Y est supprimé) + logo cliquable. **Logo** : `.brand-fixed` devient un `<button>` → navigate('/') (reset CSS + cursor, capsule mobile conservée). **Movies/Series** : 3 modes dans le même composant (overview rails par catégorie + rail « Populaires » TMDB Premium-only ; `?cat=<id>` = grille complète d'une catégorie avec bouton retour ; recherche ≥3 car. = grille résultats). Une seule requête `getVod/SeriesStreams(creds)` bucketée par `category_id` côté client sert les 3 modes ; `groupByTitle` par bucket (rails) + global (`allGroups` : compteur, recherche, match TMDB via `titleKey`). `<ScrollRail>` réutilisé, carte `.seeAllCard` en fin de rail, `RAIL_PREVIEW=12`. Helpers `Shelf`/`SeeAllCard` inlinés (§IV-23). CSS dans `Browse.module.css` (`.shelves` margin négatif pour déborder `--pad-edge`, `.shelfRail` overscroll contain, `.posterCell` responsive 180/150/140/124px). i18n `common.popular` (fr/en/es). `CategoryBar` reste pour `Live.tsx`. Nouveau garde-fou CLAUDE.md §IV-27. `tsc -b && vite build` OK, lint OK. | ✅ Code livré (build/lint OK) — à valider sur device |
 | 2026-05-31 | Chantier 6 (incrément 2b) — Fixes catalogue suite retour device. **(1) Posters de tailles différentes** : `.shelfRail > *` + `.posterCell` n'avaient pas `flex-shrink: 0` → titres en `nowrap` donnant un `min-width` différent par carte → rétrécissement inégal. Ajout de `flex-shrink: 0` (même piège que `.rowRail > *` de Home). **(2) Rupture visuelle « Populaires »** : nouveau composant `PopularRail` (`src/components/PopularRail.tsx` + `.module.css`) — carrousel centré (scroll-snap center) où le poster central est plus grand (`scale(1)`) et les voisins rapetissent selon la distance au centre ; scaling JS rAF avec métriques en cache (zéro reflow/frame), dégrade sous `prefers-reduced-motion`. Remplace le `Shelf`/`ScrollRail` pour la seule rangée Populaires de Movies/Series ; cartes rendues sans `posterCell` (remplissent `.popItem`, largeur `--pop-w` responsive 260/230/210/180). CLAUDE.md §IV-27 complété. build + lint OK. | ✅ Code livré — à valider sur device |
 | 2026-05-31 | Chantier 6 — reste différé (incrément 3) : EPG/programme de la chaîne Live sélectionnée, refonte aperçu inline Live mobile, accès recherche plus visible. | ⏳ À planifier |
+| 2026-06-10 | **Migration lecteur Android libVLC → AndroidX Media3 / ExoPlayer** (2c-bis). Objectif : restyle + switch de sous-titres **instantanés** (libVLC 3.x reconstruisait le moteur ~1 s) et exposition des niveaux de qualité HLS. Media3 émet les cues TEXTE via `onCues` → bufferisées et rendues dans l'overlay React (mêmes inline styles que le web ; offset + position interpolés côté JS). Nouveau plugin `MediaPlayerPlugin.java` (`NativePlayer`, ExoPlayer + SurfaceView, `DefaultRenderersFactory` EXTENSION_PREFER, headers §IV-8 par flux, sélection `TrackSelectionOverride`, lifecycle auto). Nouveau `src/native/nativePlayer.ts` + `useNativePlayer.ts` réécrit. Supprimés : `VlcPlayerPlugin.java`, `SubtitleExtractorPlugin.java`, `vlcPlayer.ts`, `subtitleExtractor.ts`, dép `libvlc-all`. `VideoPlayer.tsx` : drop `nativeSubStyle`/`NATIVE_SUB_*`. `tsc -b && vite build` OK, lint OK (0 erreur). ⚠ **Audio Dolby (AC3/EAC3/DTS)** = extension FFmpeg Media3 à compiler avec le NDK (procédure dans Phase 2c-bis) — sans elle, ces pistes peuvent être muettes. **Non compilable/testable en CI** (pas de SDK/NDK). | 🟡 Code livré — à valider sur device (`npx cap sync android` + build APK) + compiler l'extension FFmpeg |
 
 **Phase 1 terminée** (frontend découplé du backend proxy). **Phase 2
 terminée** : l'app native Android tourne sur appareil réel — connexion Google

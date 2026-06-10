@@ -1,238 +1,84 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PlayerStatus, AudioTrack, SubtitleTrack } from '../types/player.types';
+import type { PlayerStatus, AudioTrack, SubtitleTrack, QualityLevel } from '../types/player.types';
 import type { WebPlayerController } from './usePlayer';
 import {
-  VlcPlayer,
-  type VlcStateEvent,
-  type VlcTimeEvent,
-  type VlcTracksEvent,
-  type VlcSubtitleStyle,
-} from '../native/vlcPlayer';
-import {
-  SubtitleExtractor,
-  type ExtractedCue,
-  type ExtractedSubtitleTrack,
-} from '../native/subtitleExtractor';
+  NativePlayer,
+  type NativeStateEvent,
+  type NativeTimeEvent,
+  type NativeTracksEvent,
+  type NativeCuesEvent,
+} from '../native/nativePlayer';
 import type { PluginListenerHandle } from '@capacitor/core';
 
 /**
- * Implémentation NATIVE du contrat `PlayerController` — voir docs/native-port.md.
+ * Implémentation NATIVE du contrat `PlayerController` — lecteur AndroidX Media3
+ * (ExoPlayer), voir docs/native-port.md.
  *
- * Pilote le plugin `VlcPlayer` (libVLC) pour la vidéo + l'audio. Pour les
- * sous-titres TEXTE, deux modes coexistent :
- *  - **rendu React** (préféré) : les cues sont extraites ON-DEVICE via
- *    `SubtitleExtractor` (MediaExtractor) et affichées dans l'overlay React →
- *    restyle taille/couleur/fond INSTANTANÉ (libVLC 3.x ne sait pas restyler à
- *    chaud). libVLC ne rend alors PAS la piste (`setSubtitleTrack(-1)`).
- *  - **rendu libVLC** (repli) : pour les sous-titres IMAGE (PGS/DVB/VobSub) ou
- *    si l'extraction échoue → libVLC rend la piste comme avant (`subtitleText`
- *    vide). Jamais de régression.
+ * Sous-titres : Media3 émet les cues TEXTE en direct (event `cues`) → on les
+ * bufferise et les affiche dans l'overlay React (mêmes inline styles que le web
+ * et la preview « Personnaliser »). Conséquence : changer la taille/couleur/fond
+ * OU changer de piste est INSTANTANÉ — aucune reconstruction de moteur, aucun
+ * rechargement (ce qui plombait l'ancien lecteur libVLC 3.x). Les sous-titres
+ * IMAGE (PGS/DVB) n'émettent pas de cue texte → ils ne sont pas listés (rares).
  *
  * Le type de retour est `WebPlayerController` pour rester interchangeable avec
- * `usePlayer` ; `videoRef` n'est rattaché à aucun élément en natif (la vidéo
- * vit dans une surface native), `wrapperRef` reste utilisé par le conteneur.
+ * `usePlayer` ; `videoRef` n'est rattaché à aucun élément (la vidéo vit dans une
+ * SurfaceView native derrière la WebView), `wrapperRef` reste utilisé par le
+ * conteneur.
  */
 
-// Grille de fenêtres d'extraction (ms) — pendant on-device du fenêtrage web
-// (§IV-1) : on n'extrait qu'une tranche à la fois pour ne pas télécharger tout
-// le fichier ni monopoliser la connexion fournisseur.
-const SUB_WIN_MS = 120_000;
-const SUB_OVERLAP_MS = 4_000;
-
-function winIndex(tSec: number): number {
-  return Math.max(0, Math.floor((tSec * 1000) / SUB_WIN_MS));
-}
-
-function subLabel(lang: string, i: number): string {
-  return lang ? lang.toUpperCase() : `Sous-titres ${i + 1}`;
-}
-
-/** Nature d'une entrée de la liste de sous-titres unifiée. */
-type SubKind =
-  | { kind: 'react'; extractTrackIndex: number }
-  | { kind: 'native'; vlcId: number };
+interface Cue { start: number; text: string } // start en secondes
+const MAX_CUE_S = 8; // durée max d'affichage quand la cue suivante est lointaine
 
 export function useNativePlayer(
   url: string | null,
   _mediaUrl?: string | null,
-  subStyle?: VlcSubtitleStyle,
   isLiveHint = false,
 ): WebPlayerController {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  // Style courant lu au chargement sans relancer l'effet de load.
-  const subStyleRef = useRef(subStyle);
-  subStyleRef.current = subStyle;
 
   const [status, setStatus] = useState<PlayerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [bufferedEnd, setBufferedEnd] = useState(0);
   const [volume, setVolumeState] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [levels, setLevels] = useState<QualityLevel[]>([]);
+  const [currentLevel, setCurrentLevel] = useState(-1);
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState(-1);
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
   const [currentSubtitle, setCurrentSubtitle] = useState(-1);
   const [subtitleOffset, setSubtitleOffsetState] = useState(0);
-  // Sous-titres rendus en React (mode extraction) — vides en rendu libVLC.
   const [subtitleText, setSubtitleText] = useState('');
-  const [subtitleLoading, setSubtitleLoading] = useState(false);
 
-  // Refs lues dans les callbacks / listeners sans dépendances stales.
+  // Refs lues dans les callbacks / boucles sans dépendances stales.
   const statusRef = useRef<PlayerStatus>('idle');
   const durationRef = useRef(0);
   const volumeRef = useRef(1);
   const urlRef = useRef<string | null>(null);
-  const currentTimeRef = useRef(0);
   const subOffsetRef = useRef(0);
-  // index UI (0-based) → id de piste libVLC (audio).
-  const audioIdsRef = useRef<number[]>([]);
-
-  // ── État sous-titres unifié (libVLC ⊕ extracteur React) ────────────────────
-  // Pistes libVLC (id+nom) du dernier event `tracks`, pistes texte de
-  // l'extracteur, et la nature (react|native) de chaque entrée de la liste UI.
-  const vlcSubTracksRef = useRef<{ id: number; name: string }[]>([]);
-  const extractorTracksRef = useRef<ExtractedSubtitleTrack[]>([]);
-  const subKindRef = useRef<SubKind[]>([]);
-  // Init unique de la sélection — différée jusqu'à ce que la sonde extracteur ET
-  // l'event `tracks` de libVLC soient arrivés (sinon la liste se réordonne après
-  // coup quand la sonde atterrit et les index deviennent caducs).
-  const firstTracksInitRef = useRef(false);
-  const tracksArrivedRef = useRef(false);
-  const probeStartedRef = useRef(false);
-  const probeSettledRef = useRef(false);
-  const pendingVlcCurrentRef = useRef(-1);
-  // Piste extracteur actuellement rendue en React (null = aucune / rendu libVLC).
-  const activeExtractTrackRef = useRef<number | null>(null);
-  const subWindowsRef = useRef<Map<number, ExtractedCue[]>>(new Map());
-  const subInflightRef = useRef<Set<number>>(new Set());
-  const subCuesRef = useRef<ExtractedCue[]>([]);
+  const currentSubRef = useRef(-1);
+  // Ancre de temps pour interpoler la position entre deux events `time` (émis
+  // ~2 Hz côté natif) → barre + sous-titres lisses (~7 Hz côté JS).
+  const timeAnchorRef = useRef({ pos: 0, wall: 0 });
+  // Buffer de cues (trié par start, dédupliqué) alimenté par l'event `cues`.
+  const cuesRef = useRef<Cue[]>([]);
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
-  // ── Transparence : la WebView est rendue transparente côté natif pendant la
-  // lecture ; cette classe propage la transparence à toute la chaîne web
-  // (html/body/#root + surfaces du lecteur) pour laisser voir la vidéo. ────────
+  // ── Transparence : la WebView est rendue transparente pendant la lecture ;
+  // cette classe propage la transparence à toute la chaîne web pour laisser voir
+  // la vidéo rendue par ExoPlayer derrière. ───────────────────────────────────
   useEffect(() => {
     document.documentElement.classList.add('iptvax-native-playback');
     return () => {
       document.documentElement.classList.remove('iptvax-native-playback');
     };
   }, []);
-
-  // ── Helpers sous-titres React ──────────────────────────────────────────────
-
-  // Reconstruit subCuesRef à partir de toutes les fenêtres chargées (triées,
-  // dédupliquées sur start+text).
-  const rebuildCues = useCallback(() => {
-    const all: ExtractedCue[] = [];
-    subWindowsRef.current.forEach((cues) => { for (const c of cues) all.push(c); });
-    all.sort((a, b) => a.start - b.start);
-    const dedup: ExtractedCue[] = [];
-    let lastKey = '';
-    for (const c of all) {
-      const key = `${c.start}|${c.text}`;
-      if (key === lastKey) continue;
-      lastKey = key;
-      dedup.push(c);
-    }
-    subCuesRef.current = dedup;
-  }, []);
-
-  // Récupère (best-effort) la fenêtre `w` de la piste extracteur active.
-  const fetchWindow = useCallback((extractTrackIndex: number, w: number) => {
-    if (w < 0) return;
-    if (subWindowsRef.current.has(w) || subInflightRef.current.has(w)) return;
-    const u = urlRef.current;
-    if (!u) return;
-    subInflightRef.current.add(w);
-    const startMs = Math.max(0, w * SUB_WIN_MS - SUB_OVERLAP_MS);
-    const durationMs = SUB_WIN_MS + SUB_OVERLAP_MS * 2;
-    SubtitleExtractor.extract({ url: u, trackIndex: extractTrackIndex, startMs, durationMs })
-      .then((r) => {
-        subInflightRef.current.delete(w);
-        // Ignore si la piste active a changé entre-temps.
-        if (activeExtractTrackRef.current !== extractTrackIndex) return;
-        subWindowsRef.current.set(w, r.cues ?? []);
-        rebuildCues();
-      })
-      .catch(() => { subInflightRef.current.delete(w); });
-  }, [rebuildCues]);
-
-  // Coupe le mode React (retour au rendu libVLC ou désactivé).
-  const clearReactSubs = useCallback(() => {
-    activeExtractTrackRef.current = null;
-    subWindowsRef.current.clear();
-    subInflightRef.current.clear();
-    subCuesRef.current = [];
-    setSubtitleText('');
-    setSubtitleLoading(false);
-    SubtitleExtractor.release().catch(() => {});
-  }, []);
-
-  // Construit la liste UI unifiée : pistes extracteur (react) d'abord, puis les
-  // pistes libVLC restantes (heuristique d'ordre : les sous-titres TEXTE sont
-  // vus par les deux énumérateurs dans le même ordre ; au-delà = sous-titres
-  // IMAGE, rendus par libVLC). Aucune extraction → tout en natif (historique).
-  const rebuildSubtitleList = useCallback(() => {
-    const ext = extractorTracksRef.current;
-    const vlc = vlcSubTracksRef.current;
-    const list: SubtitleTrack[] = [];
-    const kinds: SubKind[] = [];
-    ext.forEach((t, i) => {
-      list.push({ index: list.length, streamIndex: t.trackIndex, name: subLabel(t.language, i), language: t.language });
-      kinds.push({ kind: 'react', extractTrackIndex: t.trackIndex });
-    });
-    vlc.slice(ext.length).forEach((t) => {
-      list.push({ index: list.length, streamIndex: t.id, name: t.name, language: '' });
-      kinds.push({ kind: 'native', vlcId: t.id });
-    });
-    subKindRef.current = kinds;
-    setSubtitleTracks(list);
-  }, []);
-
-  // Applique une sélection de sous-titre (index UI ; <0 = désactivé). Route vers
-  // le rendu React (extraction) ou libVLC selon la nature de l'entrée.
-  const applySubtitle = useCallback((index: number) => {
-    if (index < 0) {
-      clearReactSubs();
-      setCurrentSubtitle(-1);
-      VlcPlayer.setSubtitleTrack({ id: -1 }).catch(() => {});
-      return;
-    }
-    const kind = subKindRef.current[index];
-    if (!kind) return;
-    setCurrentSubtitle(index);
-    if (kind.kind === 'native') {
-      clearReactSubs();
-      VlcPlayer.setSubtitleTrack({ id: kind.vlcId }).catch(() => {});
-      return;
-    }
-    // React : libVLC ne rend pas la piste, on extrait nous-mêmes.
-    VlcPlayer.setSubtitleTrack({ id: -1 }).catch(() => {});
-    activeExtractTrackRef.current = kind.extractTrackIndex;
-    subWindowsRef.current.clear();
-    subInflightRef.current.clear();
-    subCuesRef.current = [];
-    setSubtitleText('');
-    setSubtitleLoading(true);
-    const w = winIndex(currentTimeRef.current);
-    fetchWindow(kind.extractTrackIndex, w);
-    fetchWindow(kind.extractTrackIndex, w + 1);
-  }, [clearReactSubs, fetchWindow]);
-
-  // Route la sélection auto de libVLC vers react/native — une seule fois, quand
-  // la liste est FINALE (sonde + tracks arrivés). Sous l'heuristique d'ordre,
-  // l'index UI = la position de la piste dans la liste libVLC.
-  const maybeInit = useCallback(() => {
-    if (firstTracksInitRef.current) return;
-    if (!tracksArrivedRef.current || !probeSettledRef.current) return;
-    firstTracksInitRef.current = true;
-    const p = vlcSubTracksRef.current.findIndex((t) => t.id === pendingVlcCurrentRef.current);
-    applySubtitle(p >= 0 ? p : -1);
-  }, [applySubtitle]);
 
   // ── Écoute des évènements du lecteur natif ────────────────────────────────
   useEffect(() => {
@@ -242,7 +88,7 @@ export function useNativePlayer(
       p.then((h) => { if (cancelled) h.remove(); else handles.push(h); });
     };
 
-    track(VlcPlayer.addListener('state', (e: VlcStateEvent) => {
+    track(NativePlayer.addListener('state', (e: NativeStateEvent) => {
       if (e.state === 'ended') {
         setStatus('paused');
         setCurrentTime(durationRef.current);
@@ -253,70 +99,67 @@ export function useNativePlayer(
         setError(e.error ?? 'Erreur de lecture');
         return;
       }
+      // 'loading' n'est jamais émis par le natif (ExoPlayer passe direct en
+      // buffering) — on garde le 'loading' posé au load() jusqu'au 1er buffering.
       setStatus(e.state);
       if (e.state !== 'idle') setError(null);
     }));
 
-    track(VlcPlayer.addListener('time', (e: VlcTimeEvent) => {
-      currentTimeRef.current = e.position;
+    track(NativePlayer.addListener('time', (e: NativeTimeEvent) => {
+      timeAnchorRef.current = { pos: e.position, wall: performance.now() };
       setCurrentTime(e.position);
+      setBufferedEnd(e.buffered);
       setDuration(e.duration);
       durationRef.current = e.duration;
-      if (e.duration <= 0) setIsLive(true);
+      setIsLive(e.duration <= 0 || isLiveHint);
     }));
 
-    track(VlcPlayer.addListener('tracks', (e: VlcTracksEvent) => {
-      audioIdsRef.current = e.audio.map((t) => t.id);
-      setAudioTracks(e.audio.map((t, i) => ({ index: i, name: t.name, language: '' })));
-      setCurrentAudio(e.audio.findIndex((t) => t.id === e.currentAudio));
-
-      vlcSubTracksRef.current = e.subtitle.map((t) => ({ id: t.id, name: t.name }));
-      rebuildSubtitleList();
-      tracksArrivedRef.current = true;
-      pendingVlcCurrentRef.current = e.currentSubtitle;
-
-      // Sonde l'extracteur APRÈS que libVLC stream (connexion établie) → évite la
-      // contention de connexion au démarrage (la lecture ne doit jamais régresser).
-      // VOD/série uniquement ; une seule fois par source ; best-effort (échec →
-      // liste vide → repli libVLC).
-      if (!isLiveHint && !probeStartedRef.current && urlRef.current) {
-        probeStartedRef.current = true;
-        SubtitleExtractor.probe({ url: urlRef.current })
-          .then((r) => { extractorTracksRef.current = r.tracks ?? []; })
-          .catch(() => { extractorTracksRef.current = []; })
-          .finally(() => { probeSettledRef.current = true; rebuildSubtitleList(); maybeInit(); });
+    track(NativePlayer.addListener('tracks', (e: NativeTracksEvent) => {
+      setAudioTracks(e.audio.map((t) => ({ index: t.index, name: t.name, language: t.language })));
+      setCurrentAudio(e.currentAudio);
+      setSubtitleTracks(
+        e.subtitle.map((t) => ({ index: t.index, streamIndex: t.index, name: t.name, language: t.language })),
+      );
+      // Ne pas écraser un choix utilisateur déjà appliqué (ex. reprise) par la
+      // re-sélection auto de Media3.
+      if (currentSubRef.current < 0) {
+        currentSubRef.current = e.currentSubtitle;
+        setCurrentSubtitle(e.currentSubtitle);
       }
-      maybeInit();
+      setLevels(e.levels.map((l) => ({ index: l.index, label: l.label, bitrate: l.bitrate })));
+      setCurrentLevel(e.currentLevel);
+    }));
+
+    track(NativePlayer.addListener('cues', (e: NativeCuesEvent) => {
+      const text = (e.text ?? '').trim();
+      if (!text) return; // groupe vide : la cue précédente s'éteindra par timeout
+      const start = e.startMs >= 0 ? e.startMs / 1000 : timeAnchorRef.current.pos;
+      const buf = cuesRef.current;
+      const last = buf[buf.length - 1];
+      if (last && Math.abs(last.start - start) < 0.05 && last.text === text) return; // dédup
+      // Insertion ordonnée (les events arrivent quasi toujours en ordre).
+      if (!last || start >= last.start) buf.push({ start, text });
+      else {
+        let lo = 0, hi = buf.length;
+        while (lo < hi) { const m = (lo + hi) >> 1; if (buf[m].start < start) lo = m + 1; else hi = m; }
+        buf.splice(lo, 0, { start, text });
+      }
     }));
 
     return () => {
       cancelled = true;
       handles.forEach((h) => h.remove());
     };
-  }, [rebuildSubtitleList, maybeInit, isLiveHint]);
+  }, [isLiveHint]);
 
   // ── Chargement de la source ───────────────────────────────────────────────
-  // Au changement d'URL on recharge sans `stop()` (libVLC bascule de média,
-  // la surface reste visible → pas de flash entre deux chaînes live).
   useEffect(() => {
     urlRef.current = url;
-    // Reset sous-titres React + métadonnées de pistes.
-    activeExtractTrackRef.current = null;
-    subWindowsRef.current.clear();
-    subInflightRef.current.clear();
-    subCuesRef.current = [];
-    extractorTracksRef.current = [];
-    vlcSubTracksRef.current = [];
-    subKindRef.current = [];
-    firstTracksInitRef.current = false;
-    tracksArrivedRef.current = false;
-    probeStartedRef.current = false;
-    probeSettledRef.current = isLiveHint; // live → pas de sonde → réglé d'emblée
-    pendingVlcCurrentRef.current = -1;
+    cuesRef.current = [];
+    currentSubRef.current = -1;
     subOffsetRef.current = 0;
-    SubtitleExtractor.release().catch(() => {});
+    timeAnchorRef.current = { pos: 0, wall: performance.now() };
     setSubtitleText('');
-    setSubtitleLoading(false);
     setSubtitleOffsetState(0);
 
     if (!url) {
@@ -326,98 +169,74 @@ export function useNativePlayer(
     setStatus('loading');
     setError(null);
     setCurrentTime(0);
-    currentTimeRef.current = 0;
     setDuration(0);
     durationRef.current = 0;
-    setIsLive(false);
+    setBufferedEnd(0);
+    setIsLive(isLiveHint);
     setAudioTracks([]);
     setCurrentAudio(-1);
     setSubtitleTracks([]);
     setCurrentSubtitle(-1);
-    audioIdsRef.current = [];
+    setLevels([]);
+    setCurrentLevel(-1);
 
-    // L'extraction des sous-titres est sondée plus tard, au 1er event `tracks`
-    // (libVLC déjà en lecture) — cf. listener — pour ne pas concurrencer la
-    // connexion vidéo au démarrage.
-
-    VlcPlayer.load({ url, subStyle: subStyleRef.current }).catch((e) => {
+    NativePlayer.load({ url, isLive: isLiveHint }).catch((e) => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Échec du chargement');
     });
   }, [url, isLiveHint]);
 
-  // Boucle d'affichage + préchargement des fenêtres (mode React uniquement).
+  // ── Boucle d'affichage des sous-titres + interpolation de la position ──────
+  // Media3 n'émet `time` qu'à ~2 Hz → on interpole la position au fil de
+  // l'horloge murale pour une barre fluide et des sous-titres à la bonne frame.
   useEffect(() => {
+    let lastShown = '';
+    let lastIdx = 0;
     const id = setInterval(() => {
-      const ext = activeExtractTrackRef.current;
-      if (ext == null) return;
-      const tSec = currentTimeRef.current + subOffsetRef.current;
-      const tMs = tSec * 1000;
-      const w = winIndex(tSec);
-      fetchWindow(ext, w);
-      fetchWindow(ext, w + 1);
-      const cues = subCuesRef.current;
-      let text = '';
-      for (let i = 0; i < cues.length; i++) {
-        const c = cues[i];
-        if (tMs >= c.start && tMs <= c.end) { text = c.text; break; }
-        if (c.start > tMs) break; // trié → inutile d'aller plus loin
+      const a = timeAnchorRef.current;
+      let t = a.pos;
+      if (statusRef.current === 'playing') t += (performance.now() - a.wall) / 1000;
+      if (durationRef.current > 0) t = Math.min(t, durationRef.current);
+
+      // Position lissée (n'écrase pas pendant un seek/loading où l'ancre vaut 0).
+      if (statusRef.current === 'playing') setCurrentTime(t);
+
+      // Sous-titres : cue active à t + offset.
+      let next = '';
+      if (currentSubRef.current >= 0) {
+        const cues = cuesRef.current;
+        const rt = t + subOffsetRef.current;
+        if (cues.length) {
+          // Hint linéaire (cas courant) puis recherche arrière si seek.
+          let i = Math.min(lastIdx, cues.length - 1);
+          while (i > 0 && cues[i].start > rt) i--;
+          while (i < cues.length - 1 && cues[i + 1].start <= rt) i++;
+          const c = cues[i];
+          const end = i + 1 < cues.length ? Math.min(cues[i + 1].start, c.start + MAX_CUE_S) : c.start + MAX_CUE_S;
+          if (rt >= c.start && rt <= end) { next = c.text; lastIdx = i; }
+        }
       }
-      setSubtitleText((prev) => (prev === text ? prev : text));
-      const haveWindow = subWindowsRef.current.has(w);
-      setSubtitleLoading((prev) => {
-        const loading = !haveWindow && text === '';
-        return prev === loading ? prev : loading;
-      });
+      if (next !== lastShown) { lastShown = next; setSubtitleText(next); }
     }, 150);
     return () => clearInterval(id);
-  }, [fetchWindow]);
-
-  // Arrêt + libération de la surface uniquement au démontage du lecteur.
-  useEffect(() => {
-    return () => {
-      VlcPlayer.stop().catch(() => {});
-      SubtitleExtractor.release().catch(() => {});
-    };
   }, []);
 
-  // ── Restyle des sous-titres NATIFS (libVLC) ───────────────────────────────
-  // Ne concerne QUE les sous-titres rendus par libVLC (image/repli) : ceux
-  // rendus en React se restylent instantanément côté overlay, sans toucher au
-  // moteur. libVLC 3.x ne sait pas restyler à chaud → setSubtitleStyle recharge
-  // le média (débounce ~420 ms pour coalescer les réglages enchaînés).
-  const subStyleFirstRun = useRef(true);
-  const restyleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Arrêt + libération de la surface au démontage du lecteur.
   useEffect(() => {
-    if (subStyleFirstRun.current) { subStyleFirstRun.current = false; return; }
-    if (!subStyle) return;
-    if (activeExtractTrackRef.current != null) return; // piste React → rien à recharger
-    if (restyleTimerRef.current) clearTimeout(restyleTimerRef.current);
-    restyleTimerRef.current = setTimeout(() => {
-      restyleTimerRef.current = null;
-      if (activeExtractTrackRef.current != null) return;
-      if (statusRef.current !== 'playing' && statusRef.current !== 'paused') return;
-      const s = subStyleRef.current;
-      if (!s) return;
-      VlcPlayer.setSubtitleStyle(s).catch(() => {});
-    }, 420);
-    return () => {
-      if (restyleTimerRef.current) { clearTimeout(restyleTimerRef.current); restyleTimerRef.current = null; }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subStyle?.scale, subStyle?.color, subStyle?.bgOpacity]);
+    return () => { NativePlayer.stop().catch(() => {}); };
+  }, []);
 
   // ── Contrôles ─────────────────────────────────────────────────────────────
   const toggle = useCallback(() => {
-    if (statusRef.current === 'playing') VlcPlayer.pause().catch(() => {});
-    else VlcPlayer.play().catch(() => {});
+    if (statusRef.current === 'playing') NativePlayer.pause().catch(() => {});
+    else NativePlayer.play().catch(() => {});
   }, []);
 
   const seek = useCallback((time: number) => {
     const clamped = Math.max(0, durationRef.current > 0 ? Math.min(time, durationRef.current) : time);
-    currentTimeRef.current = clamped;
+    timeAnchorRef.current = { pos: clamped, wall: performance.now() };
     setCurrentTime(clamped);
-    VlcPlayer.seek({ position: clamped }).catch(() => {});
+    NativePlayer.seek({ position: clamped }).catch(() => {});
   }, []);
 
   const setVolume = useCallback((v: number) => {
@@ -425,26 +244,33 @@ export function useNativePlayer(
     volumeRef.current = clamped;
     setVolumeState(clamped);
     setIsMuted(false);
-    VlcPlayer.setVolume({ volume: clamped }).catch(() => {});
+    NativePlayer.setVolume({ volume: clamped }).catch(() => {});
   }, []);
 
   const toggleMute = useCallback(() => {
     setIsMuted((muted) => {
       const next = !muted;
-      VlcPlayer.setVolume({ volume: next ? 0 : volumeRef.current }).catch(() => {});
+      NativePlayer.setVolume({ volume: next ? 0 : volumeRef.current }).catch(() => {});
       return next;
     });
   }, []);
 
-  const setLevel = useCallback(() => {
-    // Pas de niveaux de qualité HLS exposés par libVLC — no-op.
+  const setLevel = useCallback((index: number) => {
+    setCurrentLevel(index);
+    NativePlayer.setVideoQuality({ index }).catch(() => {});
   }, []);
 
   const setAudio = useCallback((index: number) => {
-    const id = audioIdsRef.current[index];
-    if (id === undefined) return;
     setCurrentAudio(index);
-    VlcPlayer.setAudioTrack({ id }).catch(() => {});
+    NativePlayer.setAudioTrack({ index }).catch(() => {});
+  }, []);
+
+  const setSubtitle = useCallback((index: number) => {
+    currentSubRef.current = index;
+    setCurrentSubtitle(index);
+    cuesRef.current = []; // repart à neuf — les cues de la nouvelle piste affluent
+    setSubtitleText('');
+    NativePlayer.setSubtitleTrack({ index }).catch(() => {});
   }, []);
 
   const toggleFullscreen = useCallback(async () => {
@@ -456,21 +282,18 @@ export function useNativePlayer(
     if (!u) return;
     setStatus('loading');
     setError(null);
-    VlcPlayer.load({ url: u, subStyle: subStyleRef.current }).catch((e) => {
+    cuesRef.current = [];
+    setSubtitleText('');
+    NativePlayer.load({ url: u, isLive: isLiveHint }).catch((e) => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Échec du chargement');
     });
-  }, []);
+  }, [isLiveHint]);
 
   const adjustSubtitleOffset = useCallback((delta: number) => {
     setSubtitleOffsetState((prev) => {
       const v = Math.max(-10, Math.min(10, prev + delta));
       subOffsetRef.current = v;
-      // Piste React → l'offset décale l'overlay (boucle d'affichage). Piste
-      // libVLC → on pilote le délai du moteur.
-      if (activeExtractTrackRef.current == null) {
-        VlcPlayer.setSubtitleDelay({ delay: v }).catch(() => {});
-      }
       return v;
     });
   }, []);
@@ -479,9 +302,6 @@ export function useNativePlayer(
     const v = Math.max(-10, Math.min(10, value));
     subOffsetRef.current = v;
     setSubtitleOffsetState(v);
-    if (activeExtractTrackRef.current == null) {
-      VlcPlayer.setSubtitleDelay({ delay: v }).catch(() => {});
-    }
   }, []);
 
   return {
@@ -492,20 +312,20 @@ export function useNativePlayer(
     isLive,
     currentTime,
     duration,
-    bufferedEnd: currentTime,
+    bufferedEnd,
     volume,
     isMuted,
     isFullscreen: false,
-    levels: [],
-    currentLevel: -1,
+    levels,
+    currentLevel,
     audioTracks,
     currentAudio,
     subtitleTracks,
     currentSubtitle,
     subtitleText,
-    subtitleLoading,
+    subtitleLoading: false, // plus d'extraction réseau séparée → jamais de spinner
     subtitleOffset,
-    // libVLC rend la vidéo sur une SurfaceView DERRIÈRE la WebView → la couche
+    // ExoPlayer rend la vidéo sur une SurfaceView DERRIÈRE la WebView → la couche
     // UI doit afficher un <div> transparent à la place du <video>.
     usesNativeSurface: true,
     adjustSubtitleOffset,
@@ -516,7 +336,7 @@ export function useNativePlayer(
     toggleMute,
     setLevel,
     setAudio,
-    setSubtitle: applySubtitle,
+    setSubtitle,
     toggleFullscreen,
     retry,
   };

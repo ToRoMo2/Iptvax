@@ -1,7 +1,7 @@
 // Pont typé vers le lecteur natif mpv exposé par le preload Electron
 // (`window.electron.mpv`, cf. electron/preload.cjs + electron/mpv.cjs).
 //
-// Pendant Electron de `src/native/vlcPlayer.ts` (libVLC/Android) : une fine
+// Pendant Electron de `src/native/nativePlayer.ts` (Media3/Android) : une fine
 // couche qui transforme les appels JS en messages IPC et normalise le flux
 // d'events mpv. Consommé par `src/hooks/useElectronPlayer.ts`.
 //
