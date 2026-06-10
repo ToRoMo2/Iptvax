@@ -76,4 +76,8 @@ export interface PlayerController {
   setSubtitle: (index: number) => void;
   toggleFullscreen: () => Promise<void>;
   retry: () => void;
+  /** Mode d'aspect ratio actif (Capacitor uniquement). */
+  aspectRatio?: 'fit' | 'fill';
+  /** Bascule fit ↔ fill (Capacitor uniquement — absent sur les autres lecteurs). */
+  setAspectRatio?: (mode: 'fit' | 'fill') => void;
 }

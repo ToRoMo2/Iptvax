@@ -82,6 +82,10 @@ export interface NativePlayerPlugin {
   setVideoQuality(options: { index: number }): Promise<void>;
   /** Volume 0..1. */
   setVolume(options: { volume: number }): Promise<void>;
+  /** Ré-émet l'état courant (tracks + time) — rattrape le composant React remontant. */
+  syncState(): Promise<void>;
+  /** Bascule le mode d'aspect ratio : 'fit' = letterbox, 'fill' = recadrage plein écran. */
+  setAspectRatio(options: { mode: 'fit' | 'fill' }): Promise<void>;
 
   addListener(event: 'state', cb: (e: NativeStateEvent) => void): Promise<PluginListenerHandle>;
   addListener(event: 'time', cb: (e: NativeTimeEvent) => void): Promise<PluginListenerHandle>;

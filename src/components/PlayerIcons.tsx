@@ -233,3 +233,24 @@ export function IconEpisodes({ size = 24, className }: IconProps) {
     </svg>
   );
 }
+
+/** Icône « mode fit » (letterbox) — bandes noires en haut/bas visibles. */
+export function IconAspectFit({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <rect x="2" y="5" width="20" height="14" rx="1.5"/>
+      <rect x="2" y="5" width="20" height="3.2" fill="currentColor" fillOpacity="0.4" stroke="none"/>
+      <rect x="2" y="15.8" width="20" height="3.2" fill="currentColor" fillOpacity="0.4" stroke="none"/>
+    </svg>
+  );
+}
+
+/** Icône « mode fill » (recadrage) — angles indiquant le remplissage total. */
+export function IconAspectFill({ size = 24, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="1.5"/>
+      <path d="M2 8.5V5h3.5M22 8.5V5h-3.5M2 15.5V19h3.5M22 15.5V19h-3.5"/>
+    </svg>
+  );
+}

@@ -54,6 +54,7 @@ export function useNativePlayer(
   const [currentSubtitle, setCurrentSubtitle] = useState(-1);
   const [subtitleOffset, setSubtitleOffsetState] = useState(0);
   const [subtitleText, setSubtitleText] = useState('');
+  const [aspectRatio, setAspectRatioState] = useState<'fit' | 'fill'>('fit');
 
   // Refs lues dans les callbacks / boucles sans dépendances stales.
   const statusRef = useRef<PlayerStatus>('idle');
@@ -145,6 +146,10 @@ export function useNativePlayer(
         buf.splice(lo, 0, { start, text });
       }
     }));
+
+    // Rattrapage d'état : si le composant s'est remonté après le premier
+    // onTracksChanged, ce call force le natif à ré-émettre tracks + time.
+    NativePlayer.syncState().catch(() => {});
 
     return () => {
       cancelled = true;
@@ -304,6 +309,11 @@ export function useNativePlayer(
     setSubtitleOffsetState(v);
   }, []);
 
+  const setAspectRatio = useCallback((mode: 'fit' | 'fill') => {
+    setAspectRatioState(mode);
+    NativePlayer.setAspectRatio({ mode }).catch(() => {});
+  }, []);
+
   return {
     videoRef,
     wrapperRef,
@@ -339,5 +349,7 @@ export function useNativePlayer(
     setSubtitle,
     toggleFullscreen,
     retry,
+    aspectRatio,
+    setAspectRatio,
   };
 }

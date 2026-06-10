@@ -40,6 +40,9 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import android.widget.FrameLayout;
+import android.view.Gravity;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -86,6 +89,10 @@ public class MediaPlayerPlugin extends Plugin {
     private int previousOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
     private boolean orientationForced = false;
 
+    private static final int ASPECT_FIT  = 0;
+    private static final int ASPECT_FILL = 1;
+    private int currentAspectMode = ASPECT_FIT;
+
     /** Une piste sélectionnable : son groupe Media3 + son index dans le groupe. */
     private static final class TrackRef {
         final TrackGroup group;
@@ -108,6 +115,7 @@ public class MediaPlayerPlugin extends Plugin {
                     .build();
             player.addListener(new PlayerListener());
             player.setVideoSurfaceView(surfaceView);
+            player.setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT);
             startTimeTicker();
         }
     }
@@ -399,6 +407,35 @@ public class MediaPlayerPlugin extends Plugin {
         }
     }
 
+    /** Ré-émet l'état courant (tracks + time) vers le JS — utile au remontage
+     *  du composant React qui aurait manqué le premier onTracksChanged. */
+    @PluginMethod
+    public void syncState(final PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (player != null) {
+                rebuildTrackRefs(player.getCurrentTracks());
+                emitTime();
+            }
+            call.resolve();
+        });
+    }
+
+    /** Bascule entre « fit » (letterbox, défaut) et « fill » (recadrage). */
+    @PluginMethod
+    public void setAspectRatio(final PluginCall call) {
+        final String mode = call.getString("mode", "fit");
+        getActivity().runOnUiThread(() -> {
+            currentAspectMode = "fill".equals(mode) ? ASPECT_FILL : ASPECT_FIT;
+            if (player != null) {
+                player.setVideoScalingMode(
+                        currentAspectMode == ASPECT_FILL
+                        ? C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                        : C.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+            }
+            call.resolve();
+        });
+    }
+
     private String errorMessage(PlaybackException error) {
         int code = error.errorCode;
         // Audio non décodable (typiquement Dolby AC3/EAC3/DTS sans extension
@@ -429,15 +466,10 @@ public class MediaPlayerPlugin extends Plugin {
             int type = group.getType();
             TrackGroup tg = group.getMediaTrackGroup();
             for (int i = 0; i < group.length; i++) {
-                if (!group.isTrackSupported(i)) {
-                    // Piste non décodable (codec absent) — on la liste quand même
-                    // côté audio pour que l'UI ne « perde » pas une piste, mais on
-                    // ne pourra pas la sélectionner. Pour la vidéo/texte on saute.
-                    if (type != C.TRACK_TYPE_AUDIO) continue;
-                }
                 Format f = group.getTrackFormat(i);
                 boolean selected = group.isTrackSelected(i);
                 if (type == C.TRACK_TYPE_AUDIO) {
+                    // Liste même si non supporté — l'UI ne perd aucune piste.
                     JSObject t = new JSObject();
                     t.put("index", audioRefs.size());
                     t.put("name", audioLabel(f, audioRefs.size()));
@@ -446,8 +478,9 @@ public class MediaPlayerPlugin extends Plugin {
                     if (selected) currentAudio = audioRefs.size();
                     audioRefs.add(new TrackRef(tg, i));
                 } else if (type == C.TRACK_TYPE_TEXT) {
-                    // Sous-titres IMAGE (PGS/DVB/VobSub) : pas de cues texte → on
-                    // ne peut pas les rendre en React. On les saute (rares).
+                    // isTrackSupported ignoré : certains formats texte valides sont marqués
+                    // « non supportés » à tort. Seul le type MIME détermine si on peut
+                    // rendre les cues en React.
                     if (!isTextSubtitle(f.sampleMimeType)) continue;
                     JSObject t = new JSObject();
                     t.put("index", textRefs.size());
@@ -457,6 +490,7 @@ public class MediaPlayerPlugin extends Plugin {
                     if (selected) currentSubtitle = textRefs.size();
                     textRefs.add(new TrackRef(tg, i));
                 } else if (type == C.TRACK_TYPE_VIDEO) {
+                    if (!group.isTrackSupported(i)) continue;
                     JSObject t = new JSObject();
                     t.put("index", videoRefs.size());
                     t.put("label", f.height > 0 ? (f.height + "p")
@@ -483,12 +517,20 @@ public class MediaPlayerPlugin extends Plugin {
      *  sous-titres IMAGE (PGS/DVB/VobSub) n'émettent pas de cue texte → exclus. */
     private static boolean isTextSubtitle(String mime) {
         if (mime == null) return false;
-        return mime.equals(androidx.media3.common.MimeTypes.TEXT_VTT)
-                || mime.equals(androidx.media3.common.MimeTypes.APPLICATION_SUBRIP)
-                || mime.equals(androidx.media3.common.MimeTypes.TEXT_SSA)
-                || mime.equals(androidx.media3.common.MimeTypes.APPLICATION_TTML)
-                || mime.startsWith("text/")
-                || mime.startsWith("application/x-subrip");
+        // Sous-titres IMAGE : aucune cue texte, non rendables en React.
+        if (mime.equals("application/x-pgs")
+         || mime.equals("application/x-dvbsubs")
+         || mime.equals("application/dvbsubs")) return false;
+        // Tout text/* est du texte (vtt, x-ssa, srt…).
+        if (mime.startsWith("text/")) return true;
+        // Formats application/* rendables comme texte.
+        if (mime.startsWith("application/x-subrip")) return true;
+        if (mime.startsWith("application/ttml")) return true;
+        if (mime.startsWith("application/x-mp4-vtt")) return true;
+        if (mime.startsWith("application/smptett")) return true;
+        if (mime.startsWith("application/x-rawcc")) return true;
+        if (mime.startsWith("application/cea")) return true;
+        return false;
     }
 
     private static String audioLabel(Format f, int i) {
