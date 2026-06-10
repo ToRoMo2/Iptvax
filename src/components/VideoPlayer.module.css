@@ -63,6 +63,28 @@
 }
 .mobileBackBtn:hover { background: rgba(0, 0, 0, 0.68); }
 
+/* ── Bouton format d'image (fit ↔ fill) — coin haut-droit, non-live.
+   Même style que mobileBackBtn mais côté droit. ── */
+.aspectRatioBtn {
+  display: flex;
+  position: absolute;
+  top: calc(14px + var(--safe-top));
+  right: 14px;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.52);
+  border: none;
+  border-radius: 8px;
+  padding: 7px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--d-micro) var(--ease);
+}
+.aspectRatioBtn:hover { background: rgba(0, 0, 0, 0.72); color: #fff; }
+
 /* ── Contrôles centraux mobile (play/pause + ±10s + sliders lat.) ── */
 .mobileCenterControls {
   display: none; /* affiché via media query */

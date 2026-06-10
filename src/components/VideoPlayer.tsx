@@ -17,6 +17,7 @@ import {
   IconVolumeMute, IconVolumeLow, IconVolumeHigh,
   IconFullscreenEnter, IconFullscreenExit, IconSettings, IconAlert,
   IconEpisodes, IconSun,
+  IconAspectFit, IconAspectFill,
 } from './PlayerIcons';
 import { useI18n } from '../contexts/I18nContext';
 import type { Episode, LiveChannelRef } from '../types/xtream.types';
@@ -191,18 +192,19 @@ export function VideoPlayer({
   // appeler conditionnellement l'un ou l'autre hook est sûr ici (le lint
   // rules-of-hooks ne peut pas le savoir). Une seule des conditions est vraie
   // par build :
-  // - Capacitor (Android) → Media3/ExoPlayer derrière la WebView (surface
-  //   transparente) ; sous-titres TEXTE rendus par l'overlay React (cues)
+  // - Capacitor (Android) → libVLC derrière la WebView (surface transparente)
   // - webOS (LG TV)       → <video> HTML5 + hls.js / Media Pipeline luna://
   // - Tizen (Samsung TV)  → AVPlay derrière la WebView (surface transparente)
   // - web (et Electron, Option B) → ffmpeg via /api/* (path historique)
-  // Sous-titres : préférences visuelles persistées dans localStorage. Sur
-  // Capacitor, les sous-titres TEXTE sont rendus par l'overlay React (comme le
-  // web) → le restyle taille/couleur/fond est instantané, aucune option native.
+  // Sous-titres : préférences visuelles persistées dans localStorage. Déclarées
+  // AVANT le hook player pour pouvoir passer le style aux sous-titres natifs
+  // (libVLC les rend lui-même sur Android → media options au chargement).
   const initialPrefs = loadSubPrefs();
   const [subSize, setSubSize] = useState<SubSize>(initialPrefs.size);
   const [subBg, setSubBg] = useState<SubBg>(initialPrefs.bg);
   const [subColor, setSubColor] = useState<SubColor>(initialPrefs.color);
+  // nativeSubStyle supprimé : Media3 n'a pas besoin du style au chargement
+  // (les sous-titres sont rendus dans l'overlay React, restylés à chaud).
   const mpvSubStyle = {
     scale: MPV_SUB_SCALE[subSize],
     color: MPV_SUB_COLOR[subColor],
@@ -1196,6 +1198,24 @@ export function VideoPlayer({
           aria-label={t('common.back')}
         >
           <IconClose size={18} />
+        </button>
+      )}
+
+      {/* Aspect ratio toggle — non-live, surface native uniquement (Capacitor).
+          Haut-droit : ne chevauche pas le bouton retour haut-gauche. */}
+      {!tvMode && !isLive && player.setAspectRatio && showControls && (
+        <button
+          className={styles.aspectRatioBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            player.setAspectRatio?.(player.aspectRatio === 'fill' ? 'fit' : 'fill');
+          }}
+          title={player.aspectRatio === 'fill' ? 'Format original (letterbox)' : 'Plein écran (rogner)'}
+          aria-label={player.aspectRatio === 'fill' ? 'Format original' : 'Plein écran'}
+        >
+          {player.aspectRatio === 'fill'
+            ? <IconAspectFit size={18} />
+            : <IconAspectFill size={18} />}
         </button>
       )}
 
