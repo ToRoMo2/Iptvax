@@ -87,6 +87,36 @@ function subWindowIndex(t: number): number {
 // WebVTT, SRT (virgules), tags ASS, voice tags, entités HTML, BOM, CRLF.
 interface VttCue { start: number; end: number; text: string; }
 
+// Correction des cues « tenues ouvertes » par ffmpeg ──────────────────────
+// Depuis l'extraction FENÊTRÉE (fast-seek `-ss`), l'encodeur WebVTT de certains
+// builds ffmpeg (BtbN 7.x en prod, cf. CLAUDE.md §IV-25) ne connaît plus la fin
+// réelle d'une cue après un seek d'entrée → il l'étire jusqu'au DÉBUT de la cue
+// suivante. Symptôme : après une phrase suivie d'un long blanc, le sous-titre
+// reste affiché jusqu'à la phrase suivante au lieu de disparaître à sa fin.
+// On ne peut pas récupérer la vraie fin, mais une cue manifestement étirée a une
+// durée déclarée bien plus longue que le temps nécessaire pour LIRE son texte.
+// On ramène alors sa fin à une durée de lecture plausible (~15 caractères/s,
+// bornée). Les cues correctement minutées (durée ≈ temps de lecture, à la marge
+// `SUB_HOLD_SLACK` près) ne sont JAMAIS touchées → zéro régression sur les flux
+// dont ffmpeg produit déjà des fins exactes.
+const SUB_READ_CPS = 15;       // vitesse de lecture supposée (caractères / s)
+const SUB_READ_MIN = 1.2;      // durée d'affichage minimale (s)
+const SUB_READ_MAX = 7;        // durée d'affichage maximale (s) — standard Netflix/BBC
+const SUB_HOLD_SLACK = 2.5;    // marge avant de considérer une cue « tenue ouverte »
+const SUB_HOLD_FLOOR = 6;      // aucune cue plus courte que ça n'est jamais corrigée
+
+// Fin corrigée d'une cue si elle est étirée bien au-delà de sa durée de lecture.
+// Double garde-fou : on ne touche QUE les cues dont la durée déclarée dépasse à la
+// fois (a) le temps de lecture du texte + une marge ET (b) un plancher absolu
+// (`SUB_HOLD_FLOOR`) → les sous-titres normaux (≤ 6 s, l'immense majorité) ne sont
+// jamais altérés ; seuls les longs maintiens (blanc → fin étirée) sont ramenés.
+function clampCueEnd(start: number, end: number, text: string): number {
+  const dur = end - start;
+  if (dur <= SUB_HOLD_FLOOR) return end;
+  const readEst = Math.min(SUB_READ_MAX, Math.max(SUB_READ_MIN, text.length / SUB_READ_CPS));
+  return dur > readEst + SUB_HOLD_SLACK ? start + readEst : end;
+}
+
 function parseTimestamp(ts: string): number {
   // Formats supportés : HH:MM:SS.mmm | MM:SS.mmm | SS.mmm | HH:MM:SS,mmm (SRT)
   const cleaned = ts.trim().replace(',', '.');
@@ -156,7 +186,9 @@ function parseVtt(text: string): VttCue[] {
       i++;
     }
     const cleaned = cleanCueText(textLines.join('\n'));
-    if (cleaned) cues.push({ start, end, text: cleaned });
+    // Corrige les cues « tenues ouvertes » par ffmpeg (fin étirée jusqu'à la cue
+    // suivante après un fast-seek) → fin ramenée à une durée de lecture plausible.
+    if (cleaned) cues.push({ start, end: clampCueEnd(start, end, cleaned), text: cleaned });
   }
 
   // Tri par temps de début → permet la recherche binaire dans la boucle RAF
