@@ -142,8 +142,19 @@ public class MediaPlayerPlugin extends Plugin {
             aspectFrame.addView(surfaceView, new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER));
-            // Index 0 → le cadre vidéo est composé DERRIÈRE la WebView.
-            parent.addView(aspectFrame, 0, new ViewGroup.LayoutParams(
+            // Conteneur plein écran à fond NOIR : AspectRatioFrameLayout (mode FIT)
+            // se RÉDUIT à la taille de la vidéo → s'il était posé direct dans le
+            // parent il se collait en haut-gauche (bande d'un seul côté) et la zone
+            // vide laissait voir le fond gris de la fenêtre. Ici il est CENTRÉ
+            // (Gravity.CENTER) dans un conteneur noir → bandes noires ÉGALES de
+            // part et d'autre, vidéo centrée.
+            FrameLayout videoContainer = new FrameLayout(getContext());
+            videoContainer.setBackgroundColor(Color.BLACK);
+            videoContainer.addView(aspectFrame, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER));
+            // Index 0 → le conteneur vidéo est composé DERRIÈRE la WebView.
+            parent.addView(videoContainer, 0, new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
             // SubtitleView pour les sous-titres IMAGE (PGS/VobSub/DVB), qu'on ne
