@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Format;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
@@ -32,7 +33,10 @@ import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.SubtitleView;
+import android.widget.FrameLayout;
+import android.view.Gravity;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -74,6 +78,9 @@ public class MediaPlayerPlugin extends Plugin {
 
     private ExoPlayer player;
     private SurfaceView surfaceView;
+    // Cadre qui dimensionne la SurfaceView au ratio réel de la vidéo → bandes
+    // noires (letterbox) par défaut ; ZOOM = remplissage avec rognage.
+    private AspectRatioFrameLayout aspectFrame;
     // Plan natif pour les sous-titres IMAGE (PGS/VobSub/DVB) uniquement — voir
     // emitCues. Les sous-titres TEXTE restent rendus dans l'overlay React.
     private SubtitleView subtitleView;
@@ -126,10 +133,17 @@ public class MediaPlayerPlugin extends Plugin {
     /** Crée la SurfaceView vidéo derrière la WebView (une seule fois). */
     private void ensureSurface() {
         if (surfaceView == null) {
-            surfaceView = new SurfaceView(getContext());
             ViewGroup parent = (ViewGroup) getBridge().getWebView().getParent();
-            // Index 0 → la surface vidéo est composée DERRIÈRE la WebView.
-            parent.addView(surfaceView, 0, new ViewGroup.LayoutParams(
+            surfaceView = new SurfaceView(getContext());
+            // La SurfaceView remplit le cadre ; c'est le cadre qui porte le ratio
+            // → l'image d'origine est affichée ENTIÈRE (bandes noires si besoin).
+            aspectFrame = new AspectRatioFrameLayout(getContext());
+            aspectFrame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
+            aspectFrame.addView(surfaceView, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER));
+            // Index 0 → le cadre vidéo est composé DERRIÈRE la WebView.
+            parent.addView(aspectFrame, 0, new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
             // SubtitleView pour les sous-titres IMAGE (PGS/VobSub/DVB), qu'on ne
@@ -431,6 +445,15 @@ public class MediaPlayerPlugin extends Plugin {
         public void onCues(@NonNull CueGroup cueGroup) {
             emitCues(cueGroup);
         }
+
+        @Override
+        public void onVideoSizeChanged(@NonNull VideoSize videoSize) {
+            // Applique le ratio réel (avec pixel-aspect) au cadre → image entière.
+            if (aspectFrame != null && videoSize.height > 0 && videoSize.width > 0) {
+                float par = videoSize.pixelWidthHeightRatio > 0 ? videoSize.pixelWidthHeightRatio : 1f;
+                aspectFrame.setAspectRatio(videoSize.width * par / videoSize.height);
+            }
+        }
     }
 
     /** Ré-émet l'état courant (tracks + time) vers le JS — utile au remontage
@@ -452,11 +475,11 @@ public class MediaPlayerPlugin extends Plugin {
         final String mode = call.getString("mode", "fit");
         getActivity().runOnUiThread(() -> {
             currentAspectMode = "fill".equals(mode) ? ASPECT_FILL : ASPECT_FIT;
-            if (player != null) {
-                player.setVideoScalingMode(
-                        currentAspectMode == ASPECT_FILL
-                        ? C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                        : C.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+            // FIT = image entière (bandes noires) ; ZOOM = remplit en rognant.
+            if (aspectFrame != null) {
+                aspectFrame.setResizeMode(currentAspectMode == ASPECT_FILL
+                        ? AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        : AspectRatioFrameLayout.RESIZE_MODE_FIT);
             }
             call.resolve();
         });
