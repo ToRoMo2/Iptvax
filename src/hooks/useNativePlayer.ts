@@ -50,6 +50,15 @@ export function useNativePlayer(
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
   const [currentSubtitle, setCurrentSubtitle] = useState(-1);
   const [subtitleOffset, setSubtitleOffsetState] = useState(0);
+  // `true` le temps qu'un changement de style (taille/couleur/fond) recharge le
+  // flux (libVLC 3.x ne restyle pas à chaud). Permet à l'UI de masquer le gros
+  // overlay « Chargement » au profit d'un discret indicateur — la lecture n'a
+  // pas vraiment été interrompue du point de vue de l'utilisateur.
+  const [subtitleStyling, setSubtitleStyling] = useState(false);
+  // Pendant ce reload, on AVALE les transitions loading/buffering du moteur pour
+  // ne pas faire clignoter l'overlay de chargement ; on repasse `playing` dès
+  // que la première frame du flux restylé est décodée.
+  const restylingRef = useRef(false);
 
   // Refs lues dans les callbacks / listeners sans dépendances stales.
   const statusRef = useRef<PlayerStatus>('idle');
@@ -81,6 +90,24 @@ export function useNativePlayer(
     };
 
     track(VlcPlayer.addListener('state', (e: VlcStateEvent) => {
+      // ── Rechargement de restyle des sous-titres en cours ───────────────────
+      // On garde l'UI en lecture (pas d'overlay de chargement) ; seul un retour
+      // en `playing`/`error` clôt l'épisode de restyle.
+      if (restylingRef.current) {
+        if (e.state === 'playing') {
+          restylingRef.current = false;
+          setSubtitleStyling(false);
+          setStatus('playing');
+          setError(null);
+        } else if (e.state === 'error') {
+          restylingRef.current = false;
+          setSubtitleStyling(false);
+          setStatus('error');
+          setError(e.error ?? 'Erreur de lecture');
+        }
+        // loading / buffering / paused / idle : avalés pendant le restyle.
+        return;
+      }
       if (e.state === 'ended') {
         setStatus('paused');
         setCurrentTime(durationRef.current);
@@ -152,18 +179,50 @@ export function useNativePlayer(
     return () => { VlcPlayer.stop().catch(() => {}); };
   }, []);
 
-  // ── Restyle des sous-titres à chaud ───────────────────────────────────────
-  // libVLC 3.x ne peut pas restyler en cours de lecture → setSubtitleStyle
-  // recharge le média à la position courante (pistes préservées côté natif).
+  // ── Restyle des sous-titres « quasi à chaud » ─────────────────────────────
+  // libVLC 3.x ne sait pas restyler en cours de lecture (les options freetype
+  // sont au niveau du moteur) → setSubtitleStyle recharge le média à la position
+  // courante (pistes préservées côté natif). Deux soins pour rendre ça fluide :
+  //  1. DÉBOUNCE : si l'utilisateur enchaîne les réglages (sm→md→lg…), on ne
+  //     recharge qu'UNE fois, ~420 ms après le dernier changement.
+  //  2. Pas de pause + on lève `subtitleStyling` pour que l'UI masque l'épisode
+  //     (backdrop + petit indicateur au lieu du gros overlay « Chargement »).
   // On saute le 1er run (le style est déjà passé au load initial).
   const subStyleFirstRun = useRef(true);
+  const restyleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restyleSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (subStyleFirstRun.current) { subStyleFirstRun.current = false; return; }
     if (!subStyle) return;
-    if (statusRef.current !== 'playing' && statusRef.current !== 'paused') return;
-    VlcPlayer.setSubtitleStyle(subStyle).catch(() => {});
+    if (restyleTimerRef.current) clearTimeout(restyleTimerRef.current);
+    restyleTimerRef.current = setTimeout(() => {
+      restyleTimerRef.current = null;
+      if (statusRef.current !== 'playing' && statusRef.current !== 'paused') return;
+      const s = subStyleRef.current;
+      if (!s) return;
+      restylingRef.current = true;
+      setSubtitleStyling(true);
+      // Filet de sécurité : si le moteur ne ré-émet jamais `playing` (cas rare),
+      // on lève l'indicateur après 6 s plutôt que de le laisser collé.
+      if (restyleSafetyRef.current) clearTimeout(restyleSafetyRef.current);
+      restyleSafetyRef.current = setTimeout(() => {
+        if (restylingRef.current) { restylingRef.current = false; setSubtitleStyling(false); }
+      }, 6000);
+      VlcPlayer.setSubtitleStyle(s).catch(() => {
+        restylingRef.current = false;
+        setSubtitleStyling(false);
+      });
+    }, 420);
+    return () => {
+      if (restyleTimerRef.current) { clearTimeout(restyleTimerRef.current); restyleTimerRef.current = null; }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subStyle?.scale, subStyle?.color, subStyle?.bgOpacity]);
+
+  // Nettoyage du filet de sécurité au démontage.
+  useEffect(() => () => {
+    if (restyleSafetyRef.current) clearTimeout(restyleSafetyRef.current);
+  }, []);
 
   // ── Contrôles ─────────────────────────────────────────────────────────────
   const toggle = useCallback(() => {
@@ -265,6 +324,7 @@ export function useNativePlayer(
     currentSubtitle,
     subtitleText: '',
     subtitleLoading: false,
+    subtitleStyling,
     subtitleOffset,
     // libVLC rend la vidéo sur une SurfaceView DERRIÈRE la WebView → la couche
     // UI doit afficher un <div> transparent à la place du <video>.

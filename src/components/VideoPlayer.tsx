@@ -368,6 +368,12 @@ export function VideoPlayer({
   const isLoading = player.status === 'loading' || player.status === 'buffering';
   const hasError = player.status === 'error';
   const isPlaying = player.status === 'playing';
+  // `true` pendant qu'un lecteur natif (libVLC) recharge le flux pour appliquer
+  // un nouveau STYLE de sous-titres. On masque alors le gros overlay de
+  // chargement (la lecture n'a pas vraiment été coupée) au profit d'un discret
+  // indicateur + du backdrop. Toujours `false` sur les lecteurs qui restylent
+  // réellement à chaud (mpv) ou en React (web).
+  const isRestyling = player.subtitleStyling === true;
 
   // Bascule one-shot pour le backdrop de chargement de la surface native (mpv).
   // Une fois que mpv a rendu sa première frame (isPlaying → true), le backdrop
@@ -522,9 +528,12 @@ export function VideoPlayer({
     hideTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
   }, []);
 
+  // Force l'affichage des contrôles sur une VRAIE pause (pas pendant un
+  // chargement/buffering : on n'y montre que l'overlay « Chargement », jamais le
+  // bouton lecture central qui laisserait croire à une pause manuelle).
   useEffect(() => {
-    if (!isPlaying) setControlsVisible(true);
-  }, [isPlaying]);
+    if (player.status === 'paused') setControlsVisible(true);
+  }, [player.status]);
 
   // Double-tap seek (mobile/touch) — gère touchend sur la surface vidéo.
   //
@@ -850,7 +859,14 @@ export function VideoPlayer({
     : displayVolume < 0.5 ? IconVolumeLow
     : IconVolumeHigh;
 
-  const showControls = controlsVisible || !isPlaying || hasError;
+  // `showControls` = la chrome (top bar / dégradé / sous-titres remontés) est
+  // affichée. On NE force PLUS l'affichage pendant un chargement (sinon le
+  // bouton lecture central apparaît et laisse croire à une pause).
+  const showControls = controlsVisible || player.status === 'paused' || hasError;
+  // `controlsActive` = les contrôles INTERACTIFS (lecture/pause, ±10s, barre du
+  // bas, zapper…) sont rendus. Masqués pendant un chargement : seul l'overlay
+  // « Chargement » s'affiche → plus de confusion lecture/pause.
+  const controlsActive = showControls && !isLoading;
 
   // Sous-titres rendus par une surface NATIVE (mpv/Electron) : les remonter
   // au-dessus de l'overlay des contrôles quand il apparaît, en tandem (le CSS
@@ -876,6 +892,16 @@ export function VideoPlayer({
   // voit jamais s'il ouvre l'overlay avant la fin du fetch.
   const epHasButton = !!onPlayEpisode && !isLive;
   const epLoading = epHasButton && epSeasons.length === 0;
+  // Y a-t-il au moins un contrôle secondaire visible dans la barre du bas
+  // (audio / sous-titres / qualité / épisodes / plein écran) ? Pilote le fond
+  // « verre dépoli » flottant sur mobile : pas de pastille vide quand un flux
+  // n'expose aucune piste (le primaryGroup est déjà remonté au centre sur mobile).
+  const hasBottomControls =
+    player.audioTracks.length > 0 ||
+    player.subtitleTracks.length > 0 ||
+    player.levels.length > 1 ||
+    epHasButton ||
+    !isNative;
   // Refs synchrones : permettent au keyboard handler global de lire la liste
   // courante sans se réinstaller à chaque render.
   const epSeasonsRef = useRef(epSeasons); epSeasonsRef.current = epSeasons;
@@ -963,7 +989,7 @@ export function VideoPlayer({
                 onTouchEnd={handleSurfaceTouchEnd}
               />
               <div
-                className={`${styles.nativeBackdrop}${backdropDone ? ` ${styles.nativeBackdropDone}` : ''}`}
+                className={`${styles.nativeBackdrop}${(backdropDone && !isRestyling) ? ` ${styles.nativeBackdropDone}` : ''}`}
                 style={backdropSrc ? { backgroundImage: `url(${backdropSrc})` } : undefined}
               />
             </>
@@ -1024,13 +1050,27 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Chargement */}
+      {/* Indicateur discret « application du style des sous-titres » — le flux
+          recharge brièvement côté natif (libVLC ne restyle pas à chaud). Pas de
+          gros overlay : la lecture n'a pas vraiment été coupée. */}
+      {isRestyling && (
+        <div className={styles.restylePill}>
+          <span className={styles.restyleSpinner} />
+          {t('player.applyingSubtitleStyle')}
+        </div>
+      )}
+
+      {/* Chargement — carte « verre dépoli » centrée. Aucun bouton lecture n'est
+          rendu pendant ce temps (cf. controlsActive) → plus de confusion avec
+          une pause manuelle. */}
       {isLoading && (
         <div className={styles.centerOverlay}>
-          <AppLogo spin size={52} />
-          <span className={styles.overlayLabel}>
-            {player.status === 'buffering' ? t('player.buffering') : t('player.loading')}
-          </span>
+          <div className={styles.loadingCard}>
+            <AppLogo spin size={46} />
+            <span className={styles.overlayLabel}>
+              {player.status === 'buffering' ? t('player.buffering') : t('player.loading')}
+            </span>
+          </div>
         </div>
       )}
 
@@ -1064,7 +1104,7 @@ export function VideoPlayer({
           Visibles uniquement quand showControls (overlay visible).
           CSS : display:none sur desktop, display:flex sur ≤640px ou landscape.
           ─────────────────────────────────────────────────────────────────── */}
-      {!tvMode && showControls && panelKind === null && (
+      {!tvMode && controlsActive && panelKind === null && (
         <div className={`${styles.mobileCenterControls} ${isLive ? styles.mobileCenterControlsLive : ''}`} onClick={(e) => e.stopPropagation()} onTouchStart={resetHideTimer}>
 
           {/* Slider luminosité — gauche */}
@@ -1292,9 +1332,10 @@ export function VideoPlayer({
 
           {/* Barre du bas : rangée de contrôles OU panneau inline (qui REMPLACE
               les contrôles, façon TvPlayerOverlay). Le panneau ouvre toujours
-              en pause auto, et reprend la lecture à sa fermeture. */}
-          {panelKind === null ? (
-            <div className={styles.bottomBar}>
+              en pause auto, et reprend la lecture à sa fermeture. Masquée pendant
+              un chargement (seul l'overlay « Chargement » s'affiche). */}
+          {!isLoading && (panelKind === null ? (
+            <div className={`${styles.bottomBar} ${hasBottomControls ? styles.bottomBarFilled : ''}`}>
               {isLive && onZapChannel && (
                 <button
                   className={`${styles.controlBtn} ${styles.primaryGroup}`}
@@ -1678,12 +1719,12 @@ export function VideoPlayer({
                 </div>
               )}
             </div>
-          )}
+          ))}
 
           {/* Bande basse live — zapper (chaînes) OU programme (EPG) de la chaîne
               courante. Toggle visible uniquement si les deux vues ont du contenu.
               Strictement additif : sans liste navigable ni EPG → rien. */}
-          {isLive && panelKind === null && (hasZapper || hasLiveEpg) && (
+          {isLive && !isLoading && panelKind === null && (hasZapper || hasLiveEpg) && (
             <div className={styles.liveStrip}>
               {hasZapper && hasLiveEpg && (
                 <div className={styles.liveStripTabs}>
