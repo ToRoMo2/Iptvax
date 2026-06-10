@@ -32,6 +32,7 @@ import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.ui.SubtitleView;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -39,9 +40,6 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-
-import android.widget.FrameLayout;
-import android.view.Gravity;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,8 +54,10 @@ import java.util.Map;
  * en direct via {@link Player.Listener#onCues} (décodées par le même pipeline
  * que la vidéo, une seule connexion). On les renvoie au JS pour les afficher
  * dans l'overlay React → restyle taille/couleur/fond + changement de piste
- * INSTANTANÉS (libVLC 3.x devait reconstruire le moteur). On NE rattache donc
- * AUCUN SubtitleView natif : Media3 décode, React rend.
+ * INSTANTANÉS (libVLC 3.x devait reconstruire le moteur). Les sous-titres
+ * IMAGE (PGS/VobSub/DVB, fréquents sur les rips) n'ont pas de cue texte → ils
+ * sont rendus NATIVEMENT par une SubtitleView (cf. ensureSurface / emitCues) ;
+ * Media3 décode, React rend le texte, la SubtitleView rend les bitmaps.
  *
  * La vidéo est rendue sur une SurfaceView insérée DERRIÈRE la WebView Capacitor
  * (rendue transparente pendant la lecture) → les contrôles React s'affichent
@@ -74,6 +74,9 @@ public class MediaPlayerPlugin extends Plugin {
 
     private ExoPlayer player;
     private SurfaceView surfaceView;
+    // Plan natif pour les sous-titres IMAGE (PGS/VobSub/DVB) uniquement — voir
+    // emitCues. Les sous-titres TEXTE restent rendus dans l'overlay React.
+    private SubtitleView subtitleView;
 
     // Référentiels de pistes pour la sélection (l'index UI → TrackGroup + piste).
     // Reconstruits à chaque onTracksChanged.
@@ -127,6 +130,15 @@ public class MediaPlayerPlugin extends Plugin {
             ViewGroup parent = (ViewGroup) getBridge().getWebView().getParent();
             // Index 0 → la surface vidéo est composée DERRIÈRE la WebView.
             parent.addView(surfaceView, 0, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
+            // SubtitleView pour les sous-titres IMAGE (PGS/VobSub/DVB), qu'on ne
+            // peut pas convertir en texte React. Insérée AU-DESSUS de la surface
+            // vidéo mais SOUS la WebView transparente (index 1) → les contrôles
+            // React restent au-dessus. Les sous-titres TEXTE sont rendus en React.
+            subtitleView = new SubtitleView(getContext());
+            subtitleView.setBackgroundColor(Color.TRANSPARENT);
+            parent.addView(subtitleView, 1, new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
         }
@@ -220,6 +232,10 @@ public class MediaPlayerPlugin extends Plugin {
                 // WebView transparente → la vidéo ExoPlayer apparaît derrière.
                 getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
                 surfaceView.setVisibility(View.VISIBLE);
+                if (subtitleView != null) {
+                    subtitleView.setCues(java.util.Collections.emptyList());
+                    subtitleView.setVisibility(View.VISIBLE);
+                }
 
                 // Les en-têtes HTTP dépendent du type de flux (§IV-8) → on
                 // construit le MediaSource par chargement (le factory du moteur
@@ -258,6 +274,10 @@ public class MediaPlayerPlugin extends Plugin {
         getActivity().runOnUiThread(() -> {
             if (player != null) player.stop();
             if (surfaceView != null) surfaceView.setVisibility(View.GONE);
+            if (subtitleView != null) {
+                subtitleView.setCues(java.util.Collections.emptyList());
+                subtitleView.setVisibility(View.GONE);
+            }
             // WebView de nouveau opaque (noir → pas de flash blanc).
             getBridge().getWebView().setBackgroundColor(Color.BLACK);
             setImmersive(false);
@@ -304,15 +324,21 @@ public class MediaPlayerPlugin extends Plugin {
     }
 
     /**
-     * Sélectionne (ou désactive) une piste sous-titre TEXTE. Comme on rend les
-     * cues en React, « sélectionner » = activer l'émission onCues de cette piste ;
-     * index < 0 = désactiver (texte vidé côté JS).
+     * Sélectionne (ou désactive) une piste sous-titre. Piste TEXTE → les cues
+     * sont rendues en React (event `cues`) ; piste IMAGE (PGS/VobSub/DVB) → les
+     * cues bitmap sont rendues nativement par la SubtitleView (cf. emitCues).
+     * index < 0 = désactiver (texte React vidé + SubtitleView vidée).
      */
     @PluginMethod
     public void setSubtitleTrack(final PluginCall call) {
         final int index = call.getInt("index", -1);
         getActivity().runOnUiThread(() -> {
             selectTrack(C.TRACK_TYPE_TEXT, textRefs, index);
+            // Désactivation → vide le plan natif (sinon la dernière cue image
+            // resterait figée à l'écran).
+            if (index < 0 && subtitleView != null) {
+                subtitleView.setCues(java.util.Collections.emptyList());
+            }
             call.resolve();
         });
     }
@@ -478,14 +504,20 @@ public class MediaPlayerPlugin extends Plugin {
                     if (selected) currentAudio = audioRefs.size();
                     audioRefs.add(new TrackRef(tg, i));
                 } else if (type == C.TRACK_TYPE_TEXT) {
-                    // isTrackSupported ignoré : certains formats texte valides sont marqués
-                    // « non supportés » à tort. Seul le type MIME détermine si on peut
-                    // rendre les cues en React.
-                    if (!isTextSubtitle(f.sampleMimeType)) continue;
+                    // On liste TOUTES les pistes de sous-titres : TEXTE (rendues
+                    // en React, restyle instantané) ET IMAGE (PGS/VobSub/DVB,
+                    // rendues nativement par la SubtitleView, cf. emitCues).
+                    // Auparavant les pistes image étaient filtrées → le bouton CC
+                    // disparaissait sur les films qui n'ont QUE des sous-titres
+                    // image (cas fréquent des rips Blu-ray). isTrackSupported est
+                    // ignoré (certains formats valides sont marqués « non
+                    // supportés » à tort).
+                    boolean isText = isTextSubtitle(f.sampleMimeType);
                     JSObject t = new JSObject();
                     t.put("index", textRefs.size());
                     t.put("name", subLabel(f, textRefs.size()));
                     t.put("language", f.language != null ? f.language : "");
+                    t.put("isText", isText);
                     subtitle.put(t);
                     if (selected) currentSubtitle = textRefs.size();
                     textRefs.add(new TrackRef(tg, i));
@@ -548,18 +580,29 @@ public class MediaPlayerPlugin extends Plugin {
     }
 
     /**
-     * Émet le groupe de cues courant vers le JS. Le texte (avec balises HTML
-     * basiques converties) + le temps de présentation → bufferisés et rendus par
-     * l'overlay React (offset utilisateur appliqué côté JS).
+     * Émet le groupe de cues courant. Deux chemins selon le type de cue :
+     * - cue TEXTE → renvoyée au JS (event `cues`), bufferisée et rendue par
+     *   l'overlay React (restyle/offset utilisateur côté JS) ;
+     * - cue IMAGE (bitmap PGS/VobSub/DVB) → rendue NATIVEMENT par la SubtitleView
+     *   (impossible à convertir en texte). Une seule piste de sous-titres est
+     *   active à la fois → les deux chemins ne se chevauchent pas.
      */
     private void emitCues(CueGroup cueGroup) {
         long timeMs = cueGroup.presentationTimeUs >= 0 ? cueGroup.presentationTimeUs / 1000 : -1;
         StringBuilder sb = new StringBuilder();
+        final List<Cue> imageCues = new ArrayList<>();
         for (Cue cue : cueGroup.cues) {
-            if (cue.text == null) continue; // cue image/bitmap → ignorée (rare)
-            if (sb.length() > 0) sb.append('\n');
-            sb.append(cue.text.toString());
+            if (cue.bitmap != null) {
+                imageCues.add(cue); // sous-titre image → rendu natif
+            } else if (cue.text != null) {
+                if (sb.length() > 0) sb.append('\n');
+                sb.append(cue.text.toString());
+            }
         }
+        // Rendu natif des sous-titres image (vide la SubtitleView si aucune cue
+        // image → pas de cue figée à l'écran).
+        if (subtitleView != null) subtitleView.setCues(imageCues);
+        // Sous-titres texte → React.
         JSObject data = new JSObject();
         data.put("startMs", timeMs);
         data.put("text", sb.toString());

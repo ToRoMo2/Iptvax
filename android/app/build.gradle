@@ -72,6 +72,11 @@ dependencies {
     implementation "androidx.media3:media3-exoplayer-hls:$media3Version"
     implementation "androidx.media3:media3-datasource:$media3Version"
     implementation "androidx.media3:media3-common:$media3Version"
+    // media3-ui : uniquement pour SubtitleView, qui rend nativement les
+    // sous-titres IMAGE (PGS/VobSub/DVB) — impossibles à convertir en cues
+    // texte React. Les sous-titres TEXTE restent rendus en React (restyle
+    // instantané). Voir MediaPlayerPlugin.emitCues / rebuildTrackRefs.
+    implementation "androidx.media3:media3-ui:$media3Version"
     // ⚠ AUDIO DOLBY (AC3/EAC3/DTS) : ExoPlayer s'appuie sur les décodeurs
     // matériels de l'appareil. Beaucoup de téléphones n'ont PAS de décodeur
     // Dolby → ces pistes seraient muettes. Pour couvrir ces codecs il faut
