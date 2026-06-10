@@ -88,7 +88,10 @@ public class VlcPlayerPlugin extends Plugin {
         ArrayList<String> options = new ArrayList<>();
         options.add("--no-drop-late-frames");
         options.add("--no-skip-frames");
-        options.add("--network-caching=1500");
+        // Démarrage / seek / rechargement (restyle sous-titres) plus rapides :
+        // 1000 ms de buffer réseau au lieu de 1500 (~0,5 s gagné à chaque
+        // ouverture) tout en gardant une marge anti-coupure raisonnable.
+        options.add("--network-caching=1000");
         options.add("--sub-text-scale=" + subScale);
         options.add("--freetype-color=" + subColor);
         options.add("--freetype-background-opacity=" + subBgOpacity);

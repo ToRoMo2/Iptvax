@@ -84,39 +84,50 @@
   to { opacity: 1; transform: translateY(-50%); }
 }
 
-/* Groupe back10 / play / fwd10 */
+/* Groupe back10 / play / fwd10 — îlot flottant « verre dépoli » : les contrôles
+   de lecture sont posés sur une pastille translucide floue (façon Netflix /
+   Disney+ mobile), la pastille play blanche reste l'ancre visuelle. */
 .mobileCenterPlayGroup {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   pointer-events: all;
   flex: 0 0 auto;
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  background: rgba(10, 12, 16, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
 }
 
-/* Boutons ±10s : transparents, sans fond */
+/* Boutons ±10s : cercles « verre dépoli » discrets autour de la pastille play. */
 .mobileSeekBtn {
-  background: transparent !important;
-  border: none !important;
-  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.92);
   min-width: 48px !important;
   height: 48px !important;
   border-radius: 50% !important;
-  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
   -webkit-tap-highlight-color: transparent;
+  transition: background var(--d-micro) var(--ease), transform var(--d-micro) var(--ease);
 }
 .mobileSeekBtn:hover:not(:disabled),
-.mobileSeekBtn:active { color: #fff; background: rgba(255,255,255,0.1) !important; }
+.mobileSeekBtn:active { color: #fff; background: rgba(255,255,255,0.16) !important; }
+.mobileSeekBtn:active { transform: scale(0.92); }
 
-/* Bouton play/pause central : pastille blanche */
+/* Bouton play/pause central : pastille blanche (ancre visuelle) */
 .mobileCenterPlayBtn {
   background: #fff !important;
   color: #000 !important;
-  min-width: 64px !important;
-  height: 64px !important;
+  min-width: 66px !important;
+  height: 66px !important;
   border-radius: 50% !important;
   border: none !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 0 0 6px rgba(255,255,255,0.06);
   -webkit-tap-highlight-color: transparent;
+  transition: transform var(--d-micro) var(--ease);
 }
 .mobileCenterPlayBtn:active { transform: scale(0.93); }
 
@@ -172,17 +183,27 @@
   -webkit-tap-highlight-color: transparent;
 }
 .mobileSideBarIcon {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.92);
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(10, 12, 16, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 .mobileSideBarTrack {
   position: relative;
   width: 10px;              /* épaisse et visible */
   height: 150px;
-  border-radius: 6px;       /* pill arrondie */
-  background: rgba(255, 255, 255, 0.22);
+  border-radius: var(--r-pill);
+  background: rgba(8, 10, 14, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   cursor: pointer;
   touch-action: none;
   overflow: hidden;         /* le fill est clippé proprement */
@@ -240,12 +261,73 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: rgba(0, 0, 0, 0.6);
+  /* Vignette douce (radial) plutôt qu'un voile noir plat : on devine le
+     backdrop/poster derrière, rendu plus vivant. */
+  background: radial-gradient(120% 120% at 50% 50%, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0.62) 100%);
   pointer-events: none;
+  z-index: 7;
 }
 
 .centerOverlay .retryBtn {
   pointer-events: all;
+}
+
+/* Carte « verre dépoli » de chargement — distincte d'un bouton lecture : aucun
+   pictogramme play, juste le logo animé + le libellé. Lève l'ambiguïté
+   « est-ce en pause ? ». */
+.loadingCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 34px;
+  border-radius: var(--r-card);
+  background: rgba(14, 16, 20, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  animation: vp-fade-pop 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vp-fade-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Indicateur discret « application du style des sous-titres » — pastille
+   flottante bas-centre, le flux recharge en coulisse (libVLC 3.x). */
+.restylePill {
+  position: absolute;
+  left: 50%;
+  bottom: calc(96px + var(--safe-bottom));
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-radius: var(--r-pill);
+  background: rgba(14, 16, 20, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--t-1);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 9;
+  animation: vp-fade-pop 220ms var(--ease);
+}
+
+.restyleSpinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .spinner {
@@ -1202,6 +1284,7 @@
     .mobileSideBar { padding: 4px 16px; }
     .mobileCenterPlayBtn { min-width: 52px !important; height: 52px !important; }
     .mobileSeekBtn { min-width: 40px !important; height: 40px !important; }
+    .mobileCenterPlayGroup { padding: 7px 12px; gap: 14px; }
     .mobileCenterControls { gap: 18px; }
     /* Live : remonte le bloc central au-dessus de la bande basse (plus haute en
        live à cause du zapper) pour éviter le chevauchement avec les chaînes. */
@@ -1239,19 +1322,36 @@
     background: linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%);
   }
 
-  /* ── Progress : piste plus épaisse, knob plus visible ────────── */
+  /* ── Progress : piste plus épaisse, knob accent visible ────────── */
   .progressArea { gap: 10px; }
-  .progressTrack { height: 4px; }
-  .progressTrack:hover { height: 6px; }
-  .progressKnob { width: 16px; height: 16px; }
+  .progressTrack { height: 5px; border-radius: var(--r-pill); }
+  .progressTrack:hover { height: 7px; }
+  .progressBuffered, .progressFilled { border-radius: var(--r-pill); }
+  .progressKnob {
+    width: 15px;
+    height: 15px;
+    box-shadow: 0 0 0 4px rgba(0, 200, 220, 0.18), 0 0 16px var(--accent-glow);
+  }
   .timeLabel { font-size: 11px; min-width: 38px; }
 
-  /* ── Bottom bar : nowrap centré (primaryGroup déjà masqué par règle commune) */
+  /* ── Bottom bar : barre flottante « verre dépoli » contenant les contrôles
+        secondaires (primaryGroup déjà masqué par la règle commune). Le frost
+        n'est posé que s'il y a du contenu (`.bottomBarFilled`) → pas de pastille
+        vide sur un flux sans pistes. ── */
   .bottomBar {
-    gap: 8px;
+    gap: 6px;
     flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
+  }
+  .bottomBarFilled {
+    padding: 7px 8px;
+    border-radius: var(--r-pill);
+    background: rgba(14, 16, 20, 0.52);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    backdrop-filter: blur(18px) saturate(1.15);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   }
 
   /* Boutons généraux : zone tactile 44px Apple HIG */
@@ -1285,18 +1385,21 @@
     justify-content: center;
     min-width: 0;
   }
+  /* Boutons « à plat sur le verre » : la barre porte le frost, les boutons
+     restent transparents et ne s'illuminent qu'au contact. */
   .secondaryGroup > .controlBtn,
   .secondaryGroup .controlBtn {
     width: 100%;
     height: 40px;
     border-radius: var(--r-pill);
-    background: rgba(255,255,255,0.08);
+    background: transparent;
     font-size: 12px;
     padding: 0 10px;
-    max-width: 100px;
+    max-width: 104px;
   }
-  .secondaryGroup .controlBtn:hover:not(:disabled) {
-    background: rgba(255,255,255,0.14);
+  .secondaryGroup .controlBtn:hover:not(:disabled),
+  .secondaryGroup .controlBtn:active {
+    background: rgba(255,255,255,0.12);
   }
   .secondaryGroup .controlBtnOn { color: var(--accent) !important; }
 
