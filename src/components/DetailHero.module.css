@@ -1,0 +1,181 @@
+/* ── Hero fiche détail DESKTOP : fond plein écran (diaporama TMDB) + infos ────
+   superposées en bas à gauche + flèche de scroll. (§Phase 4) */
+
+.stage {
+  position: relative;
+  height: 100vh;
+  min-height: 600px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── Diaporama de fond ──────────────────────────────────────────────────── */
+.diapo {
+  position: absolute;
+  inset: 0;
+}
+.diapoImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 1.4s var(--ease);
+}
+.diapoActive {
+  opacity: 1;
+}
+.diapoPh {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 70% at 70% 35%, var(--accent-glow-soft), transparent 60%),
+    repeating-linear-gradient(100deg, rgba(253, 246, 235, 0.02) 0 1px, transparent 1px 36px),
+    var(--bg-elev);
+}
+
+.overlayBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80%;
+  background: linear-gradient(to top, var(--bg) 3%, rgba(8, 6, 3, 0.55) 38%, transparent 82%);
+  pointer-events: none;
+}
+.overlayLeft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 64%;
+  background: linear-gradient(to right, rgba(8, 6, 3, 0.86) 0%, rgba(8, 6, 3, 0.32) 46%, transparent 74%);
+  pointer-events: none;
+}
+
+/* ── Bouton retour (haut-gauche, sous la navbar) ────────────────────────── */
+.back {
+  position: absolute;
+  top: calc(var(--topnav-h) - 28px);
+  left: var(--pad-edge);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--line-strong);
+  color: var(--t-1);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--d-micro) var(--ease);
+}
+.back:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+/* ── Bloc d'infos superposé (bas-gauche) ────────────────────────────────── */
+.content {
+  position: absolute;
+  z-index: 3;
+  left: var(--pad-edge);
+  right: var(--pad-edge);
+  bottom: clamp(52px, 8vh, 104px);
+  max-width: 740px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.logo {
+  max-width: min(440px, 62%);
+  max-height: 150px;
+  object-fit: contain;
+  object-position: left bottom;
+}
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 0.98;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--t-1);
+  margin: 0;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--t-2);
+  font-size: 14px;
+}
+
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.synopsis {
+  color: var(--t-2);
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Flèche animée « scroller pour le casting » ─────────────────────────── */
+.scrollCue {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  color: var(--t-1);
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  animation: dh-bounce 1.8s var(--ease) infinite;
+}
+.scrollCue:hover {
+  background: var(--glass-strong);
+}
+@keyframes dh-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(7px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrollCue { animation: none; }
+  .diapoImg { transition: none; }
+}

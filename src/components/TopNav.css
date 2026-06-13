@@ -90,11 +90,29 @@
 .topnav .link .lbl { white-space: nowrap; }
 .topnav .link:hover,
 .topnav .link:focus-visible { color: var(--t-1); background: var(--glass); outline: none; }
+/* Onglet actif (desktop) : indication DISCRÈTE — texte accent + soulignement
+   doré, PAS le pavé plein doré (qui donnait à « Accueil » un air constamment
+   enfoncé/survolé). Le pavé/halo reste réservé au hover/focus ci-dessus. */
 .topnav .link.active {
-  color: #2A1B07;
-  background: var(--accent-grad);
-  box-shadow: 0 0 20px var(--accent-glow);
+  color: var(--accent);
+  background: transparent;
   font-weight: 600;
+}
+.topnav .link.active::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent-grad);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+.topnav .link.active:hover,
+.topnav .link.active:focus-visible {
+  color: var(--accent);
+  background: var(--glass);
 }
 
 /* ---- Séparateurs + bouton recherche ------------------------------- */

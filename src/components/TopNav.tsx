@@ -46,8 +46,11 @@ const LINKS: { to: string; labelKey: TranslationKey; icon: () => JSX.Element; en
   { to: '/journal',  labelKey: 'nav.myCine', icon: Ic.cine,   end: false },
 ];
 
-export function TopNav() {
+export function TopNav({ onSearch }: { onSearch?: () => void } = {}) {
   const navigate  = useNavigate();
+  // Recherche : délègue à l'overlay superposé si le shell le fournit, sinon
+  // repli historique sur la page /search.
+  const goSearch = () => (onSearch ? onSearch() : navigate('/search'));
   const location  = useLocation();
   const { activeProfile } = useIptvProfile();
   const { t } = useI18n();
@@ -139,7 +142,7 @@ export function TopNav() {
           className="search-fixed-mobile"
           title={t('nav.search')}
           aria-label={t('nav.search')}
-          onClick={() => navigate('/search')}
+          onClick={goSearch}
         >
           <Ic.search />
         </button>
@@ -200,8 +203,8 @@ export function TopNav() {
 
         <Focusable
           className="icon-btn"
-          onEnter={() => navigate('/search')}
-          onClick={() => navigate('/search')}
+          onEnter={goSearch}
+          onClick={goSearch}
           onFocused={onNavFocus}
           onBlurred={onNavBlur}
           onArrow={navArrow}

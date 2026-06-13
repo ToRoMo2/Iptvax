@@ -13,6 +13,10 @@ interface Props {
   input: WatchedInput;
   /** Clé de focus télécommande pour les étoiles. */
   starsFocusKey?: string;
+  /** Variante compacte « îlot » pour le hero desktop (§Phase 4) : juste
+   *  étoiles + note, sans date/critique → tient sans scroll, lisible et
+   *  navigable à la télécommande. */
+  overlay?: boolean;
 }
 
 const fmtRating = (v: number) => String(v).replace('.', ',');
@@ -31,7 +35,7 @@ function toDateInput(ms: number): string {
  * Consomme `useRatings` (lecture de context autorisée pour un composant).
  * Réactif via la liste `watched` (le ref `getWatched` n'est pas réactif).
  */
-export function RateBlock({ input, starsFocusKey }: Props) {
+export function RateBlock({ input, starsFocusKey, overlay }: Props) {
   const navigate = useNavigate();
   const { isPremium } = useSubscription();
   const { t } = useI18n();
@@ -87,6 +91,50 @@ export function RateBlock({ input, starsFocusKey }: Props) {
     if (!current || (current.review ?? '') === reviewDraft) return;
     setReview(input.contentType, input.titleKey, reviewDraft);
   };
+
+  // ── Variante compacte « îlot » pour le hero desktop (étoiles + note) ──────
+  if (overlay) {
+    if (!isPremium) {
+      return (
+        <div className={styles.overlayBlock}>
+          <span className={styles.overlayLabel}>{t('rate.yourRatingLocked')}</span>
+          <Focusable
+            className={styles.overlayCta}
+            focusedClassName="rc-focused"
+            onEnter={() => navigate('/premium')}
+            onClick={() => navigate('/premium')}
+          >
+            {t('rate.discoverPremium')}
+          </Focusable>
+        </div>
+      );
+    }
+    return (
+      <div className={styles.overlayBlock}>
+        <span className={styles.overlayLabel}>{t('rate.yourRating')}</span>
+        <RatingStars
+          value={current?.rating ?? null}
+          onChange={(v) => rate(input, v)}
+          size={26}
+          focusKey={starsFocusKey}
+          ariaLabel={t('rate.rateAria')}
+        />
+        {current?.rating != null && (
+          <>
+            <span className={styles.overlayValue}>
+              {t('rate.ratingValue', { value: fmtRating(current.rating) })}
+            </span>
+            <button
+              className={styles.overlayClear}
+              onClick={() => clearRating(input.contentType, input.titleKey)}
+            >
+              {t('rate.clearRating')}
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
 
   if (!isPremium) {
     return (

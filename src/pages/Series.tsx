@@ -9,10 +9,8 @@ import { useI18n } from '../contexts/I18nContext';
 import { PreviewCard } from '../components/PreviewCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { ScrollRail } from '../components/ScrollRail';
-import { PopularRail } from '../components/PopularRail';
-import { PopularSpotlight, type PopularSpotlightItem } from '../components/PopularSpotlight';
 import { PopularLocked } from '../components/PopularLocked';
-import { isTvDevice } from '../native/tvDetect';
+import { Top10Spotlight, type Top10SpotlightItem } from '../components/Top10Spotlight';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
 import { groupByTitle, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -351,19 +349,22 @@ export function Series() {
     />
   );
 
-  // Items du billboard « Populaires » desktop (cf. PopularSpotlight). Le visuel
-  // paysage HD et le synopsis viennent de TMDB ; repli Xtream si absent.
-  const popularItems: PopularSpotlightItem[] = popular.map(({ group: g, backdrop, overview }) => ({
+  // ── Top 10 « Populaires » : items du spotlight coverflow (carte hero + numéro
+  //    de rang doré). Visuel HD + synopsis depuis TMDB (repli Xtream). ─────────
+  const top10Items: Top10SpotlightItem[] = popular.slice(0, 10).map(({ group: g, backdrop, overview }, i) => ({
     id: g.primary.series_id,
+    rank: i + 1,
     title: g.title,
-    backdrop: backdrop ?? g.primary.backdrop_path?.[0],
-    poster: g.primary.cover,
-    meta: [g.year, star5Label(g.primary.rating_5based), g.primary.genre?.split('/')[0].trim()]
-      .filter(Boolean)
-      .join(' · '),
+    backdrop: backdrop ?? g.primary.backdrop_path?.[0] ?? g.primary.cover,
+    ratingBadge: g.primary.rating_5based > 0 ? (g.primary.rating_5based * 2).toFixed(1) : undefined,
+    meta: [g.year, g.primary.genre?.split('/')[0].trim()].filter(Boolean) as string[],
     synopsis: overview ?? g.primary.plot,
     isFavorite: isFavorite('series', String(g.primary.series_id)),
     onOpen: () => openSeries(g),
+    onPlay: () =>
+      navigate(`/series/${g.primary.series_id}`, {
+        state: { series: g.primary, variants: g.variants, autoplay: true },
+      }),
     onFavorite: () =>
       toggleFavorite({
         type: 'series',
@@ -372,8 +373,6 @@ export function Series() {
         image: g.primary.cover ?? '',
       }),
   }));
-  // Billboard desktop sauf sur TV (la TV garde le coverflow navigable au D-pad).
-  const useBillboard = !isTvDevice();
 
   // ── Mode CATÉGORIE COMPLÈTE (?cat=) ─────────────────────────────────────────
   if (activeCat) {
@@ -478,19 +477,7 @@ export function Series() {
             </section>
           ) : popular.length > 0 ? (
             <section className={styles.shelf}>
-              <div className={styles.shelfHeader}>
-                <div className={styles.shelfTitleGroup}>
-                  <h2 className={styles.shelfTitle}>{t('common.popular')}</h2>
-                  <span className={styles.shelfDivider} aria-hidden="true" />
-                  <span className={styles.shelfCount}>{popular.length}</span>
-                </div>
-              </div>
-              {useBillboard && (
-                <PopularSpotlight className={styles.popularDesktop} items={popularItems} />
-              )}
-              <div className={useBillboard ? styles.popularMobile : undefined}>
-                <PopularRail>{popular.map(({ group }) => renderCard(group, false))}</PopularRail>
-              </div>
+              <Top10Spotlight items={top10Items} />
             </section>
           ) : null}
           {favGroups.length > 0 && (
