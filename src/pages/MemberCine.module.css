@@ -37,7 +37,7 @@
   justify-content: center;
   font-size: 30px;
   border-radius: 50%;
-  color: #000;
+  color: #2A1B07;
 }
 
 .identText {
@@ -48,8 +48,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 32px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--t-1);
   margin: 0 0 6px;
 }
@@ -78,8 +80,8 @@
   padding: 0 22px;
   font-size: 14px;
   font-weight: 600;
-  color: #000;
-  background: var(--t-1);
+  color: #2A1B07;
+  background: var(--accent-grad);
   border-radius: var(--r-pill);
   cursor: pointer;
   transition: background var(--d-micro) var(--ease),
@@ -215,8 +217,8 @@
 }
 
 .tabActive {
-  color: #000;
-  background: var(--t-1);
+  color: #2A1B07;
+  background: var(--accent-grad);
   border-color: var(--t-1);
 }
 

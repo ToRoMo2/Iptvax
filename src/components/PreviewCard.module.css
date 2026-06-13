@@ -8,12 +8,14 @@
 .card {
   position: relative;
   background: var(--bg-card);
+  border: 1px solid var(--line);
   border-radius: var(--r-card);
   overflow: hidden;
   cursor: pointer;
   outline: none;
   user-select: none;
-  transition: transform var(--d-micro) var(--ease);
+  box-shadow: var(--glow-card);
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
 }
 
 .card:focus-visible {
@@ -32,7 +34,7 @@
   width: 100%;
   aspect-ratio: 2 / 3;
   overflow: hidden;
-  background: #0a0a0a;
+  background: var(--bg-elev);
 }
 
 .img {
@@ -51,8 +53,9 @@
   place-items: center;
   padding: 14px;
   background:
-    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 14px),
-    #0a0a0a;
+    radial-gradient(70% 80% at 50% 35%, var(--accent-faint), transparent 60%),
+    repeating-linear-gradient(100deg, rgba(253, 246, 235, 0.02) 0 1px, transparent 1px 14px),
+    var(--bg-elev);
 }
 
 .phName {
@@ -93,8 +96,9 @@
   right: 8px;
   width: 30px;
   height: 30px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--line);
+  background: rgba(20, 14, 9, 0.55);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-edge);
   border-radius: 50%;
   color: var(--t-2);
   font-size: 14px;
@@ -129,9 +133,7 @@
   cursor: pointer;
   opacity: 0;
   transform: scale(0.7);
-  box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow: var(--glow-pop);
   transition: transform 200ms var(--ease), opacity 200ms var(--ease);
   will-change: transform, opacity;
 }
@@ -182,7 +184,7 @@
 }
 
 .mediaCoverBlank {
-  background: #0a0a0a;
+  background: var(--bg-elev);
 }
 
 .mediaCoverHidden {
@@ -238,18 +240,20 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: var(--t-1);
-  color: #000;
+  background: var(--accent-grad);
+  color: #2A1B07;
   border: 0;
-  border-radius: var(--r-ui);
+  border-radius: var(--r-pill);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity var(--d-micro) var(--ease);
+  box-shadow: 0 6px 20px -8px var(--accent-glow);
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
 }
 
 .play:hover {
-  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px -8px var(--accent-glow);
 }
 
 .ovFav {

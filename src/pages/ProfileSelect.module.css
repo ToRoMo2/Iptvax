@@ -7,21 +7,22 @@
   justify-content: center;
   padding: 64px 48px;
   position: relative;
-  background: #000;
+  background: var(--bg);
 }
 .screen::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(60% 50% at 50% 35%, rgba(0, 212, 255, 0.06), transparent 62%);
+  background: radial-gradient(60% 50% at 50% 35%, var(--accent-faint), transparent 62%);
   pointer-events: none;
 }
 
 
 .title {
-  font-size: 38px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--t-1);
   margin: 0;
   text-align: center;
@@ -78,7 +79,7 @@
     radial-gradient(circle at 32% 26%,
       color-mix(in srgb, var(--pf) 38%, transparent),
       color-mix(in srgb, var(--pf) 8%, transparent) 70%),
-    #0c0c0c;
+    var(--bg-elev);
   border: 1px solid color-mix(in srgb, var(--pf) 30%, transparent);
 }
 .avatarEmoji {
@@ -210,7 +211,7 @@
     radial-gradient(circle at 32% 26%,
       color-mix(in srgb, var(--pf) 40%, transparent),
       color-mix(in srgb, var(--pf) 8%, transparent) 70%),
-    #0c0c0c;
+    var(--bg-elev);
   border: 1px solid color-mix(in srgb, var(--pf) 32%, transparent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--pf) 28%, transparent);
 }
@@ -292,7 +293,7 @@
 }
 .colorBtn:hover { transform: scale(1.12); }
 .colorBtnActive {
-  box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--pf);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--pf);
 }
 
 .divider {
@@ -336,8 +337,8 @@
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  border-top-color: #000;
+  border: 2px solid rgba(42, 27, 7, 0.28);
+  border-top-color: #2A1B07;
   border-radius: 50%;
   animation: pf-spin 0.7s linear infinite;
 }

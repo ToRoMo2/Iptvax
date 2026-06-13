@@ -2,7 +2,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background-color: #050505;
+  background-color: var(--bg-elev);
 }
 
 .layer {

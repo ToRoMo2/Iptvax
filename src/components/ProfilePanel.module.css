@@ -41,7 +41,7 @@
     radial-gradient(circle at 32% 26%,
       color-mix(in srgb, var(--pf) 40%, transparent),
       color-mix(in srgb, var(--pf) 8%, transparent) 70%),
-    #0c0c0c;
+    var(--bg-elev);
   border: 1px solid color-mix(in srgb, var(--pf) 32%, transparent);
 }
 .avatarEmoji {
@@ -92,7 +92,7 @@
   font-family: inherit;
   color: var(--t-1);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.12);
+  box-shadow: 0 0 0 3px var(--accent-faint);
 }
 
 .email {
@@ -191,7 +191,7 @@
   font-size: 13px;
   font-weight: 700;
   font-family: inherit;
-  color: #000;
+  color: #2A1B07;
   cursor: pointer;
   transition: opacity var(--d-micro) var(--ease);
 }

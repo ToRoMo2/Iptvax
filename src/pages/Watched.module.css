@@ -5,7 +5,7 @@
   padding: 0 18px;
   font-size: 13px;
   font-weight: 600;
-  color: #000;
+  color: #2A1B07;
   background: var(--warning);
   border-radius: var(--r-pill);
   cursor: pointer;
@@ -127,8 +127,8 @@
 }
 
 .tabActive {
-  color: #000;
-  background: var(--t-1);
+  color: #2A1B07;
+  background: var(--accent-grad);
   border-color: var(--t-1);
 }
 

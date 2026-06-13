@@ -5,7 +5,7 @@
   place-items: center;
   padding: 48px;
   position: relative;
-  background: #000;
+  background: var(--bg);
 }
 .login::before {
   content: '';
@@ -83,6 +83,12 @@
   letter-spacing: -0.02em;
   margin: 0 0 12px;
   color: var(--t-1);
+}
+/* App « Lumière » : titre éditorial sérif (le site vitrine garde le sans Vanta). */
+:global(html.lumiere) .title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 .sub {
   font-size: 14px;
@@ -167,7 +173,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--line);
 }
 
 /* ── Fields ─────────────────────────────────────────────────────────────────── */
@@ -267,8 +273,8 @@
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  border-top-color: #000;
+  border: 2px solid rgba(42, 27, 7, 0.28);
+  border-top-color: #2A1B07;
   border-radius: 50%;
   animation: login-spin 0.7s linear infinite;
 }
