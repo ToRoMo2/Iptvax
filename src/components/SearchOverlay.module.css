@@ -1,0 +1,244 @@
+/* ── Recherche globale superposée (DA Lumière) ────────────────────────────────
+   Overlay translucide par-dessus la page courante (portal sur <body>) : grand
+   champ centré + grille de cartes paysage (suggestions au repos, résultats à la
+   frappe). La page reste visible, floutée, en arrière-plan. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200; /* au-dessus de toute la chrome (capsule navbar, boutons fixes) */
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+  animation: v-search-fade 0.22s var(--ease, ease) both;
+}
+
+@keyframes v-search-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.panel {
+  width: 100%;
+  max-width: 1320px;
+  padding: clamp(60px, 10vh, 120px) clamp(24px, 5vw, 80px) 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: v-search-rise 0.3s var(--ease, ease) both;
+}
+
+@keyframes v-search-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Barre de recherche ─────────────────────────────────────────────────── */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.searchBar {
+  flex: 1;
+  min-width: 0;
+  height: 64px;
+  font-size: 19px;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.42), 0 0 0 1px var(--glass-edge);
+}
+
+.close {
+  flex-shrink: 0;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--glass-edge);
+  background: var(--glass);
+  color: var(--t-1);
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  transition: background var(--d-micro) var(--ease), transform var(--d-micro) var(--ease);
+}
+.close:hover {
+  background: var(--glass-strong);
+  transform: scale(1.04);
+}
+
+/* ── Sections + libellés ────────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--t-2);
+}
+.sectionCount {
+  color: var(--t-4);
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--t-3);
+  font-size: 15px;
+  padding: 20px 2px;
+}
+
+/* ── Grille de cartes paysage ───────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.card {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease),
+    border-color var(--d-micro) var(--ease);
+}
+.card:hover,
+.cardFocused {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 22px var(--accent-glow);
+  z-index: 2;
+}
+
+.cardImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Logos de chaînes : contenus + centrés (pas étirés) sur un fond sombre. */
+.cardImgContain {
+  object-fit: contain;
+  padding: 13%;
+  background: radial-gradient(80% 80% at 50% 45%, rgba(255, 255, 255, 0.05), transparent 70%), var(--bg-elev);
+}
+
+/* Repli sans image : halo doré (DA Lumière) + fines stries. */
+.cardPh {
+  position: absolute;
+  inset: 0;
+}
+.cardPh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(70% 90% at 32% 38%, var(--accent-glow-soft), transparent 62%),
+    repeating-linear-gradient(115deg, rgba(253, 246, 235, 0.022) 0 1px, transparent 1px 24px);
+}
+
+.cardShade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(8, 6, 3, 0.88) 0%, rgba(8, 6, 3, 0.22) 42%, transparent 68%);
+  pointer-events: none;
+}
+
+.cardMeta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+}
+.cardEyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--t-3);
+}
+.cardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--t-1);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.liveTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ── Squelette de chargement (cartes paysage) ───────────────────────────── */
+.skeleton {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-card);
+  background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 50%, var(--bg-card) 100%);
+  background-size: 200% 100%;
+  animation: v-search-shimmer 2s linear infinite;
+}
+@keyframes v-search-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ── Tablette / mobile ──────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: calc(72px + var(--safe-top)) var(--pad-edge) calc(var(--bottomnav-h) + 32px);
+    gap: 18px;
+  }
+  .searchBar {
+    height: 54px;
+    font-size: 16px;
+  }
+  .close {
+    width: 50px;
+    height: 50px;
+  }
+  .cardTitle {
+    font-size: 14px;
+  }
+}

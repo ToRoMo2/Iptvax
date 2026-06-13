@@ -16,8 +16,10 @@ import { RateBlock } from '../components/RateBlock/RateBlock';
 import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { DetailMedia } from '../components/DetailMedia';
+import { DetailHero } from '../components/DetailHero';
 import { Focusable } from '../components/Focusable';
 import { AppLogo } from '../components/AppLogo';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
 import styles from './SeriesDetail.module.css';
 
@@ -254,6 +256,144 @@ export function MovieDetail() {
     };
   }, [movie, selected, displayTitle, year, tmdb]);
 
+  // ── Desktop (≥901px) : refonte « fond plein écran » (§Phase 4). Mobile garde
+  //    l'affiche portrait (rendu inchangé plus bas). ──────────────────────────
+  const isDesktop = useMediaQuery('(min-width: 901px)');
+  const belowRef = useRef<HTMLDivElement>(null);
+  const scrollDown = () => belowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Diaporama de fond : toutes les images TMDB ; repli sur le backdrop unique.
+  const diaporamaImgs =
+    tmdb?.backdrops && tmdb.backdrops.length > 0
+      ? tmdb.backdrops
+      : [tmdb?.backdrop ?? movie?.backdrop_path?.[0] ?? movie?.stream_icon].filter(
+          (x): x is string => !!x,
+        );
+
+  const versionModalNode = showVersions && movie && (
+    <div className={styles.versionModal} onClick={() => setShowVersions(false)} role="dialog" aria-modal="true">
+      <div className={styles.versionCard} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.versionHead}>
+          <span className={styles.versionTitle}>{t('detail.chooseVersion')}</span>
+          <button className={styles.versionClose} onClick={() => setShowVersions(false)} aria-label={t('common.close')}>✕</button>
+        </div>
+        <div className={styles.versionOpts}>
+          {variants.map((v, i) => (
+            <button key={v.stream_id} type="button" className={styles.versionOpt} onClick={() => playMovie(v)}>
+              <span>{versionLabel(v.name, t('detail.source', { n: i + 1 }))}</span>
+              <PlayIcon />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isDesktop) {
+    return (
+      <div className={`${styles.page} ${styles.pageDesktop}`}>
+        {loading && <div className={styles.loadingFull}><AppLogo spin size={44} /></div>}
+        {error && <div className={styles.error}>⚠ {error}</div>}
+        {!loading && !error && movie && (
+          <>
+            <DetailHero
+              backdrops={diaporamaImgs}
+              logo={tmdb?.logo}
+              title={displayTitle}
+              meta={
+                <>
+                  {year && <span>{year}</span>}
+                  {year && genre && <span className={styles.metaSep} />}
+                  {genre && <span>{genre}</span>}
+                </>
+              }
+              ratingRow={
+                pct != null || rating || runtime ? (
+                  <>
+                    {pct != null ? (
+                      <>
+                        <span className={styles.tmdbBadge}>TMDb</span>
+                        <span className={styles.ratingPct}>{pct}%</span>
+                      </>
+                    ) : rating ? (
+                      <span className={styles.starBadge}>★ {rating}</span>
+                    ) : null}
+                    {(pct != null || rating) && runtime && <span className={styles.dotSep} />}
+                    {runtime && <span className={styles.runtime}>{runtime}</span>}
+                  </>
+                ) : undefined
+              }
+              synopsis={synopsis ?? undefined}
+              actions={
+                <>
+                  <Focusable
+                    className={styles.playBtn}
+                    focusKey={DETAIL_PLAY_FOCUS_KEY}
+                    onEnter={canResume ? handleResume : handlePlay}
+                    onClick={canResume ? handleResume : handlePlay}
+                  >
+                    <PlayIcon />
+                    {canResume ? t('detail.resume') : t('detail.watch')}
+                  </Focusable>
+                  {canResume && variants.length > 1 && (
+                    <Focusable
+                      className={styles.versionRoundBtn}
+                      ariaLabel={t('detail.changeVersion')}
+                      onEnter={() => setShowVersions(true)}
+                      onClick={() => setShowVersions(true)}
+                    >
+                      <VersionIcon />
+                    </Focusable>
+                  )}
+                  <Focusable
+                    className={`${styles.favBtn} ${isFavorite('movie', String(movie.stream_id)) ? styles.favActive : ''}`}
+                    ariaLabel={isFavorite('movie', String(movie.stream_id)) ? t('common.inList') : t('common.addToList')}
+                    onEnter={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
+                    onClick={() => toggleFavorite({ type: 'movie', id: String(movie.stream_id), name: displayTitle, image: tmdb?.poster ?? movie.stream_icon ?? '' })}
+                  >
+                    <StarIcon filled={isFavorite('movie', String(movie.stream_id))} />
+                  </Focusable>
+                </>
+              }
+              rateInput={watchedInput}
+              starsFocusKey="rc-rate-stars"
+              onBack={() => navigate(-1)}
+              backFocusKey={DETAIL_BACK_FOCUS_KEY}
+              onBackArrowDown={() => setFocus(DETAIL_PLAY_FOCUS_KEY)}
+              onScrollDown={scrollDown}
+              showScrollCue
+            />
+
+            <div ref={belowRef} className={styles.belowFold}>
+              <DetailMedia tmdbCast={tmdb?.cast ?? []} xtreamCast={xtreamCast} />
+              <aside className={styles.aboutDesktop}>
+                <div className={styles.sectionLabel}>{t('detail.about')}</div>
+                <div className={styles.factsGrid}>
+                  {genre && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.genre')}</span><span className={styles.factVal}>{genre}</span></div>
+                  )}
+                  {movie.releaseDate && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.release')}</span><span className={styles.factVal}>{movie.releaseDate}</span></div>
+                  )}
+                  {movie.director && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.director')}</span><span className={styles.factVal}>{movie.director}</span></div>
+                  )}
+                  {rating && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.rating')}</span><span className={styles.factVal}>★ {rating}</span></div>
+                  )}
+                  {showVariants && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.versions')}</span><span className={styles.factVal}>{variants.length}</span></div>
+                  )}
+                  <div className={styles.factRow}><span className={styles.factKey}>{t('detail.format')}</span><span className={styles.factVal}>{(selected ?? movie).container_extension?.toUpperCase() || '—'}</span></div>
+                </div>
+              </aside>
+            </div>
+          </>
+        )}
+        {versionModalNode}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -383,7 +523,6 @@ export function MovieDetail() {
             <DetailMedia
               tmdbCast={tmdb?.cast ?? []}
               xtreamCast={xtreamCast}
-              images={tmdb?.backdrops ?? []}
             />
 
             <aside className={styles.side}>

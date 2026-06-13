@@ -17,8 +17,10 @@ import { RateBlock } from '../components/RateBlock/RateBlock';
 import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { DetailMedia } from '../components/DetailMedia';
+import { DetailHero } from '../components/DetailHero';
 import { Focusable } from '../components/Focusable';
 import { AppLogo } from '../components/AppLogo';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
 import styles from './SeriesDetail.module.css';
 
@@ -457,6 +459,210 @@ export function SeriesDetail() {
     };
   }, [seriesId, title, displayTitle, year, tmdb, info, variant, genre, director]);
 
+  // ── Section « Saisons / Épisodes » — partagée mobile & desktop. ────────────
+  const episodesSection = (
+    <div className={styles.seasonsBlock}>
+      <div className={styles.sectionLabel}>{t('detail.episodesTitle')}</div>
+
+      {seasons.length > 1 && (
+        <div className={styles.seasons}>
+          {seasons.map((s) => (
+            <Focusable
+              key={s}
+              className={`${styles.seasonBtn} ${selectedSeason === s ? styles.seasonActive : ''}`}
+              onEnter={() => setSelectedSeason(s)}
+              onClick={() => setSelectedSeason(s)}
+            >
+              {t('detail.seasonN', { n: s })}
+            </Focusable>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.episodeList}>
+        {episodes.map((ep) => {
+          const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stills[ep.episode_num]);
+          const epProg = episodeProgress.get(`${ep.season}:${ep.episode_num}`) ?? 0;
+          const epDone = isFinishedProgress(epProg);
+          return (
+            <Focusable
+              key={ep.id}
+              className={styles.episode}
+              onEnter={() => handleEpisodeClick(ep)}
+              onClick={() => handleEpisodeClick(ep)}
+            >
+              <div className={styles.epThumbWrap}>
+                {thumb ? (
+                  <img src={thumb} alt={ep.title} loading="lazy" decoding="async" className={styles.epThumb} />
+                ) : (
+                  <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
+                )}
+                {epDone && <div className={styles.epDone}><CheckIcon /></div>}
+                {!epDone && epProg > 0 && (
+                  <div className={styles.epProgress}>
+                    <span style={{ width: `${epProg}%` }} />
+                  </div>
+                )}
+              </div>
+              <div className={styles.epInfo}>
+                <span className={styles.epNum}>{t('detail.episodeN', { n: ep.episode_num })}</span>
+                <span className={styles.epTitle}>{episodeLabel(ep.title, displayTitle, t('detail.episodeN', { n: ep.episode_num }))}</span>
+                {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
+                {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
+              </div>
+              <div className={styles.epPlay}>▶</div>
+            </Focusable>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const versionModalNode = showVersions && (
+    <div className={styles.versionModal} onClick={() => setShowVersions(false)} role="dialog" aria-modal="true">
+      <div className={styles.versionCard} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.versionHead}>
+          <span className={styles.versionTitle}>{t('detail.chooseVersion')}</span>
+          <button className={styles.versionClose} onClick={() => setShowVersions(false)} aria-label={t('common.close')}>✕</button>
+        </div>
+        <div className={styles.versionOpts}>
+          {variants.map((v, i) => (
+            <button key={v.series_id} type="button" className={styles.versionOpt} onClick={() => playVersion(v)}>
+              <span>{versionLabel(v.name, t('detail.source', { n: i + 1 }))}</span>
+              <PlayIcon />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Desktop (≥901px) : refonte « fond plein écran » (§Phase 4). Mobile garde
+  //    l'affiche portrait (rendu inchangé plus bas). ──────────────────────────
+  const isDesktop = useMediaQuery('(min-width: 901px)');
+  const belowRef = useRef<HTMLDivElement>(null);
+  const scrollDown = () => belowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const diaporamaImgs =
+    tmdb?.backdrops && tmdb.backdrops.length > 0
+      ? tmdb.backdrops
+      : [tmdb?.backdrop ?? info?.info.backdrop_path?.[0] ?? info?.info.cover ?? variant?.cover].filter(
+          (x): x is string => !!x,
+        );
+
+  if (isDesktop) {
+    return (
+      <div className={`${styles.page} ${styles.pageDesktop}`}>
+        {loading && <div className={styles.loadingFull}><AppLogo spin size={44} /></div>}
+        {error && <div className={styles.error}>⚠ {error}</div>}
+        {!loading && !error && (
+          <>
+            <DetailHero
+              backdrops={diaporamaImgs}
+              logo={tmdb?.logo}
+              title={displayTitle}
+              meta={
+                <>
+                  {year && <span>{year}</span>}
+                  {year && genre && <span className={styles.metaSep} />}
+                  {genre && <span>{genre}</span>}
+                  {(year || genre) && seasons.length > 0 && <span className={styles.metaSep} />}
+                  {seasons.length > 0 && (
+                    <span>{tc('detail.seasonsCountOne', 'detail.seasonsCountOther', seasons.length)}</span>
+                  )}
+                </>
+              }
+              ratingRow={
+                pct != null || rating || runtime ? (
+                  <>
+                    {pct != null ? (
+                      <>
+                        <span className={styles.tmdbBadge}>TMDb</span>
+                        <span className={styles.ratingPct}>{pct}%</span>
+                      </>
+                    ) : rating ? (
+                      <span className={styles.starBadge}>★ {rating}</span>
+                    ) : null}
+                    {(pct != null || rating) && runtime && <span className={styles.dotSep} />}
+                    {runtime && <span className={styles.runtime}>{runtime}</span>}
+                  </>
+                ) : undefined
+              }
+              synopsis={synopsis ?? undefined}
+              actions={
+                <>
+                  <Focusable
+                    className={styles.playBtn}
+                    focusKey={DETAIL_PLAY_FOCUS_KEY}
+                    onEnter={canResume ? handleResume : handleWatch}
+                    onClick={canResume ? handleResume : handleWatch}
+                  >
+                    <PlayIcon />
+                    {canResume ? t('detail.resume') : t('detail.watch')}
+                  </Focusable>
+                  {canResume && variants.length > 1 && (
+                    <Focusable
+                      className={styles.versionRoundBtn}
+                      ariaLabel={t('detail.changeVersion')}
+                      onEnter={handleChangeVersion}
+                      onClick={handleChangeVersion}
+                    >
+                      <VersionIcon />
+                    </Focusable>
+                  )}
+                  <Focusable
+                    className={`${styles.favBtn} ${isFavorite('series', String(seriesId)) ? styles.favActive : ''}`}
+                    ariaLabel={isFavorite('series', String(seriesId)) ? t('common.inList') : t('common.addToList')}
+                    onEnter={() => toggleFavorite({ type: 'series', id: String(seriesId), name: displayTitle, image: tmdb?.poster ?? info?.info.cover ?? variant?.cover ?? '' })}
+                    onClick={() => toggleFavorite({ type: 'series', id: String(seriesId), name: displayTitle, image: tmdb?.poster ?? info?.info.cover ?? variant?.cover ?? '' })}
+                  >
+                    <StarIcon filled={isFavorite('series', String(seriesId))} />
+                  </Focusable>
+                </>
+              }
+              rateInput={watchedInput}
+              starsFocusKey="rc-rate-stars"
+              onBack={() => navigate(-1)}
+              backFocusKey={DETAIL_BACK_FOCUS_KEY}
+              onBackArrowDown={() => setFocus(DETAIL_PLAY_FOCUS_KEY)}
+              onScrollDown={scrollDown}
+              showScrollCue
+            />
+
+            <div ref={belowRef} className={styles.belowFold}>
+              {episodesSection}
+              <DetailMedia tmdbCast={tmdb?.cast ?? []} xtreamCast={xtreamCast} />
+              <aside className={styles.aboutDesktop}>
+                <div className={styles.sectionLabel}>{t('detail.about')}</div>
+                <div className={styles.factsGrid}>
+                  {genre && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.genre')}</span><span className={styles.factVal}>{genre}</span></div>
+                  )}
+                  {releaseDate && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.release')}</span><span className={styles.factVal}>{releaseDate}</span></div>
+                  )}
+                  {director && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.director')}</span><span className={styles.factVal}>{director}</span></div>
+                  )}
+                  {rating && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.rating')}</span><span className={styles.factVal}>★ {rating}</span></div>
+                  )}
+                  <div className={styles.factRow}><span className={styles.factKey}>{t('detail.seasons')}</span><span className={styles.factVal}>{seasons.length}</span></div>
+                  {episodeCount > 0 && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.episodesFact')}</span><span className={styles.factVal}>{episodeCount}</span></div>
+                  )}
+                  {showVariants && (
+                    <div className={styles.factRow}><span className={styles.factKey}>{t('detail.versions')}</span><span className={styles.factVal}>{variants.length}</span></div>
+                  )}
+                </div>
+              </aside>
+            </div>
+          </>
+        )}
+        {versionModalNode}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       {/* Hero — desktop : backdrop paysage ; mobile : affiche portrait fondue */}
@@ -598,65 +804,9 @@ export function SeriesDetail() {
             <DetailMedia
               tmdbCast={tmdb?.cast ?? []}
               xtreamCast={xtreamCast}
-              images={tmdb?.backdrops ?? []}
             />
 
-            {/* Seasons / Episodes */}
-            <div className={styles.seasonsBlock}>
-              <div className={styles.sectionLabel}>{t('detail.episodesTitle')}</div>
-
-              {seasons.length > 1 && (
-                <div className={styles.seasons}>
-                  {seasons.map((s) => (
-                    <Focusable
-                      key={s}
-                      className={`${styles.seasonBtn} ${selectedSeason === s ? styles.seasonActive : ''}`}
-                      onEnter={() => setSelectedSeason(s)}
-                      onClick={() => setSelectedSeason(s)}
-                    >
-                      {t('detail.seasonN', { n: s })}
-                    </Focusable>
-                  ))}
-                </div>
-              )}
-
-              <div className={styles.episodeList}>
-                {episodes.map((ep) => {
-                  const thumb = safeImgUrl(ep.info.movie_image) || safeImgUrl(stills[ep.episode_num]);
-                  const epProg = episodeProgress.get(`${ep.season}:${ep.episode_num}`) ?? 0;
-                  const epDone = isFinishedProgress(epProg);
-                  return (
-                    <Focusable
-                      key={ep.id}
-                      className={styles.episode}
-                      onEnter={() => handleEpisodeClick(ep)}
-                      onClick={() => handleEpisodeClick(ep)}
-                    >
-                      <div className={styles.epThumbWrap}>
-                        {thumb ? (
-                          <img src={thumb} alt={ep.title} loading="lazy" decoding="async" className={styles.epThumb} />
-                        ) : (
-                          <div className={styles.epThumbPlaceholder}>{ep.episode_num}</div>
-                        )}
-                        {epDone && <div className={styles.epDone}><CheckIcon /></div>}
-                        {!epDone && epProg > 0 && (
-                          <div className={styles.epProgress}>
-                            <span style={{ width: `${epProg}%` }} />
-                          </div>
-                        )}
-                      </div>
-                      <div className={styles.epInfo}>
-                        <span className={styles.epNum}>{t('detail.episodeN', { n: ep.episode_num })}</span>
-                        <span className={styles.epTitle}>{episodeLabel(ep.title, displayTitle, t('detail.episodeN', { n: ep.episode_num }))}</span>
-                        {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
-                        {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
-                      </div>
-                      <div className={styles.epPlay}>▶</div>
-                    </Focusable>
-                  );
-                })}
-              </div>
-            </div>
+            {episodesSection}
 
             <aside className={styles.side}>
               <button

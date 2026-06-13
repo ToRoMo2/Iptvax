@@ -3,13 +3,17 @@
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
-  height: min(82vh, 760px);
-  min-height: 560px;
-  overflow: hidden;
-  /* Lumière : hero plein cadre (le backdrop passe SOUS la capsule flottante,
-     façon salle de cinéma) — plus de carte arrondie centrée. */
-  margin: 0;
   width: 100%;
+  /* Hero « salle de cinéma » : carte 16:9 posée SOUS la navbar, dimensionnée
+     pour que l'image HD entière tienne dans la hauteur dispo SANS rognage.
+     On cape la largeur à (hauteur dispo × 16/9) → la hauteur (width×9/16) reste
+     sous la barre du haut en laissant ~110px de « peek » du 1er rail (indice de
+     scroll). Sur 16:9 (backdrops TMDB) object-fit:cover ne rogne rien. */
+  max-width: calc((100vh - var(--topnav-h) - 110px) * 16 / 9);
+  aspect-ratio: 16 / 9;
+  margin: calc(var(--topnav-h) + 12px) auto 0;
+  overflow: hidden;
+  border-radius: var(--r-card);
   background: var(--bg);
   /* Allow vertical page scroll while JS handles horizontal swipe. */
   touch-action: pan-y;
@@ -69,29 +73,22 @@
   height: 100%;
   object-fit: cover;
   object-position: center;
-  filter: brightness(0.5);
+  /* Image HD montrée telle quelle : assombrissement léger seulement (la
+     lisibilité du texte vient des dégradés overlay, pas d'un voile global). */
+  filter: brightness(0.68);
   z-index: 1;
 }
 
-/* Ken Burns subtil : le backdrop du slide actif zoome lentement de
-   scale(1) → scale(1.06) sur 9 s (légèrement plus long que le timer 7 s
-   pour ne pas avoir de retour brutal visible avant la transition d'opacity). */
-.heroSlide.heroSlideActive .heroBg {
-  animation: hero-ken 9s ease-out forwards;
-}
-
-@keyframes hero-ken {
-  from { transform: scale(1); }
-  to   { transform: scale(1.06); }
-}
+/* Pas de Ken Burns : l'image HD reste FIXE (choix produit — on veut voir le
+   visuel net et stable, pas un mouvement de zoom). */
 
 .heroOverlayBottom {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 72%;
-  background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
+  height: 60%;
+  background: linear-gradient(to bottom, transparent 0%, rgba(20, 14, 9, 0.35) 55%, var(--bg) 100%);
   z-index: 1;
   pointer-events: none;
 }
@@ -448,10 +445,11 @@
 
 /* Hero loading skeleton */
 .heroSkeleton {
-  height: min(82vh, 760px);
-  min-height: 560px;
-  margin: 0;
+  max-width: calc((100vh - var(--topnav-h) - 110px) * 16 / 9);
+  aspect-ratio: 16 / 9;
+  margin: calc(var(--topnav-h) + 12px) auto 0;
   width: 100%;
+  border-radius: var(--r-card);
   background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 50%, var(--bg-card) 100%);
   background-size: 200% 100%;
   animation: vshimmer 2s linear infinite;
@@ -459,7 +457,8 @@
 
 /* ── Content rows ─────────────────────────────────────────────────────────── */
 .rows {
-  padding: var(--row-gap) 0 96px;
+  /* Top réduit : le 1er rail « peek » juste sous le hero (indice de scroll). */
+  padding: 30px 0 96px;
 }
 
 .row {
@@ -1031,6 +1030,8 @@
    ==================================================================== */
 @media (max-width: 900px) {
   .hero {
+    aspect-ratio: auto;
+    max-width: none;
     height: 64vh;
     min-height: 440px;
     max-height: 620px;
@@ -1045,6 +1046,8 @@
   .heroDots { gap: 6px; }
   .heroDotActive { width: 40px; }
   .heroSkeleton {
+    aspect-ratio: auto;
+    max-width: none;
     height: 64vh; min-height: 440px; max-height: 620px;
     margin: 0;
     width: 100%;

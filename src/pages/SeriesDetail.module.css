@@ -1063,3 +1063,33 @@
   .versionBtns, .seasons { gap: 6px; }
   .versionBtn, .seasonBtn { padding: 6px 12px; font-size: 11px; }
 }
+
+/* ====================================================================
+   Refonte DESKTOP « fond plein écran » (§Phase 4) — rendu uniquement
+   ≥901px (branché en JS via useMediaQuery). Le hero plein écran vit dans
+   DetailHero ; ci-dessous le bas de page révélé au scroll (casting /
+   épisodes / à propos) sur fond propre, sans image.
+   ==================================================================== */
+.pageDesktop {
+  background: var(--bg);
+}
+.loadingFull {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+}
+.belowFold {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(36px, 6vh, 72px) var(--pad-edge) 110px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(34px, 5vh, 58px);
+}
+.factsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px 32px;
+}

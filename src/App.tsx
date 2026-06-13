@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, lazy, Suspense } from 'react';
+import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react';
 import {
   BrowserRouter,
   HashRouter,
@@ -19,6 +19,7 @@ import { SocialProvider } from './contexts/SocialContext';
 import { PremiumOnly } from './components/PremiumOnly';
 import { XtreamProvider, useXtream } from './context/XtreamContext';
 import { TopNav } from './components/TopNav';
+import { SearchOverlay } from './components/SearchOverlay';
 import { PremiumTeaseBar } from './components/PremiumTeaseBar';
 import { FavoriteLimitToast } from './components/FavoriteLimitToast';
 import { RemoteControl } from './components/RemoteControl';
@@ -181,11 +182,23 @@ function ScrollToTop() {
 
 function Shell() {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Recherche : overlay translucide superposé (souris/tactile) ; sur TV la
+  // saisie/navigation à la télécommande reste plus simple sur la page /search
+  // pleine page → on y redirige au lieu d'ouvrir l'overlay.
+  const openSearch = () => {
+    if (isTvDevice()) navigate('/search');
+    else setSearchOpen(true);
+  };
+
   return (
     <div className="app-shell">
       <div className="layout">
         <RemoteControl />
-        <TopNav />
+        <TopNav onSearch={openSearch} />
+        <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
         <ScrollToTop />
         <main className="main-content">
           <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>

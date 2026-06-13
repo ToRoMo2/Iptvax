@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
@@ -9,20 +9,13 @@ import { PreviewCard } from '../components/PreviewCard';
 import { MediaCard } from '../components/MediaCard';
 import { RemoteSearch } from '../components/RemoteSearch';
 import { ScrollRail } from '../components/ScrollRail';
-import { groupByTitle, star5Label } from '../utils/catalog';
-import type {
-  LiveStream,
-  VodStream,
-  SeriesItem,
-  PlayerState,
-} from '../types/xtream.types';
+import { useCatalogSearch, SEARCH_MIN_LEN } from '../hooks/useCatalogSearch';
+import { star5Label } from '../utils/catalog';
+import type { LiveStream, PlayerState } from '../types/xtream.types';
 import browse from './Browse.module.css';
 import styles from './Search.module.css';
 
-const MIN_SEARCH_LEN = 3;
-// Plafond PAR section (chaînes / films / séries) — borne le nombre de cartes
-// montées à chaque frappe (anti-jank, voir docs/architecture.md §4).
-const RESULT_LIMIT = 60;
+const MIN_SEARCH_LEN = SEARCH_MIN_LEN;
 
 // ── Rangée « rail » (en-tête + scroll horizontal) ───────────────────────────
 // Même pattern que Movies / Series / Live (§IV-22/27) : chaque section de
@@ -59,117 +52,18 @@ export function Search() {
   const { t, tc } = useI18n();
   const navigate = useNavigate();
 
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  // Datasets globaux préchargés UNE fois au montage — la recherche filtre
-  // ensuite en mémoire (pas de fetch par frappe, pas de résultats partiels).
-  const [allLive, setAllLive] = useState<LiveStream[] | null>(null);
-  const [allMovies, setAllMovies] = useState<VodStream[] | null>(null);
-  const [allSeries, setAllSeries] = useState<SeriesItem[] | null>(null);
-  const loadedRef = useRef(false);
-
-  useEffect(() => {
-    if (!credentials || loadedRef.current) return;
-    loadedRef.current = true;
-
-    let alive = true;
-
-    // Filet de sécurité : si l'un des 3 catalogues stalle (réseau mobile
-    // silencieusement coupé), Promise.allSettled n'arrive jamais → loading
-    // reste true indéfiniment. Après 30 s on force les tableaux encore null
-    // à [] pour débloquer l'UI avec les résultats partiels disponibles.
-    // Le timeout HTTP (45 s dans http.ts) fera ensuite rejeter la Promise
-    // suspendue, ce qui purge son entrée du cache → le prochain passage sur
-    // la page relancera un vrai fetch.
-    const safetyTimer = setTimeout(() => {
-      if (!alive) return;
-      setAllLive((prev) => prev ?? []);
-      setAllMovies((prev) => prev ?? []);
-      setAllSeries((prev) => prev ?? []);
-    }, 30_000);
-
-    Promise.allSettled([
-      xtreamService.getLiveStreams(credentials),
-      xtreamService.getVodStreams(credentials),
-      xtreamService.getSeries(credentials),
-    ]).then(([live, movies, series]) => {
-      if (!alive) return;
-      clearTimeout(safetyTimer);
-      setAllLive(live.status === 'fulfilled' ? live.value : []);
-      setAllMovies(movies.status === 'fulfilled' ? movies.value : []);
-      setAllSeries(series.status === 'fulfilled' ? series.value : []);
-      if (
-        live.status === 'rejected' &&
-        movies.status === 'rejected' &&
-        series.status === 'rejected'
-      ) {
-        loadedRef.current = false;
-        setError(t('search.catalogError'));
-      }
-    });
-
-    return () => {
-      alive = false;
-      clearTimeout(safetyTimer);
-      // Permet au prochain montage (ou au re-run sur changement de credentials)
-      // de relancer les fetches si les creds ont changé.
-      loadedRef.current = false;
-    };
-  }, [credentials, t]);
-
-  useEffect(() => {
-    const id = setTimeout(() => setQuery(search.trim()), 200);
-    return () => clearTimeout(id);
-  }, [search]);
-
-  const isSearching = query.length >= MIN_SEARCH_LEN;
-  const loading = !allLive || !allMovies || !allSeries;
-
-  const liveResults = useMemo(() => {
-    if (!isSearching || !allLive) return [];
-    const q = query.toLowerCase();
-    const out: LiveStream[] = [];
-    for (const s of allLive) {
-      if (s.name.toLowerCase().includes(q)) {
-        out.push(s);
-        if (out.length >= RESULT_LIMIT) break;
-      }
-    }
-    return out;
-  }, [allLive, query, isSearching]);
-
-  // Films / séries : fusion des doublons (langues / qualités) en une carte,
-  // identique aux pages Films/Séries (utils/catalog.groupByTitle).
-  const movieGroups = useMemo(() => {
-    if (!isSearching || !allMovies) return [];
-    const q = query.toLowerCase();
-    const out: VodStream[] = [];
-    for (const s of allMovies) {
-      if (s.name.toLowerCase().includes(q)) {
-        out.push(s);
-        if (out.length >= RESULT_LIMIT) break;
-      }
-    }
-    return groupByTitle(out, (v) => v.name, (v) => v.rating_5based ?? 0);
-  }, [allMovies, query, isSearching]);
-
-  const seriesGroups = useMemo(() => {
-    if (!isSearching || !allSeries) return [];
-    const q = query.toLowerCase();
-    const out: SeriesItem[] = [];
-    for (const s of allSeries) {
-      if (s.name.toLowerCase().includes(q)) {
-        out.push(s);
-        if (out.length >= RESULT_LIMIT) break;
-      }
-    }
-    return groupByTitle(out, (s) => s.name, (s) => s.rating_5based ?? 0);
-  }, [allSeries, query, isSearching]);
-
-  const totalResults =
-    liveResults.length + movieGroups.length + seriesGroups.length;
+  const {
+    search,
+    setSearch,
+    query,
+    isSearching,
+    loading,
+    error,
+    liveResults,
+    movieGroups,
+    seriesGroups,
+    totalResults,
+  } = useCatalogSearch();
 
   const openChannel = (stream: LiveStream) => {
     if (!credentials) return;
