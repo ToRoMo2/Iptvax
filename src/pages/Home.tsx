@@ -48,6 +48,11 @@ function RemoveIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="12" height="12"><path d="M18 6 6 18M6 6l12 12"/></svg>
   );
 }
+function SparkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" aria-hidden="true"><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z"/></svg>
+  );
+}
 
 // Logo officiel TMDB en pastille — affiché obligatoirement quand on expose
 // des données TMDB côté UI. Voir conditions d'attribution de l'API :
@@ -661,8 +666,11 @@ export function Home() {
               {/* Content */}
               <div className={styles.heroContent}>
                 <div className={styles.heroEyebrow}>
-                  <span className={styles.heroEyebrowDot} />
+                  <span className={styles.heroEyebrowSpark}><SparkIcon /></span>
                   {t(slide.eyebrowKey)}
+                  <span className={styles.heroEyebrowSrc}>
+                    {isPremium ? 'Reco TMDB' : 'Playlist'}
+                  </span>
                 </div>
                 <h1 className={styles.heroTitle}>{slide.title}</h1>
                 <div className={styles.heroMeta}>
@@ -706,9 +714,9 @@ export function Home() {
             </div>
           ))}
 
-          {/* Flèches de navigation */}
+          {/* Cluster flèches + dots, ancré en bas à droite (façon prototype Lumière) */}
           {heroSlides.length > 1 && (
-            <>
+            <div className={styles.heroNavCluster}>
               <button
                 className={`${styles.heroNav} ${styles.heroNavPrev}`}
                 onClick={() => stepSlide(-1)}
@@ -716,6 +724,18 @@ export function Home() {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m15 18-6-6 6-6"/></svg>
               </button>
+              <div className={styles.heroDots}>
+                {heroSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`${styles.heroDot} ${i === heroIdx ? styles.heroDotActive : ''}`}
+                    onClick={() => goToSlide(i)}
+                    aria-label={t('home.slideN', { n: i + 1 })}
+                  >
+                    {i === heroIdx && <span className={styles.heroDotProgress} />}
+                  </button>
+                ))}
+              </div>
               <button
                 className={`${styles.heroNav} ${styles.heroNavNext}`}
                 onClick={() => stepSlide(1)}
@@ -723,7 +743,7 @@ export function Home() {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="m9 18 6-6-6-6"/></svg>
               </button>
-            </>
+            </div>
           )}
 
           {/* Pastille source des reco (coin haut-droit du hero).
@@ -752,21 +772,6 @@ export function Home() {
             </button>
           )}
 
-          {/* Rail indicator */}
-          {heroSlides.length > 1 && (
-            <div className={styles.heroDots}>
-              {heroSlides.map((_, i) => (
-                <button
-                  key={i}
-                  className={`${styles.heroDot} ${i === heroIdx ? styles.heroDotActive : ''}`}
-                  onClick={() => goToSlide(i)}
-                  aria-label={t('home.slideN', { n: i + 1 })}
-                >
-                  {i === heroIdx && <span className={styles.heroDotProgress} />}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

@@ -1,6 +1,6 @@
 /* ====================================================================
-   VANTA · Video Player chrome — pure black stage, white primary,
-   single cyan accent for secondary highlights, glows not shadows.
+   LUMIÈRE · Lecteur vidéo — scène nuit chaude, projecteur doré,
+   verre dépoli crème, accent or employé comme LUMIÈRE (jamais cyan).
    ==================================================================== */
 
 /* ── Wrapper / stage ── */
@@ -8,7 +8,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background: #000;
+  background: #0A0704; /* nuit espresso (la surface native se rend derrière la WebView transparente) */
   overflow: hidden;
   cursor: pointer;
   user-select: none;
@@ -22,7 +22,7 @@
   height: 100%;
   display: block;
   object-fit: contain;
-  background: #000;
+  background: #0A0704;
   /* Supprime le flash bleu Android au tap sur la surface vidéo */
   -webkit-tap-highlight-color: transparent;
 }
@@ -49,19 +49,20 @@
   top: calc(14px + var(--safe-top));
   left: 14px;
   z-index: 22;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
   color: var(--t-1);
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
   -webkit-tap-highlight-color: transparent;
   transition: background var(--d-micro) var(--ease);
 }
-.mobileBackBtn:hover { background: rgba(0, 0, 0, 0.68); }
+.mobileBackBtn:hover { background: var(--glass-strong); }
 
 /* ── Bouton format d'image (fit ↔ fill) — coin haut-droit, non-live.
    Même style que mobileBackBtn mais côté droit. ── */
@@ -304,11 +305,11 @@
   gap: 14px;
   padding: 26px 34px;
   border-radius: var(--r-card);
-  background: rgba(14, 16, 20, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  background: rgba(25, 18, 13, 0.5);
+  border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.3);
+  backdrop-filter: blur(var(--blur)) saturate(1.3);
+  box-shadow: var(--glow-pop);
   animation: vp-fade-pop 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -369,12 +370,12 @@
   justify-content: center;
   height: 44px;
   padding: 0 22px;
-  background: #FFFFFF;
-  color: #000;
+  background: var(--accent-grad);
+  color: #2A1B07;
   border: 0;
-  border-radius: var(--r-ui);
+  border-radius: var(--r-pill);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
   pointer-events: all;
@@ -382,7 +383,7 @@
 
 .retryBtn:hover {
   transform: scale(1.02);
-  box-shadow: 0 0 24px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 24px var(--accent-glow);
 }
 
 .retryBtnAlt {
@@ -673,7 +674,7 @@
   left: 0;
   top: 0;
   height: 100%;
-  background: #FFFFFF;
+  background: var(--accent-grad);
   border-radius: 2px;
   pointer-events: none;
 }
@@ -685,8 +686,8 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #FFFFFF;
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.45);
+  background: var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow), 0 0 0 4px var(--accent-glow-soft);
   pointer-events: none;
 }
 
@@ -800,7 +801,7 @@
 .volumeSlider {
   width: 80px;
   height: 2px;
-  accent-color: #FFFFFF;
+  accent-color: var(--accent);
   cursor: pointer;
 }
 
@@ -916,7 +917,7 @@
 .panelItemActive {
   color: var(--accent) !important;
   border-color: var(--accent) !important;
-  background: rgba(0, 200, 220, 0.06);
+  background: var(--accent-faint);
 }
 
 .panelItemCheck { color: var(--accent); }
@@ -1320,7 +1321,7 @@
   .progressKnob {
     width: 15px;
     height: 15px;
-    box-shadow: 0 0 0 4px rgba(0, 200, 220, 0.18), 0 0 16px var(--accent-glow);
+    box-shadow: 0 0 0 4px var(--accent-glow-soft), 0 0 16px var(--accent-glow);
   }
   .timeLabel { font-size: 11px; min-width: 38px; }
 
@@ -1337,11 +1338,11 @@
   .bottomBarFilled {
     padding: 7px 8px;
     border-radius: var(--r-pill);
-    background: rgba(14, 16, 20, 0.52);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    -webkit-backdrop-filter: blur(18px) saturate(1.15);
-    backdrop-filter: blur(18px) saturate(1.15);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    background: rgba(25, 18, 13, 0.55);
+    border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    backdrop-filter: blur(18px) saturate(1.3);
+    box-shadow: var(--glow-pop);
   }
 
   /* Boutons généraux : zone tactile 44px Apple HIG */

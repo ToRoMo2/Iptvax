@@ -35,20 +35,21 @@
   transform: translateY(-50%);
   /* z-index > card:hover (5) pour ne pas être masqué quand la carte scale */
   z-index: 10;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(10, 10, 10, 0.85);
+  border: 1px solid var(--glass-edge);
+  background: var(--glass-strong);
   color: var(--t-1);
   cursor: pointer;
   display: grid;
   place-items: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glow-pop);
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
 }
 
 .arrowLeft  { left: 8px; }
@@ -60,7 +61,8 @@
 }
 
 .arrowVisible:hover {
-  background: rgba(35, 35, 35, 0.95);
+  background: var(--accent-grad);
+  color: #2A1B07;
   transform: translateY(-50%) scale(1.1);
 }
 

@@ -87,7 +87,7 @@
   justify-content: center;
   font-size: 22px;
   border-radius: 50%;
-  color: #000;
+  color: #2A1B07;
 }
 
 .ident {
@@ -116,7 +116,7 @@
   padding: 1px 8px;
   font-size: 11px;
   font-weight: 600;
-  color: #000;
+  color: #2A1B07;
   background: var(--accent);
   border-radius: var(--r-pill);
 }
@@ -135,8 +135,8 @@
   padding: 0 16px;
   font-size: 13px;
   font-weight: 600;
-  color: #000;
-  background: var(--t-1);
+  color: #2A1B07;
+  background: var(--accent-grad);
   border-radius: var(--r-pill);
   transition: background var(--d-micro) var(--ease),
     color var(--d-micro) var(--ease);

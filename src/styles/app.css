@@ -337,3 +337,169 @@ html.electron-chrome { --safe-top: var(--titlebar-h); }
 /* Plein écran natif (lecteur mpv) : la barre de titre est masquée → on libère le
    strip pour que la vidéo occupe toute la hauteur. */
 html.electron-chrome.electron-fullscreen { --safe-top: 0px; }
+
+/* ====================================================================
+   DIRECTION ARTISTIQUE · « LUMIÈRE / HALO DORÉ »
+   --------------------------------------------------------------------
+   Re-skin complet de l'APP CONNECTÉE (AppGate : Connexion, Profils,
+   Shell, Lecteur). Nuit chaude espresso (jamais noir pur, jamais rouge),
+   signature OR → CHAMPAGNE employée comme une lumière, verre crème
+   translucide, grain de film subtil, jade pour les états « online ».
+
+   Scopé sous `html.lumiere` (classe posée par main.tsx quand !isVitrine)
+   → le SITE VITRINE (web pur) conserve le système « Vanta » intact.
+   Mêmes noms de tokens que Vanta → tout le CSS de l'app hérite : aucun
+   composant, route ou logique n'est modifié (re-skin 100 % CSS + tokens).
+   Les aliases var()-based de :root (--text-*, --border, --bg-0…) suivent
+   automatiquement les tokens de base ré-habillés ci-dessous.
+   ==================================================================== */
+html.lumiere {
+  /* ── Surfaces — nuit chaude ─────────────────────────────────────── */
+  --bg:            #19120D;   /* espresso profond légèrement ambré */
+  --bg-elev:       #211810;
+  --bg-card:       #271C13;
+  --bg-card-hover: #31251A;
+  --bg-input:      rgba(253, 248, 242, 0.04);
+
+  /* ── Verre chaud crème (panneaux / sheets / popovers) ───────────── */
+  --glass:         rgba(252, 244, 233, 0.07);
+  --glass-strong:  rgba(252, 244, 233, 0.10);
+  --glass-edge:    rgba(252, 244, 233, 0.14);
+  --blur:          22px;
+
+  /* ── Strokes — hairlines chaudes ────────────────────────────────── */
+  --line:          rgba(253, 246, 235, 0.10);
+  --line-soft:     rgba(253, 246, 235, 0.05);
+  --line-strong:   rgba(253, 246, 235, 0.20);
+
+  /* ── Texte crème (jamais blanc pur) ─────────────────────────────── */
+  --t-1:           #FDF8F2;
+  --t-2:           #CCBFB0;
+  --t-3:           #978A7B;
+  --t-4:           #6E6354;
+
+  /* ── Signature : OR / AMBRE → CHAMPAGNE, employée comme une lumière ─ */
+  --accent:        #F5A623;
+  --accent-2:      #E8C27E;
+  --accent-deep:   #D98A12;
+  --accent-grad:   linear-gradient(118deg, #F5A623 0%, #F3B658 46%, #E8C27E 100%);
+  --accent-grad-rich: linear-gradient(118deg, #E08A0E 0%, #F5A623 50%, #F3CE92 100%);
+  --accent-glow:   rgba(245, 166, 35, 0.40);
+  --accent-glow-soft: rgba(245, 166, 35, 0.20);
+  --accent-faint:  rgba(245, 166, 35, 0.11);
+  --accent-light:  var(--accent-2);
+  --accent-dark:   var(--accent-deep);
+
+  /* ── Secondaire : jade / menthe → online / succès / connecté ────── */
+  --jade:          #5BD6A8;
+  --jade-glow:     rgba(91, 214, 168, 0.34);
+
+  /* ── Live — micro-pastille fonctionnelle uniquement (LIVE / REC) ── */
+  --live:          #FF5341;
+  --live-glow-c:   rgba(255, 83, 65, 0.50);
+
+  /* ── TMDb — badge de note sur les fiches détail ─────────────────── */
+  --tmdb:          #21D07A;
+  --tmdb-glow:     rgba(33, 208, 122, 0.32);
+
+  /* ── États sémantiques ──────────────────────────────────────────── */
+  --success:       var(--jade);
+  --error:         var(--live);
+  --warning:       var(--accent);
+
+  /* ── Rayons — coins plus doux, cossus ───────────────────────────── */
+  --r-card:        16px;
+  --r-ui:          11px;
+  --radius-xl:     22px;
+
+  /* ── Glows dorés diffus plutôt qu'ombres dures ──────────────────── */
+  --glow-card:     0 18px 50px -22px rgba(0, 0, 0, 0.7);
+  --glow-warm:     0 0 0 1px var(--accent-glow-soft), 0 14px 44px -16px var(--accent-glow);
+  --glow-focus:    0 0 0 3px var(--accent), 0 0 26px var(--accent-glow);
+  --glow-pop:      0 24px 70px -20px rgba(0, 0, 0, 0.78);
+
+  /* ── Grain de film (overlay fractal, inline → aucun chemin) ─────── */
+  --grain:         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  --grain-opacity: 0.05;
+
+  /* ── Motion — easing maison « lumière » ─────────────────────────── */
+  --ease:          cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --d-page:        320ms;
+
+  /* ── Avatars de profil — modernisés « Lumière / Halo doré » ─────── */
+  --profile-1:     #F5A623;   /* or          */
+  --profile-2:     #E8825E;   /* terracotta  */
+  --profile-3:     #D96A8B;   /* rose chaud  */
+  --profile-4:     #A88BE0;   /* lilas chaud */
+  --profile-5:     #5BD6A8;   /* jade        */
+  --profile-6:     #E8C27E;   /* champagne   */
+
+  /* ── Typo — duo display serif + texte grotesk ───────────────────── */
+  --font-display:  "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-ui:       "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+/* ── Texte UI : Hanken Grotesk (métriques proches d'Inter → aucun
+   décalage de mise en page) ──────────────────────────────────────── */
+html.lumiere,
+html.lumiere body,
+html.lumiere #root {
+  font-family: var(--font-ui);
+  letter-spacing: -0.006em;
+}
+
+/* ── Sélection + scrollbars chaudes ─────────────────────────────────── */
+html.lumiere ::selection { background: var(--accent); color: #2A1B07; }
+html.lumiere ::-webkit-scrollbar-thumb { background: rgba(253, 246, 235, 0.12); }
+html.lumiere ::-webkit-scrollbar-thumb:hover { background: rgba(253, 246, 235, 0.22); }
+html.lumiere .main-content::-webkit-scrollbar-thumb { background: rgba(253, 246, 235, 0.10); }
+
+/* ── Boutons — CTA en lumière dorée, secondaire en verre, pilule ────── */
+html.lumiere .btn { border-radius: var(--r-pill); }
+html.lumiere .btn-primary {
+  background: var(--accent-grad);
+  color: #2A1B07;
+  box-shadow: 0 8px 26px -10px var(--accent-glow);
+}
+html.lumiere .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px -10px var(--accent-glow);
+}
+html.lumiere .btn-secondary {
+  background: var(--glass);
+  color: var(--t-1);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+}
+html.lumiere .btn-secondary:hover {
+  border-color: var(--line-strong);
+  background: var(--glass-strong);
+  transform: translateY(-2px);
+}
+html.lumiere .btn-ghost { border-radius: var(--r-pill); }
+/* Halo de focus clavier/D-pad doré (remplace le halo blanc Vanta) */
+html.lumiere .btn:focus-visible {
+  box-shadow: var(--glow-focus);
+}
+
+/* ── Spinner de chargement — anneau doré ────────────────────────────── */
+html.lumiere .spinner { border-color: rgba(253, 246, 235, 0.12); border-top-color: var(--accent); }
+
+/* ── Grain de film subtil sur la grande surface de l'app (jamais sur le
+   texte : posé en z-index négatif, sous le contenu, au-dessus du fond) ─ */
+html.lumiere .app-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--grain);
+  background-size: 180px 180px;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.lumiere .app-shell::after { display: none; }
+}

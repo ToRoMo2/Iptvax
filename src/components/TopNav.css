@@ -1,21 +1,22 @@
 /* ====================================================================
-   IPTVAX · Top nav — floating centered capsule (nav links only)
-   Brand fixed left · Profile fixed right · outside the capsule.
+   IPTVAX · LUMIÈRE — Chrome
+   Capsule top centrée (desktop/TV, libellés toujours visibles, onglet
+   actif en pilule dorée) · marque sérif à gauche · puce profil verre à
+   droite · bottom-nav verre (mobile). Classes/hooks conservés depuis
+   TopNav.tsx (rc-open, scrolled, mobile, safe-areas).
    ==================================================================== */
 
-/* ---- Brand — fixed left ------------------------------------------- */
+/* ---- Marque — fixée à gauche (wordmark sérif) --------------------- */
 .brand-fixed {
   position: fixed;
-  /* + var(--safe-top) : dégage la barre de statut sur natif Android edge-to-edge
-     (env=0 sur web → top: 18px inchangé). */
-  top: calc(18px + var(--safe-top));
-  left: 28px;
+  /* + var(--safe-top) : dégage la barre de statut sur natif Android edge-to-edge. */
+  top: calc(22px + var(--safe-top));
+  left: var(--pad-edge);
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   height: 48px;
-  /* Bouton cliquable → Accueil. Reset des styles natifs du <button>. */
   background: transparent;
   border: 0;
   padding: 0;
@@ -24,648 +25,374 @@
   cursor: pointer;
   transition: transform var(--d-micro) var(--ease), opacity var(--d-micro) var(--ease);
 }
-.brand-fixed:hover { opacity: 0.82; }
-.brand-fixed:active { transform: scale(0.94); }
-.brand-fixed .brand-mark {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
-  flex-shrink: 0;
-}
+.brand-fixed:hover { opacity: 0.85; }
+.brand-fixed:active { transform: scale(0.95); }
 .brand-fixed .brand-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
+  font-family: var(--font-display);
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-weight: 400;
   color: var(--t-1);
   white-space: nowrap;
 }
+.brand-fixed .brand-ax {
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
 
-/* ---- Navbar capsule (centered) ------------------------------------ */
+/* ---- Capsule de navigation (desktop / TV) ------------------------- */
 .topnav {
   position: fixed;
   top: calc(18px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 40;
+  z-index: 38;
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 48px;
-  padding: 4px 6px;
-  border-radius: 999px;
-  background: rgba(8, 8, 8, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: saturate(160%) blur(24px);
-  -webkit-backdrop-filter: saturate(160%) blur(24px);
-  transition:
-    padding 320ms var(--ease),
-    gap 320ms var(--ease),
-    background 240ms var(--ease),
-    border-color 240ms var(--ease),
-    box-shadow 320ms var(--ease);
-}
-.topnav:hover,
-.topnav:focus-within {
-  padding: 4px 10px;
   gap: 6px;
-  background: rgba(8, 8, 8, 0.78);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 48px rgba(0, 0, 0, 0.5);
+  padding: 7px 8px;
+  border-radius: var(--r-pill);
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(var(--blur)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.3);
+  box-shadow: var(--glow-pop);
+  transition: background 240ms var(--ease), border-color 240ms var(--ease), box-shadow 320ms var(--ease);
 }
-.topnav.scrolled {
-  background: rgba(8, 8, 8, 0.7);
-  border-color: rgba(255, 255, 255, 0.08);
-}
+.topnav.scrolled { background: var(--glass-strong); border-color: var(--line-strong); }
 
-/* ---- Nav links ---------------------------------------------------- */
-.topnav .links {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-/* Wrapper Focusable → border-radius 999px pour que rc-focused
-   suive la forme pill et non un carré */
-.topnav .nav-foc {
-  border-radius: 999px;
-}
+.topnav .links { display: flex; align-items: center; gap: 2px; }
+.topnav .nav-foc { border-radius: var(--r-pill); }
 
 .topnav .link {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  height: 40px;
-  padding: 0 10px;
-  border-radius: 999px;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
   background: transparent;
   border: 0;
   color: var(--t-2);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 500;
-  letter-spacing: 0.005em;
   cursor: pointer;
   white-space: nowrap;
-  transition:
-    color var(--d-micro) var(--ease),
-    background var(--d-micro) var(--ease),
-    padding 320ms var(--ease),
-    gap 320ms var(--ease);
+  transition: color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
 }
-.topnav .link .ic {
-  width: 18px; height: 18px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  transition: color var(--d-micro) var(--ease);
-}
-.topnav .link .ic svg { width: 18px; height: 18px; }
-.topnav .link .lbl {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition:
-    max-width 320ms var(--ease),
-    margin-left 320ms var(--ease),
-    opacity 200ms var(--ease);
-}
-.topnav:hover .link .lbl,
-.topnav:focus-within .link .lbl {
-  max-width: 100px;
-  margin-left: 8px;
-  opacity: 1;
-  transition-delay: 80ms;
-}
+/* Desktop : libellés seuls dans la capsule (icônes réservées à la bottom-nav). */
+.topnav .link .ic { display: none; }
+.topnav .link .lbl { white-space: nowrap; }
 .topnav .link:hover,
-.topnav .link:focus-visible {
-  color: var(--t-1);
-  background: rgba(255, 255, 255, 0.06);
-  outline: none;
-}
-.topnav .link.active { color: var(--t-1); }
-.topnav .link.active::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 4px;
-  transform: translateX(-50%);
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
-  transition: width 240ms var(--ease);
-}
-.topnav:hover .link.active::after,
-.topnav:focus-within .link.active::after {
-  width: 14px;
-  border-radius: 2px;
+.topnav .link:focus-visible { color: var(--t-1); background: var(--glass); outline: none; }
+.topnav .link.active {
+  color: #2A1B07;
+  background: var(--accent-grad);
+  box-shadow: 0 0 20px var(--accent-glow);
+  font-weight: 600;
 }
 
-/* ---- Séparateur + bouton recherche -------------------------------- */
-.topnav .nav-sep-right {
+/* ---- Séparateurs + bouton recherche ------------------------------- */
+.topnav .nav-sep-right,
+.topnav .nav-sep-premium {
   width: 1px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 22px;
+  background: var(--line);
   margin: 0 4px;
-  opacity: 0;
-  transition: opacity 240ms var(--ease);
+  flex-shrink: 0;
 }
-.topnav:hover .nav-sep-right,
-.topnav:focus-within .nav-sep-right {
-  opacity: 1;
-  transition-delay: 100ms;
-}
-
-/* icon-btn : border-radius 50% → rc-focused sera circulaire */
 .topnav .icon-btn {
-  width: 40px; height: 40px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   color: var(--t-2);
-  border-radius: 50%;
   background: transparent;
   border: 0;
   cursor: pointer;
-  transition:
-    color var(--d-micro) var(--ease),
-    background var(--d-micro) var(--ease);
+  transition: color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
 }
-.topnav .icon-btn:hover { color: var(--t-1); background: rgba(255, 255, 255, 0.06); }
+.topnav .icon-btn:hover { color: var(--t-1); background: var(--glass); }
 
-/* ---- Profil — fixed right ---------------------------------------- */
+/* ---- Premium (pilule dorée riche / badge verre) ------------------- */
+.topnav .premium-badge,
+.topnav .upgrade-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.topnav .upgrade-cta {
+  background: var(--accent-grad-rich);
+  color: #2A1B07;
+  box-shadow: 0 0 18px var(--accent-glow);
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
+}
+.topnav .upgrade-cta:hover { transform: translateY(-1px); box-shadow: 0 0 26px var(--accent-glow); }
+.topnav .premium-badge {
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-glow-soft);
+  color: var(--accent-2);
+  cursor: default;
+  user-select: none;
+}
+.prem-icon, .upgrade-icon { font-size: 12px; line-height: 1; }
+.prem-lbl, .upgrade-lbl { font-size: 13.5px; font-weight: 700; }
+
+/* ---- Profil — puce verre, fixée à droite -------------------------- */
 .profile-fixed {
   position: fixed;
-  top: calc(18px + var(--safe-top));
-  right: 28px;
+  top: calc(22px + var(--safe-top));
+  right: var(--pad-edge);
   z-index: 40;
   display: flex;
   align-items: center;
   height: 48px;
 }
-.profile-fixed .profile-wrapper {
-  position: relative;
-}
-
-/* Le Focusable rend une <div className="profile"> */
+.profile-fixed .profile-wrapper { position: relative; }
 .profile-fixed .profile {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0;
-  height: 40px;
-  padding: 4px 6px;
-  border-radius: 999px;
-  background: rgba(8, 8, 8, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: saturate(160%) blur(24px);
-  -webkit-backdrop-filter: saturate(160%) blur(24px);
+  gap: 10px;
+  height: 48px;
+  padding: 5px 14px 5px 5px;
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   cursor: pointer;
-  transition:
-    background var(--d-micro) var(--ease),
-    border-color 240ms var(--ease),
-    box-shadow 320ms var(--ease),
-    padding 320ms var(--ease),
-    gap 320ms var(--ease);
+  transition: background var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
 }
 .profile-fixed .profile:hover,
-.profile-fixed.rc-open .profile {
-  padding: 4px 12px 4px 6px;
-  gap: 8px;
-  background: rgba(8, 8, 8, 0.78);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 48px rgba(0, 0, 0, 0.5);
-}
+.profile-fixed.rc-open .profile { border-color: var(--line-strong); background: var(--glass-strong); }
 
 .profile-fixed .profile .avatar-btn {
-  width: 30px; height: 30px;
-  border-radius: 9px;
-  background:
-    radial-gradient(circle at 32% 26%,
-      color-mix(in srgb, var(--pf, var(--accent)) 42%, transparent),
-      color-mix(in srgb, var(--pf, var(--accent)) 8%, transparent) 70%),
-    #0c0c0c;
-  display: grid; place-items: center;
-  border: 1px solid color-mix(in srgb, var(--pf, var(--accent)) 32%, transparent);
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  background: radial-gradient(circle at 35% 30%,
+    color-mix(in oklab, var(--pf, var(--accent)) 72%, white 10%),
+    var(--pf, var(--accent)));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
 }
-.profile-fixed .profile .avatar-btn .avatar-emoji {
-  font-size: 16px;
+.profile-fixed .profile .avatar-btn .avatar-emoji { font-size: 19px; line-height: 1; }
+.profile-fixed .avatar-crown {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-grad-rich);
+  color: #2A1B07;
+  font-size: 8px;
   line-height: 1;
+  box-shadow: 0 0 8px var(--accent-glow);
+  border: 1.5px solid var(--bg);
+  pointer-events: none;
+  z-index: 1;
 }
-
 .profile-fixed .profile .who {
   display: flex;
   flex-direction: column;
-  text-align: left;
   line-height: 1.2;
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition:
-    max-width 320ms var(--ease),
-    opacity 200ms var(--ease);
+  padding-right: 4px;
+  text-align: left;
 }
-.profile-fixed .profile:hover .who,
-.profile-fixed.rc-open .profile .who {
-  max-width: 100px;
-  opacity: 1;
-  transition-delay: 60ms;
-}
-.profile-fixed .profile .who .name {
-  font-size: 12px; font-weight: 500; color: var(--t-1);
-  white-space: nowrap;
-}
-.profile-fixed .profile .who .plan {
-  font-size: 10px;
-  color: var(--t-3);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
+.profile-fixed .profile .who .name { font-size: 13.5px; font-weight: 600; color: var(--t-1); white-space: nowrap; }
+.profile-fixed .profile .who .plan { font-size: 11px; color: var(--t-3); white-space: nowrap; }
 
-/* ---- Déploiement au focus télécommande (norigin) ------------------ */
-/* Navbar */
-.topnav.rc-open {
-  padding: 4px 10px;
-  gap: 6px;
-  background: rgba(8, 8, 8, 0.78);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 48px rgba(0, 0, 0, 0.5);
-}
-.topnav.rc-open .link .lbl {
-  max-width: 100px;
-  margin-left: 8px;
-  opacity: 1;
-  transition-delay: 80ms;
-}
-.topnav.rc-open .link.active::after {
-  width: 14px;
-  border-radius: 2px;
-}
-.topnav.rc-open .nav-sep-right {
-  opacity: 1;
-  transition-delay: 100ms;
+/* ---- Hooks non utilisés sur desktop ------------------------------- */
+.search-fixed-mobile { display: none; }
+.premium-fixed-mobile { display: none; }
+.bottomnav { display: none; }
+.topbar-glass { display: none; }
+
+/* ====================================================================
+   TABLETTE (641–900) : capsule conservée, libellés compactés
+   ==================================================================== */
+@media (max-width: 900px) and (min-width: 641px) {
+  .brand-fixed { top: calc(16px + var(--safe-top)); height: 44px; }
+  .brand-fixed .brand-name { font-size: 22px; }
+  .topnav { top: calc(16px + var(--safe-top)); }
+  .topnav .link { height: 38px; padding: 0 13px; font-size: 13.5px; }
+  .profile-fixed { top: calc(16px + var(--safe-top)); height: 44px; }
+  /* Premium compact (icône seule) pour libérer de la place. */
+  .topnav .prem-lbl, .topnav .upgrade-lbl { display: none; }
+  .topnav .premium-badge, .topnav .upgrade-cta { padding: 0 12px; }
 }
 
 /* ====================================================================
-   Bottom navigation — mobile only
-   Style "app native" : barre fixée au bas, fond blur, onglets icon + label.
-   Safe-area iOS prise en compte via padding-bottom dynamique.
+   MOBILE ≤640 : capsule → bottom-nav ; marque + recherche + Premium +
+   profil flottent en haut. Bandeau verre unifié au scroll.
    ==================================================================== */
-.bottomnav {
-  display: none; /* desktop : capsule top utilisée à la place */
-}
-
-.search-fixed-mobile {
-  display: none; /* desktop : la recherche vit dans la capsule .topnav */
-}
-
-/* ── Bandeau glassmorphism top — mobile uniquement ────────────────────────
-   Couvre la zone 0→--topnav-h pour unifier le fond verre derrière le logo,
-   la loupe et le profil quand le contenu défile en dessous.
-   • z-index 38 : sous les boutons fixes (z-40) et sous le sticky header (z-39).
-   • pointer-events none : les touches passent à travers vers les boutons.
-   • Opacity 0→1 (transition) : l'effet verre est déjà composité en mémoire
-     GPU, on l'amène sans à-coup dès que scrolled est true. */
-.topbar-glass {
-  display: none; /* caché sur desktop, activé dans @media 640px ci-dessous */
-}
-
 @media (max-width: 640px) {
-  /* ── Cacher la capsule top sur mobile ─────────────────────────────── */
   .topnav { display: none; }
 
-  /* ── Bandeau glassmorphism — fond verre unifié sous les boutons fixes ─
-     Par défaut (Accueil, Favoris…) : couvre uniquement la zone nav.
-     Sur les pages catalogue (.browse) : s'étend pour couvrir aussi le sticky
-     header (Films/Séries/Chaînes) en un seul contexte backdrop-filter,
-     évitant la coupure visible entre les deux zones. */
+  /* Bandeau verre derrière la zone fixe du haut, révélé au scroll. */
   .topbar-glass {
     display: block;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: var(--topnav-h);   /* Accueil : juste la zone nav */
+    top: 0; left: 0; right: 0;
+    height: var(--topnav-h);
     z-index: 38;
     pointer-events: none;
-    background: rgba(0, 0, 0, 0.45);
-    -webkit-backdrop-filter: saturate(160%) blur(24px);
-    backdrop-filter: saturate(160%) blur(24px);
+    background: rgba(20, 14, 9, 0.5);
+    backdrop-filter: saturate(150%) blur(var(--blur));
+    -webkit-backdrop-filter: saturate(150%) blur(var(--blur));
     opacity: 0;
     transition: opacity 220ms var(--ease);
   }
-  .topbar-glass.scrolled {
-    opacity: 1;
-  }
-  /* Pages catalogue (Films / Séries / Chaînes) : étend la surface verre
-     pour englober le sticky header → un seul contexte de flou, zéro seam. */
+  .topbar-glass.scrolled { opacity: 1; }
   .topbar-glass.browse {
     height: 300px;
     -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
     mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
   }
 
-  /* ── Brand : capsule glass solide (cohérente avec recherche/profil) plutôt
-        qu'un logo flottant nu. Posée sous la barre de statut via --safe-top. ── */
+  /* Marque : wordmark sérif conservé (compacté). */
   .brand-fixed {
-    top: calc(12px + var(--safe-top));
-    left: 12px;
-    gap: 0;
-    width: 38px;
-    height: 38px;
-    padding: 0;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: rgba(8, 8, 8, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: saturate(160%) blur(24px);
-    -webkit-backdrop-filter: saturate(160%) blur(24px);
+    top: calc(13px + var(--safe-top));
+    left: var(--pad-edge);
+    height: 40px;
+    gap: 7px;
   }
-  .brand-fixed .brand-name { display: none; }
+  .brand-fixed .brand-name { font-size: 20px; }
 
-  .profile-fixed { top: calc(12px + var(--safe-top)); right: 12px; height: 40px; }
-  .profile-fixed .profile { padding: 3px 4px; }
-  .profile-fixed .profile .avatar-btn { width: 30px; height: 30px; }
-  .profile-fixed .profile:hover .who,
-  .profile-fixed.rc-open .profile .who { max-width: 0; opacity: 0; }
+  /* Profil → avatar seul. */
+  .profile-fixed { top: calc(11px + var(--safe-top)); right: var(--pad-edge); height: 40px; }
+  .profile-fixed .profile { height: 40px; padding: 4px; gap: 0; }
+  .profile-fixed .profile .who { display: none; }
+  .profile-fixed .profile .avatar-btn { width: 32px; height: 32px; }
+  .profile-fixed .profile .avatar-btn .avatar-emoji { font-size: 16px; }
 
-  /* ── CTA Premium / badge — fixe centré dans le header ───────────── */
-  .premium-fixed-mobile {
-    display: inline-flex;
-    position: fixed;
-    top: calc(12px + var(--safe-top));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 40;
-    height: 38px;
-    /* Réutilise les styles .premium-badge / .upgrade-cta définis plus haut
-       en les contextualisant pour la taille mobile */
-    padding: 0 14px;
-    font-size: 12px;
-    gap: 6px;
-    white-space: nowrap;
-  }
-  /* Shimmer conservé sur mobile */
-  .premium-fixed-mobile.premium-badge::after { animation: nav-shimmer 3.2s ease-in-out infinite; }
-  /* Pulse conservé sur mobile */
-  .premium-fixed-mobile.upgrade-cta { animation: nav-pulse-gold 2.8s ease-in-out infinite; }
-
-  /* ── Bouton recherche flottant en haut à droite, à côté du profil ── */
+  /* Recherche flottante (à gauche du profil). */
   .search-fixed-mobile {
     display: grid;
     place-items: center;
     position: fixed;
-    top: calc(12px + var(--safe-top));
-    right: 64px;
+    top: calc(11px + var(--safe-top));
+    right: calc(var(--pad-edge) + 52px);
     z-index: 40;
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: rgba(8, 8, 8, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--glass);
+    border: 1px solid var(--glass-edge);
     color: var(--t-1);
-    backdrop-filter: saturate(160%) blur(24px);
-    -webkit-backdrop-filter: saturate(160%) blur(24px);
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
   }
-  .search-fixed-mobile svg { width: 17px; height: 17px; }
+  .search-fixed-mobile svg { width: 18px; height: 18px; }
 
-  /* ── Bottom nav fixe ───────────────────────────────────────────────── */
-  .bottomnav {
+  /* Premium flottant (pilule compacte, à gauche de la recherche). */
+  .premium-fixed-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 0;
-    padding: 6px 4px calc(6px + var(--safe-bottom));
-    background: rgba(8, 8, 8, 0.86);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: saturate(160%) blur(24px);
-    -webkit-backdrop-filter: saturate(160%) blur(24px);
+    top: calc(13px + var(--safe-top));
+    right: calc(var(--pad-edge) + 104px);
+    z-index: 40;
+    height: 36px;
+    padding: 0 13px;
+    border-radius: var(--r-pill);
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
   }
+  .premium-fixed-mobile.upgrade-cta {
+    background: var(--accent-grad-rich);
+    color: #2A1B07;
+    box-shadow: 0 0 16px var(--accent-glow);
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+  .premium-fixed-mobile.premium-badge {
+    background: var(--accent-faint);
+    border: 1px solid var(--accent-glow-soft);
+    color: var(--accent-2);
+  }
+  /* Libellé masqué (icône seule) pour ne pas chevaucher la recherche. */
+  .premium-fixed-mobile .prem-lbl,
+  .premium-fixed-mobile .upgrade-lbl { display: none; }
 
+  /* Bottom-nav verre, 6 onglets, indicateur doré sur l'onglet actif. */
+  .bottomnav {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 50;
+    height: var(--bottomnav-h);
+    padding: 8px 6px calc(8px + var(--safe-bottom));
+    justify-content: space-around;
+    align-items: flex-start;
+    background: rgba(20, 14, 9, 0.86);
+    border-top: 1px solid var(--glass-edge);
+    backdrop-filter: saturate(150%) blur(var(--blur));
+    -webkit-backdrop-filter: saturate(150%) blur(var(--blur));
+  }
   .bn-tab {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 3px;
-    padding: 6px 2px;
-    min-height: 48px;
+    flex: 1;
+    padding-top: 5px;
     color: var(--t-3);
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.01em;
     text-decoration: none;
-    border-radius: 8px;
     transition: color var(--d-micro) var(--ease);
   }
-
-  .bn-tab .bn-ic {
-    width: 22px;
-    height: 22px;
-    display: grid;
-    place-items: center;
-  }
+  .bn-tab .bn-ic { display: grid; place-items: center; height: 24px; transition: transform var(--d-micro) var(--ease); }
   .bn-tab .bn-ic svg { width: 22px; height: 22px; }
-
-  .bn-tab .bn-lbl {
-    line-height: 1;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .bn-tab:hover,
+  .bn-tab .bn-lbl { line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bn-tab:active { color: var(--t-2); }
-
-  .bn-tab.active {
-    color: var(--accent);
+  .bn-tab.active { color: var(--accent); }
+  .bn-tab.active .bn-ic { transform: translateY(-1px); }
+  .bn-tab.active::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    width: 22px;
+    height: 3px;
+    border-radius: 99px;
+    background: var(--accent-grad);
+    box-shadow: 0 0 12px var(--accent-glow);
   }
-  .bn-tab.active .bn-ic { filter: drop-shadow(0 0 6px var(--accent-glow)); }
 }
 
-/* Sur très petits écrans, on rétrécit encore + on cache le label si besoin */
 @media (max-width: 380px) {
-  .bn-tab { font-size: 9px; padding: 6px 0; }
+  .bn-tab { font-size: 9px; }
   .bn-tab .bn-ic, .bn-tab .bn-ic svg { width: 20px; height: 20px; }
-  .search-fixed-mobile { right: 58px; width: 34px; height: 34px; }
-}
-
-/* ====================================================================
-   Badge Premium / CTA upgrade — dans la capsule .topnav
-   ==================================================================== */
-
-/* Séparateur avant le badge (toujours visible sur desktop) */
-.topnav .nav-sep-premium {
-  width: 1px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
-/* ── Badge Premium actif (or/amber gradient + shimmer) ── */
-.topnav .premium-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 11px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  white-space: nowrap;
-  background: linear-gradient(135deg, #b8811f 0%, #f0c035 40%, #e8961a 75%, #c9841c 100%);
-  color: #1a0c00;
-  position: relative;
-  overflow: hidden;
-  flex-shrink: 0;
-  cursor: default;
-  user-select: none;
-}
-/* Reflet shimmer */
-.topnav .premium-badge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.45) 50%,
-    transparent 100%
-  );
-  transform: translateX(-120%);
-  animation: nav-shimmer 3.2s ease-in-out infinite;
-}
-@keyframes nav-shimmer {
-  0%, 55% { transform: translateX(-120%); }
-  75%      { transform: translateX(120%);  }
-  100%     { transform: translateX(120%);  }
-}
-
-.topnav .prem-icon {
-  font-size: 10px;
-  line-height: 1;
-}
-.topnav .prem-lbl {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-}
-
-/* ── CTA upgrade (outline doré pulsant) ── */
-.topnav .upgrade-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 11px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  color: #f0c035;
-  border: 1px solid rgba(240, 192, 53, 0.4);
-  background: rgba(240, 192, 53, 0.07);
-  cursor: pointer;
-  font: inherit;
-  flex-shrink: 0;
-  animation: nav-pulse-gold 2.8s ease-in-out infinite;
-  transition:
-    background var(--d-micro) var(--ease),
-    border-color var(--d-micro) var(--ease),
-    color var(--d-micro) var(--ease);
-}
-@keyframes nav-pulse-gold {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 192, 53, 0);    }
-  50%       { box-shadow: 0 0 10px 2px rgba(240, 192, 53, 0.22); }
-}
-.topnav .upgrade-cta:hover {
-  background: rgba(240, 192, 53, 0.16);
-  border-color: rgba(240, 192, 53, 0.65);
-  color: #fdd84a;
-}
-
-.topnav .upgrade-icon {
-  font-size: 10px;
-  line-height: 1;
-}
-.topnav .upgrade-lbl {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-/* ── CTA Premium fixe centré — mobile uniquement ── */
-.premium-fixed-mobile {
-  display: none; /* desktop : vit dans la capsule .topnav */
-}
-
-/* ── Couronne avatar (overlay top-right, toutes tailles) ── */
-.profile-fixed .profile .avatar-btn {
-  position: relative;
-}
-.profile-fixed .avatar-crown {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #b8811f 0%, #f0c035 100%);
-  color: #1a0c00;
-  font-size: 7px;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  border: 1.5px solid var(--bg, #000);
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* ====================================================================
-   Tablette portrait (641px – 900px) : capsule top conservée, juste compactée
-   ==================================================================== */
-@media (max-width: 900px) and (min-width: 641px) {
-  .brand-fixed { top: calc(14px + var(--safe-top)); left: 16px; height: 44px; gap: 8px; }
-  .brand-fixed .brand-name { font-size: 11px; letter-spacing: 0.18em; }
-
-  .profile-fixed { top: calc(14px + var(--safe-top)); right: 16px; height: 44px; }
-  .profile-fixed .profile { padding: 3px 4px; }
-  .profile-fixed .profile .avatar-btn { width: 28px; height: 28px; }
-
-  .topnav { top: calc(14px + var(--safe-top)); height: 44px; padding: 3px 5px; }
-  .topnav .link { height: 36px; padding: 0 9px; }
-  .topnav .link .ic,
-  .topnav .link .ic svg { width: 17px; height: 17px; }
-  .topnav .icon-btn { width: 36px; height: 36px; }
-
-  .topnav:hover .link .lbl,
-  .topnav:focus-within .link .lbl,
-  .topnav.rc-open .link .lbl {
-    max-width: 0;
-    margin-left: 0;
-    opacity: 0;
-  }
-
-  /* Tablette : badge compact — icône seulement, pas de texte */
-  .topnav .prem-lbl,
-  .topnav .upgrade-lbl { display: none; }
-  .topnav .premium-badge,
-  .topnav .upgrade-cta  { padding: 0 8px; gap: 0; }
-  .topnav .nav-sep-premium { margin: 0 1px; }
+  .search-fixed-mobile { right: calc(var(--pad-edge) + 46px); width: 36px; height: 36px; }
 }

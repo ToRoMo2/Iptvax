@@ -26,8 +26,8 @@
   border-color: var(--line-strong);
 }
 .tabActive {
-  color: #000;
-  background: var(--t-1);
+  color: #2A1B07;
+  background: var(--accent-grad);
   border-color: var(--t-1);
 }
 
@@ -100,7 +100,7 @@
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--line);
-  background: #050505;
+  background: var(--bg-elev);
   cursor: pointer;
   transition: transform var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease);
 }

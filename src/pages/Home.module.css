@@ -3,15 +3,14 @@
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
-  height: 60vh;
+  height: min(82vh, 760px);
   min-height: 560px;
-  max-height: 820px;
   overflow: hidden;
-  margin: var(--topnav-h) auto 48px;
-  max-width: 1640px;
-  width: calc(100% - var(--pad-edge) * 2);
-  border-radius: 16px;
-  background: #050505;
+  /* Lumière : hero plein cadre (le backdrop passe SOUS la capsule flottante,
+     façon salle de cinéma) — plus de carte arrondie centrée. */
+  margin: 0;
+  width: 100%;
+  background: var(--bg);
   /* Allow vertical page scroll while JS handles horizontal swipe. */
   touch-action: pan-y;
   cursor: pointer;
@@ -34,7 +33,7 @@
 .heroArt {
   position: absolute;
   inset: 0;
-  background-color: #050505;
+  background-color: var(--bg-elev);
 }
 
 .heroArt::after {
@@ -91,8 +90,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 60%;
-  background: linear-gradient(to bottom, transparent 0%, #000 100%);
+  height: 72%;
+  background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
   z-index: 1;
   pointer-events: none;
 }
@@ -102,49 +101,63 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 55%;
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.72) 0%, transparent 100%);
+  width: 62%;
+  background: linear-gradient(to right, rgba(20, 14, 9, 0.82) 0%, rgba(20, 14, 9, 0.3) 46%, transparent 72%);
   z-index: 1;
   pointer-events: none;
 }
 
 .heroContent {
   position: absolute;
-  left: 44px;
-  right: 44px;
-  bottom: 44px;
-  max-width: 580px;
-  z-index: 2;
+  z-index: 3;
+  left: var(--pad-edge);
+  right: var(--pad-edge);
+  bottom: clamp(40px, 8vh, 90px);
+  max-width: 680px;
 }
 
 .heroEyebrow {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--t-2);
-  margin-bottom: 22px;
+  color: var(--accent-2);
+  margin-bottom: 18px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.heroEyebrowDot {
-  width: 6px;
-  height: 6px;
+/* Pastille « spark » + libellé source (Reco TMDB / Playlist), façon prototype. */
+.heroEyebrowSpark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
+  background: var(--accent-faint);
+  color: var(--accent);
   flex-shrink: 0;
+}
+.heroEyebrowSrc {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+  color: var(--t-2);
+  letter-spacing: 0.04em;
 }
 
 .heroTitle {
-  font-size: 56px;
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6.5vw, 78px);
+  line-height: 0.98;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--t-1);
-  margin: 0 0 20px;
+  margin: 0 0 18px;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
 .heroMeta {
@@ -185,16 +198,19 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .heroDesc {
   color: var(--t-2);
-  font-size: 15px;
-  line-height: 1.55;
-  margin: 0 0 28px;
-  max-width: 540px;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 26px;
+  max-width: 560px;
+  text-wrap: pretty;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -213,14 +229,15 @@
   gap: 10px;
   height: 48px;
   padding: 0 24px;
-  border-radius: var(--r-ui);
+  border-radius: var(--r-pill);
   border: 0;
-  background: #ffffff;
-  color: #000000;
+  /* Signature « Lumière » : CTA principal en lumière dorée (or → champagne). */
+  background: var(--accent-grad);
+  color: #2A1B07;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.005em;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-ui), 'Inter', sans-serif;
   cursor: pointer;
   white-space: nowrap;
   transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
@@ -228,7 +245,7 @@
 
 .heroPlayBtn:hover {
   transform: scale(1.02);
-  box-shadow: 0 0 24px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 24px var(--accent-glow);
 }
 
 .heroInfoBtn {
@@ -238,22 +255,25 @@
   gap: 10px;
   height: 48px;
   padding: 0 24px;
-  border-radius: var(--r-ui);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: transparent;
-  color: #ffffff;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--glass-edge);
+  background: var(--glass);
+  color: var(--t-1);
   font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.005em;
-  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.01em;
+  font-family: var(--font-ui), 'Inter', sans-serif;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  transition: border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease), transform var(--d-micro) var(--ease);
 }
 
 .heroInfoBtn:hover {
-  border-color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line-strong);
+  background: var(--glass-strong);
+  transform: translateY(-2px);
 }
 
 /* Entrée staggered du contenu au changement de slide : eyebrow → title →
@@ -297,21 +317,29 @@
    un span enfant `.heroDotProgress` qui se remplit de 0 → 100 % sur 7 s
    (synchro avec le timer auto-advance JS). React monte/démonte le span
    au changement de heroIdx → restart d'animation garanti sans key. */
-.heroDots {
+/* Cluster flèches + dots, ancré en bas à droite (façon prototype Lumière). */
+.heroNavCluster {
   position: absolute;
-  right: 44px;
-  bottom: 44px;
+  z-index: 4;
+  right: var(--pad-edge);
+  bottom: clamp(40px, 8vh, 90px);
   display: flex;
-  gap: 6px;
-  z-index: 2;
+  align-items: center;
+  gap: 14px;
+}
+
+.heroDots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .heroDot {
   position: relative;
-  width: 18px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.22);
+  width: 34px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line-strong);
   border: none;
   cursor: pointer;
   padding: 0;
@@ -320,18 +348,19 @@
 }
 
 .heroDotActive {
-  width: 36px;
-  background: rgba(255, 255, 255, 0.22);
+  width: 48px;
+  background: var(--line-strong);
 }
 
 .heroDotProgress {
   position: absolute;
   inset: 0;
   display: block;
-  background: #ffffff;
+  background: var(--accent-grad);
+  border-radius: 99px;
   transform-origin: left center;
   animation: hero-progress 7s linear forwards;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 @keyframes hero-progress {
@@ -343,6 +372,12 @@
    Variante Premium : info-only, juste la pastille TMDB visible.
    Variante Free : bouton (icône playlist) → /premium, tooltip explicatif. */
 .heroRecoBadge {
+  /* Lumière : la source des reco vit désormais dans la pastille de l'eyebrow
+     (.heroEyebrowSrc) + le bandeau reco sous le hero → on masque le badge coin
+     pour épurer le hero plein cadre (markup conservé, fonctionnalité intacte). */
+  display: none;
+}
+.heroRecoBadgeUnused {
   position: absolute;
   top: 18px;
   right: 18px;
@@ -379,58 +414,52 @@
   box-shadow: 0 0 18px var(--accent-glow);
 }
 
-/* Flèches de navigation hero */
+/* Flèches de navigation hero — pastilles verre dans le cluster bas-droite. */
 .heroNav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
-  width: 40px;
-  height: 40px;
+  position: static;
+  z-index: 4;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   padding: 0;
   border-radius: 50%;
   color: var(--t-1);
-  background: rgba(0, 0, 0, 0.42);
-  border: 1px solid var(--line);
-  opacity: 0.55;
-  transition: opacity var(--d-micro) var(--ease), color var(--d-micro) var(--ease),
-    border-color var(--d-micro) var(--ease), background var(--d-micro) var(--ease);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  cursor: pointer;
+  transition: color var(--d-micro) var(--ease), border-color var(--d-micro) var(--ease),
+    background var(--d-micro) var(--ease), transform var(--d-micro) var(--ease);
 }
 
 .heroNav:hover {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(0, 0, 0, 0.6);
+  color: #2A1B07;
+  background: var(--accent-grad);
+  border-color: transparent;
+  transform: scale(1.06);
 }
 
-.heroNavPrev {
-  left: 24px;
-}
-
+.heroNavPrev,
 .heroNavNext {
-  right: 24px;
+  position: static;
 }
 
 /* Hero loading skeleton */
 .heroSkeleton {
-  height: 60vh;
+  height: min(82vh, 760px);
   min-height: 560px;
-  max-height: 820px;
-  margin: var(--topnav-h) auto 48px;
-  max-width: 1640px;
-  width: calc(100% - var(--pad-edge) * 2);
-  border-radius: 16px;
-  background: linear-gradient(90deg, #0a0a0a 0%, #131313 50%, #0a0a0a 100%);
+  margin: 0;
+  width: 100%;
+  background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 50%, var(--bg-card) 100%);
   background-size: 200% 100%;
   animation: vshimmer 2s linear infinite;
 }
 
 /* ── Content rows ─────────────────────────────────────────────────────────── */
 .rows {
-  padding: 0 0 96px;
+  padding: var(--row-gap) 0 96px;
 }
 
 .row {
@@ -453,11 +482,10 @@
 }
 
 .rowTitle {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t-3);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--t-1);
   margin: 0;
 }
 
@@ -697,7 +725,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #0a0a0a;
+  background: var(--bg-elev);
   overflow: hidden;
 }
 
@@ -705,7 +733,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 2 / 3;
-  background: #0a0a0a;
+  background: var(--bg-elev);
   overflow: hidden;
 }
 
@@ -734,7 +762,7 @@
 .artPlaceholder {
   position: absolute;
   inset: 0;
-  background: #0a0a0a;
+  background: var(--bg-elev);
 }
 
 .artPlaceholder::after {
@@ -977,7 +1005,7 @@
 
 .skBase {
   border-radius: var(--r-card);
-  background: linear-gradient(90deg, #0a0a0a 0%, #131313 50%, #0a0a0a 100%);
+  background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 50%, var(--bg-card) 100%);
   background-size: 200% 100%;
   animation: vshimmer 2s linear infinite;
   flex-shrink: 0;
@@ -1003,25 +1031,24 @@
    ==================================================================== */
 @media (max-width: 900px) {
   .hero {
-    height: 56vh;
-    min-height: 360px;
-    max-height: 540px;
-    margin: var(--topnav-h) auto 28px;
-    width: calc(100% - var(--pad-edge) * 2);
-    border-radius: 12px;
+    height: 64vh;
+    min-height: 440px;
+    max-height: 620px;
+    margin: 0;
+    width: 100%;
+    border-radius: 0;
   }
-  .heroContent { left: 28px; right: 28px; bottom: 28px; }
-  .heroTitle { font-size: 38px; }
-  .heroDesc { font-size: 14px; -webkit-line-clamp: 3; }
-  .heroDots { right: 28px; bottom: 28px; gap: 5px; }
-  .heroDotActive { width: 32px; }
-  .heroNavPrev { left: 12px; }
-  .heroNavNext { right: 12px; }
+  .heroContent { bottom: clamp(36px, 7vh, 64px); }
+  .heroTitle { font-size: clamp(38px, 8vw, 56px); }
+  .heroDesc { font-size: 15px; -webkit-line-clamp: 3; }
+  .heroNavCluster { bottom: clamp(36px, 7vh, 64px); }
+  .heroDots { gap: 6px; }
+  .heroDotActive { width: 40px; }
   .heroSkeleton {
-    height: 56vh; min-height: 360px; max-height: 540px;
-    margin: var(--topnav-h) auto 28px;
-    width: calc(100% - var(--pad-edge) * 2);
-    border-radius: 12px;
+    height: 64vh; min-height: 440px; max-height: 620px;
+    margin: 0;
+    width: 100%;
+    border-radius: 0;
   }
 
   .cardWide { width: 240px; }
@@ -1055,45 +1082,45 @@
      Le cap vh garantit que le premier rail dépasse toujours (pattern Netflix
      mobile : le hero « peek » la rangée du dessous). */
   .hero {
-    height: auto;
-    min-height: 0;
-    aspect-ratio: 3 / 4;
-    max-height: 52vh;
-    margin: calc(var(--topnav-h) + 8px) auto 24px;
-    width: calc(100% - var(--pad-edge) * 2);
-    border-radius: 10px;
+    height: 64vh;
+    min-height: 480px;
+    max-height: none;
+    margin: 0;
+    width: 100%;
+    border-radius: 0;
   }
   .heroSkeleton {
-    height: auto; min-height: 0;
-    aspect-ratio: 3 / 4; max-height: 52vh;
-    margin: calc(var(--topnav-h) + 8px) auto 24px;
-    width: calc(100% - var(--pad-edge) * 2);
-    border-radius: 10px;
+    height: 64vh; min-height: 480px; max-height: none;
+    margin: 0;
+    width: 100%;
+    border-radius: 0;
   }
   .heroOverlayLeft {
     width: 100%;
-    background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 60%);
+    background: linear-gradient(to top, rgba(20, 14, 9, 0.85) 0%, transparent 62%);
   }
-  .heroContent { left: 18px; right: 18px; bottom: 22px; max-width: 100%; }
-  .heroEyebrow { font-size: 10px; margin-bottom: 12px; letter-spacing: 0.16em; }
-  .heroTitle { font-size: 28px; margin-bottom: 12px; }
+  .heroContent { left: var(--pad-edge); right: var(--pad-edge); bottom: 96px; max-width: 100%; }
+  .heroEyebrow { font-size: 11px; margin-bottom: 12px; letter-spacing: 0.1em; }
+  .heroTitle { font-size: clamp(30px, 11vw, 46px); margin-bottom: 12px; }
   .heroMeta { gap: 8px; font-size: 12px; margin-bottom: 10px; }
-  .heroDesc { font-size: 13px; margin-bottom: 16px; -webkit-line-clamp: 3; }
+  .heroDesc { font-size: 14px; margin-bottom: 16px; -webkit-line-clamp: 3; }
   .heroActions { gap: 8px; flex-wrap: wrap; }
   .heroPlayBtn, .heroInfoBtn {
-    height: 42px;
+    height: 44px;
     padding: 0 16px;
-    font-size: 13px;
+    font-size: 14px;
     flex: 1 1 auto;
     min-width: 0;
   }
-  .heroDots { right: 18px; bottom: 12px; gap: 4px; }
-  .heroDot { width: 14px; }
-  .heroDotActive { width: 28px; }
+  /* Cluster centré en bas (flèches masquées → swipe tactile). */
+  .heroNavCluster { left: var(--pad-edge); right: var(--pad-edge); bottom: 72px; justify-content: center; gap: 0; }
+  .heroDots { gap: 5px; }
+  .heroDot { width: 16px; }
+  .heroDotActive { width: 30px; }
   /* Arrows replaced by finger swipe on mobile. */
   .heroNav { display: none; }
 
-  .rows { padding: 0 0 64px; }
+  .rows { padding: var(--row-gap) 0 64px; }
   .rowHeader { margin-bottom: 14px; }
   .rowTitle { font-size: 14px; letter-spacing: 0.06em; }
   .rowSeeAll { font-size: 11px; }

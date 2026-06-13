@@ -14,7 +14,7 @@
   height: clamp(480px, 60vh, 620px);
   border-radius: 16px;
   overflow: hidden;
-  background: #050505;
+  background: var(--bg-elev);
   cursor: pointer;
   isolation: isolate;
 }
@@ -35,7 +35,7 @@
 .stageBgBlank {
   background:
     radial-gradient(80% 70% at 70% 35%, rgba(255, 255, 255, 0.05), transparent 60%),
-    #0a0a0a;
+    var(--bg-elev);
 }
 @keyframes spot-fade {
   from { opacity: 0; transform: scale(1.04); }
@@ -135,8 +135,8 @@
   height: 48px;
   padding: 0 26px;
   border-radius: var(--r-pill);
-  background: var(--t-1);
-  color: #000;
+  background: var(--accent-grad);
+  color: #2A1B07;
   font-size: 15px;
   font-weight: 700;
   white-space: nowrap;

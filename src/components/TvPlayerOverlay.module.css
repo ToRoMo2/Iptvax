@@ -119,7 +119,7 @@
   position: absolute;
   left: 0; top: 0;
   height: 100%;
-  background: #fff;
+  background: var(--accent-grad);
   border-radius: 3px;
 }
 
@@ -130,8 +130,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.4);
+  background: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow), 0 0 0 4px var(--accent-glow-soft);
   transition: width 160ms var(--ease), height 160ms var(--ease), background 160ms var(--ease);
 }
 

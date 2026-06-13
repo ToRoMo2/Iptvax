@@ -26,7 +26,7 @@
   min-height: 420px;
   object-fit: cover;
   object-position: center 18%;
-  background-color: #050505;
+  background-color: var(--bg-elev);
 }
 
 .artPlaceholder {
@@ -37,19 +37,19 @@
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(70% 90% at 50% 30%, rgba(255, 255, 255, 0.05), transparent 60%),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 40px);
+    radial-gradient(70% 90% at 50% 30%, var(--accent-glow-soft), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(253, 246, 235, 0.02) 0 1px, transparent 1px 40px);
 }
 
 .artTag {
   position: absolute;
   top: 18px;
   right: 20px;
-  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-  font-size: 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.22);
+  letter-spacing: 0.06em;
+  color: var(--t-4);
   text-transform: uppercase;
 }
 
@@ -148,13 +148,14 @@
 }
 
 .title {
-  font-size: 34px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.06;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.04;
   color: var(--t-1);
   margin: 0 0 14px;
-  max-width: 16ch;
+  max-width: 18ch;
 }
 
 /* Logo/titre TMDB (PNG transparent) à la place du texte quand disponible. */
@@ -251,17 +252,18 @@
   height: 56px;
   padding: 0 24px;
   border-radius: var(--r-pill);
-  background: var(--t-1);
-  color: #000;
+  background: var(--accent-grad);
+  color: #2A1B07;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  box-shadow: 0 8px 26px -10px var(--accent-glow);
   transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease);
 }
 .playBtn:hover {
   transform: scale(1.015);
-  box-shadow: 0 0 28px rgba(255, 255, 255, 0.28);
+  box-shadow: 0 14px 38px -10px var(--accent-glow);
 }
 .playBtn:active {
   transform: scale(0.985);
@@ -571,7 +573,7 @@
 .seasonActive {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(0, 212, 255, 0.06);
+  background: var(--accent-faint);
 }
 
 .episodeList {
@@ -590,7 +592,7 @@
 }
 
 .episode:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(253, 246, 235, 0.025);
 }
 
 /* Conteneur de la vignette : ancre le tick « terminé » + la barre d'avancement. */
@@ -619,7 +621,7 @@
   height: 20px;
   border-radius: 50%;
   background: var(--accent);
-  color: #000;
+  color: #2A1B07;
   display: grid;
   place-items: center;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), 0 0 10px var(--accent-glow);
@@ -644,7 +646,7 @@
 .epThumbPlaceholder {
   width: 132px;
   height: 74px;
-  background: #050505;
+  background: var(--bg-elev);
   border: 1px solid var(--line-soft);
   border-radius: var(--r-ui);
   flex-shrink: 0;
@@ -850,7 +852,7 @@
     object-fit: cover;
     object-position: center 22%;
     filter: brightness(0.5);
-    background-color: #050505;
+    background-color: var(--bg-elev);
   }
   /* Scrim haut : garde la nav flottante / la marque lisibles sur un backdrop clair. */
   .hero::before {
@@ -913,7 +915,7 @@
     object-fit: cover;
     flex-shrink: 0;
     border-radius: var(--r-card);
-    background: #050505;
+    background: var(--bg-elev);
     box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--line);
   }
   .headInfo {
