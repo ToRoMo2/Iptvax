@@ -419,6 +419,10 @@
 
 .mPoster {
   position: relative;
+  /* display:block OBLIGATOIRE : c'est un <span> (inline par défaut) → width &
+     aspect-ratio sont ignorés en inline et la box s'effondre à ~0 (affiche
+     invisible). `.mItem` n'étant plus un conteneur flex, il faut le blockifier. */
+  display: block;
   width: var(--pop-w);
   aspect-ratio: 2 / 3;
   border-radius: var(--r-card);
