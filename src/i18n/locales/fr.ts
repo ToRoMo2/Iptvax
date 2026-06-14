@@ -432,6 +432,12 @@ const fr = {
     hwDecode: 'Décodage matériel',
     hwDecodeDesc:
       'Utilise le GPU pour décoder H.264 / H.265 (recommandé)',
+    subtitlesSection: 'Sous-titres',
+    subtitlesDesc: 'Apparence par défaut des sous-titres dans le lecteur',
+    subPreviewText: 'Vos sous-titres ressembleront à ceci',
+    subSize: 'Taille',
+    subColor: 'Couleur',
+    subBackground: 'Fond',
     streamFormat: 'Format de flux',
     liveTv: 'Live TV',
     liveTvVal: 'MPEG-TS via proxy',

@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
 import { LOCALE_NAMES, type Locale, type TranslationKey } from '../i18n';
+import {
+  type SubSize, type SubBg, type SubColor,
+  loadSubPrefs, saveSubPrefs,
+  PREVIEW_PX, CHIP_PX, SUB_COLOR_HEX, SUB_BG_CSS, SUB_OUTLINE, SUB_SOFT_SHADOW,
+} from '../utils/subtitlePrefs';
 import styles from './Settings.module.css';
 
 type Tab = 'account' | 'playback' | 'about';
@@ -110,6 +115,17 @@ export function Settings() {
   const [autoPlay, setAutoPlay]     = useState(true);
   const [hwDecode, setHwDecode]     = useState(true);
   const [remembPos, setRemembPos]   = useState(true);
+
+  // Préférences de sous-titres par défaut (partagées avec le lecteur via la même
+  // clé localStorage — voir src/utils/subtitlePrefs.ts). Réglées ici, elles
+  // deviennent le style par défaut à l'ouverture du lecteur.
+  const [subPrefs] = useState(loadSubPrefs);
+  const [subSize, setSubSize]   = useState<SubSize>(subPrefs.size);
+  const [subColor, setSubColor] = useState<SubColor>(subPrefs.color);
+  const [subBg, setSubBg]       = useState<SubBg>(subPrefs.bg);
+  useEffect(() => {
+    saveSubPrefs({ size: subSize, color: subColor, bg: subBg });
+  }, [subSize, subColor, subBg]);
 
   // Expiry
   const expiryDate = userInfo?.exp_date
@@ -320,6 +336,89 @@ export function Settings() {
               </div>
 
               <div className={styles.col}>
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>{t('settings.subtitlesSection')}</div>
+                <div className={styles.subDesc}>{t('settings.subtitlesDesc')}</div>
+
+                {/* Aperçu live des sous-titres avec les réglages courants */}
+                <div className={styles.subPreview}>
+                  <span
+                    style={{
+                      fontSize: PREVIEW_PX[subSize],
+                      color: SUB_COLOR_HEX[subColor],
+                      background: SUB_BG_CSS[subBg],
+                      textShadow: subBg === 'none' ? SUB_OUTLINE : SUB_SOFT_SHADOW,
+                      padding: subBg === 'none' ? '0 6px' : '4px 14px',
+                      borderRadius: 'var(--r-ui)',
+                      fontWeight: 700,
+                      letterSpacing: '-0.005em',
+                      lineHeight: 1.3,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {t('settings.subPreviewText')}
+                  </span>
+                </div>
+
+                {/* Taille */}
+                <div className={styles.subRow}>
+                  <span className={styles.rowLabel}>{t('settings.subSize')}</span>
+                  <div className={styles.subChips}>
+                    {(['sm', 'md', 'lg', 'xl'] as SubSize[]).map((sz) => (
+                      <button
+                        key={sz}
+                        className={`${styles.subChip} ${subSize === sz ? styles.subChipActive : ''}`}
+                        onClick={() => setSubSize(sz)}
+                        title={sz.toUpperCase()}
+                      >
+                        <span style={{ fontSize: CHIP_PX[sz] }}>Aa</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Couleur */}
+                <div className={styles.subRow}>
+                  <span className={styles.rowLabel}>{t('settings.subColor')}</span>
+                  <div className={styles.subChips}>
+                    {(['white', 'yellow', 'cyan', 'green'] as SubColor[]).map((c) => (
+                      <button
+                        key={c}
+                        className={`${styles.subChip} ${subColor === c ? styles.subChipActive : ''}`}
+                        onClick={() => setSubColor(c)}
+                      >
+                        <span style={{ color: SUB_COLOR_HEX[c], textShadow: SUB_OUTLINE, fontSize: 17 }}>Aa</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Fond */}
+                <div className={styles.subRow}>
+                  <span className={styles.rowLabel}>{t('settings.subBackground')}</span>
+                  <div className={styles.subChips}>
+                    {(['none', 'semi', 'solid'] as SubBg[]).map((b) => (
+                      <button
+                        key={b}
+                        className={`${styles.subChip} ${subBg === b ? styles.subChipActive : ''}`}
+                        onClick={() => setSubBg(b)}
+                      >
+                        <span
+                          style={{
+                            background: SUB_BG_CSS[b],
+                            color: '#fff',
+                            padding: '2px 8px',
+                            borderRadius: 'var(--r-ui)',
+                            fontSize: 15,
+                            textShadow: b === 'none' ? SUB_OUTLINE : SUB_SOFT_SHADOW,
+                          }}
+                        >Aa</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>{t('settings.streamFormat')}</div>
                 <InfoRow label={t('settings.liveTv')} value={t('settings.liveTvVal')} muted />

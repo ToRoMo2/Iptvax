@@ -370,6 +370,87 @@
   background: var(--t-4);
 }
 
+/* ── Personnalisation des sous-titres (onglet Lecture) ── */
+.subDesc {
+  font-size: 13px;
+  color: var(--t-3);
+  margin: 0 0 16px;
+  letter-spacing: 0;
+}
+
+/* Aperçu : fond sombre type vidéo pour juger le rendu réel des sous-titres */
+.subPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  padding: 18px 16px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background-color: #0a0a0c;
+  background-image:
+    radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 12px, transparent 12px 24px);
+  overflow: hidden;
+}
+
+.subRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.subRow:last-child { border-bottom: none; }
+
+.subChips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.subChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-ui);
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--t-1);
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--d-micro) var(--ease),
+              background var(--d-micro) var(--ease),
+              box-shadow var(--d-micro) var(--ease);
+}
+
+.subChip:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.subChip:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.subChipActive,
+.subChipActive:hover {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+  color: var(--accent);
+  box-shadow: 0 0 18px -4px var(--accent-glow);
+}
+
 /* ====================================================================
    LANDSCAPE POLISH (≥ 641px) — cartes glassmorphism, hovers, entrée.
    Le mobile portrait (≤ 640px) reste volontairement plat (déjà poli) :
@@ -648,19 +729,48 @@
   .rowDesc { font-size: 12px; }
   .rowValue { font-size: 13px; max-width: 58%; overflow-wrap: anywhere; }
 
-  /* Rows à action (bouton / select) → empilées, cible tactile pleine largeur */
-  .row:has(.logoutBtn) {
+  /* Rows à action (bouton / select) → empilées, cible tactile pleine largeur.
+     Sans ça, un bouton width:100% coincé dans une row horizontale (avec le
+     texte en flex:1) débordait / écrasait le libellé sur mobile. */
+  .row:has(.logoutBtn),
+  .row:has(.premiumBtn),
+  .row:has(.selectBtn) {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
   }
-  .logoutBtn {
+
+  .logoutBtn,
+  .premiumBtn,
+  .selectBtn {
     width: 100%;
     justify-content: center;
     height: 46px;
   }
 
-  .logoutBtn,
-  .premiumBtn,
-  .selectBtn { width: 100%; justify-content: center; }
+  /* ── Sous-titres : libellé au-dessus, chips pleine largeur équi-réparties ── */
+  .subDesc { font-size: 12.5px; margin-bottom: 14px; }
+
+  .subPreview {
+    min-height: 84px;
+    padding: 16px 12px;
+  }
+
+  .subRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px 0;
+  }
+
+  .subChips {
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  .subChip {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 44px;
+  }
 }

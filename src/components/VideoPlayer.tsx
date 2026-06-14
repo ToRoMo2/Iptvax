@@ -10,7 +10,12 @@ import { volumeControl } from '../native/volumeControl';
 import { isTvDevice } from '../native/tvDetect';
 import { safeImgUrl } from '../utils/image';
 import { AppLogo } from './AppLogo';
-import { TvPlayerOverlay, type SubSize, type SubBg, type SubColor } from './TvPlayerOverlay';
+import { TvPlayerOverlay } from './TvPlayerOverlay';
+import {
+  type SubSize, type SubBg, type SubColor,
+  loadSubPrefs, saveSubPrefs,
+  PREVIEW_PX, CHIP_PX, SUB_COLOR_HEX, SUB_BG_CSS, SUB_OUTLINE, SUB_SOFT_SHADOW,
+} from '../utils/subtitlePrefs';
 import {
   IconPlay, IconPause, IconBack10, IconFwd10, IconPrev, IconNext,
   IconAudio, IconSubtitles, IconQuality, IconCheck, IconBack, IconClose,
@@ -99,45 +104,9 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// Types `SubSize` / `SubBg` / `SubColor` centralisés dans TvPlayerOverlay
-// (partagés entre l'overlay TV et l'overlay souris/tactile).
-
-// ── Persistance des préférences de sous-titres ───────────────────────────────
-const SUB_PREFS_KEY = 'iptv-subtitle-prefs';
-
-interface SubPrefs {
-  size: SubSize;
-  bg: SubBg;
-  color: SubColor;
-}
-
-const DEFAULT_SUB_PREFS: SubPrefs = { size: 'md', bg: 'none', color: 'white' };
-
-function loadSubPrefs(): SubPrefs {
-  try {
-    const raw = localStorage.getItem(SUB_PREFS_KEY);
-    if (!raw) return DEFAULT_SUB_PREFS;
-    return { ...DEFAULT_SUB_PREFS, ...(JSON.parse(raw) as Partial<SubPrefs>) };
-  } catch { return DEFAULT_SUB_PREFS; }
-}
-
-function saveSubPrefs(prefs: SubPrefs) {
-  try { localStorage.setItem(SUB_PREFS_KEY, JSON.stringify(prefs)); } catch { /* */ }
-}
-
-// Maps de style pour l'aperçu live + les chips « Aa » du panneau Personnaliser.
-// Tailles alignées sur les .subSm/Md/Lg/Xl du CSS pour que l'aperçu reflète
-// EXACTEMENT le rendu final. Mêmes couleurs/fonds que TvPlayerOverlay (DA).
-const PREVIEW_PX: Record<SubSize, number> = { sm: 18, md: 26, lg: 36, xl: 48 };
-const CHIP_PX: Record<SubSize, number> = { sm: 11, md: 15, lg: 20, xl: 26 };
-const SUB_COLOR_HEX: Record<SubColor, string> = {
-  white: '#ffffff', yellow: '#ffe066', cyan: 'var(--accent)', green: '#7eff7e',
-};
-const SUB_BG_CSS: Record<SubBg, string> = {
-  none: 'transparent', semi: 'rgba(0,0,0,0.6)', solid: 'rgba(0,0,0,0.92)',
-};
-const SUB_OUTLINE = '-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 6px rgba(0,0,0,0.55)';
-const SUB_SOFT_SHADOW = '0 1px 3px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.6)';
+// Types `SubSize` / `SubBg` / `SubColor` + persistance + maps de style
+// centralisés dans `src/utils/subtitlePrefs.ts` (partagés avec la page
+// Paramètres : la personnalisation des sous-titres par défaut s'y règle).
 
 // ── Mapping prefs → options mpv (Electron — sous-titres rendus par mpv).
 // Avantage mpv vs libVLC : ces propriétés s'appliquent À CHAUD (pas de
