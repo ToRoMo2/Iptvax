@@ -136,7 +136,7 @@ export function SettingsVitrine() {
         {/* ── Note vitrine ───────────────────────────────────────── */}
         <p className={styles.note}>
           Vos profils IPTV, favoris et historique se gèrent depuis l'app
-          native. <Link to="/downloads">Téléchargez Iptvax</Link> pour la
+          native. <Link to="/downloads">Téléchargez Umbra</Link> pour la
           plateforme de votre choix.
         </p>
       </div>

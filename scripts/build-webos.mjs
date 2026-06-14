@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Build Iptvax pour LG webOS TV — voir docs/native-port.md §4 Phase 4d.
+ * Build Umbra pour LG webOS TV — voir docs/native-port.md §4 Phase 4d.
  *
  * Étapes :
  *   1. Lance `vite build` avec VITE_RUNTIME=webos → bascule isNative + isWebOS
  *      (URLs Xtream directes, plus tard lecteur `<video>`/Media Pipeline en
  *      Phase 4e).
- *   2. Assemble le dossier `webos/Iptvax/` prêt à packager :
- *        webos/Iptvax/
+ *   2. Assemble le dossier `webos/Umbra/` prêt à packager :
+ *        webos/Umbra/
  *        ├─ index.html
  *        ├─ assets/...               (copie depuis dist/)
  *        ├─ appinfo.json             (depuis webos/appinfo.json)
@@ -34,10 +34,10 @@ import { spawnSync } from 'node:child_process';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const WEBOS_DIR = join(ROOT, 'webos');
-// Nom du dossier de sortie aligné sur les autres builds natifs (`Iptvax`).
+// Nom du dossier de sortie aligné sur les autres builds natifs (`Umbra`).
 // `ares-package` produit un .ipk dont le nom est dérivé de `id` + `version` de
-// `appinfo.json` (par défaut `com.iptvax.app_1.0.0_all.ipk`).
-const OUT = join(WEBOS_DIR, 'Iptvax');
+// `appinfo.json` (par défaut `com.umbra.app_1.0.0_all.ipk`).
+const OUT = join(WEBOS_DIR, 'Umbra');
 const APPINFO = join(WEBOS_DIR, 'appinfo.json');
 const ICON = join(WEBOS_DIR, 'icon.png');
 const LARGE_ICON = join(WEBOS_DIR, 'largeIcon.png');
@@ -80,6 +80,6 @@ cpSync(LARGE_ICON, join(OUT, 'largeIcon.png'));
 
 log('OK. Étapes suivantes (manuelles, @webosose/ares-cli requis) :');
 log('  1) Appairer la TV (une fois)  : ares-setup-device');
-log('  2) Packager                   : ares-package webos/Iptvax -o webos');
-log('  3) Installer                  : ares-install -d <TV> webos/com.iptvax.app_1.0.0_all.ipk');
-log('  4) Lancer                     : ares-launch -d <TV> com.iptvax.app');
+log('  2) Packager                   : ares-package webos/Umbra -o webos');
+log('  3) Installer                  : ares-install -d <TV> webos/com.umbra.app_1.0.0_all.ipk');
+log('  4) Lancer                     : ares-launch -d <TV> com.umbra.app');

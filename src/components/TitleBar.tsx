@@ -64,7 +64,7 @@ export function TitleBar() {
         onPointerUp={onDragPointerUp}
         onDoubleClick={() => win.maximize()}
       >
-        <span className="titlebar-title">Iptvax</span>
+        <span className="titlebar-title">Umbra</span>
       </div>
       <div className="titlebar-controls">
         <button className="titlebar-btn" aria-label="Réduire" onClick={() => win.minimize()}>

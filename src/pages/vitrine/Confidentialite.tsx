@@ -6,7 +6,7 @@ export function Confidentialite() {
     <div className={styles.page}>
       <div className={styles.container}>
         <h1 className={styles.title}>Politique de confidentialité</h1>
-        <p className={styles.sub}>Iptvax · Traitement des données</p>
+        <p className={styles.sub}>Umbra · Traitement des données</p>
         <div className={styles.placeholder}>
           <strong>Page en cours de rédaction.</strong>
           <br />

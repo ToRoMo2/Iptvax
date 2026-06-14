@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Iptvax</string>
-    <string name="title_activity_main">Iptvax</string>
-    <string name="package_name">com.iptvax.app</string>
-    <string name="custom_url_scheme">com.iptvax.app</string>
+    <string name="app_name">Umbra</string>
+    <string name="title_activity_main">Umbra</string>
+    <string name="package_name">com.umbra.app</string>
+    <string name="custom_url_scheme">com.umbra.app</string>
 </resources>

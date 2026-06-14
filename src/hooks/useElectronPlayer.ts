@@ -14,7 +14,7 @@ import { electronMpv, type MpvEvent, type MpvTrack } from '../native/electronMpv
  *
  * Particularités assumées :
  * - la vidéo est rendue par mpv sur une surface NATIVE derrière la WebView
- *   (`usesNativeSurface = true`, classe `iptvax-native-playback`) → `subtitleText`
+ *   (`usesNativeSurface = true`, classe `umbra-native-playback`) → `subtitleText`
  *   reste vide (sous-titres rendus par mpv) ;
  * - l'URL reçue est l'URL PROXIFIÉE (`/api/hlsproxy?url=…`) du mode web ; on en
  *   ré-extrait l'URL directe upstream (`url=` du query) pour la donner à mpv —
@@ -97,8 +97,8 @@ export function useElectronPlayer(
 
   // ── Transparence : surface mpv DERRIÈRE la WebView pendant la lecture ────────
   useEffect(() => {
-    document.documentElement.classList.add('iptvax-native-playback');
-    return () => { document.documentElement.classList.remove('iptvax-native-playback'); };
+    document.documentElement.classList.add('umbra-native-playback');
+    return () => { document.documentElement.classList.remove('umbra-native-playback'); };
   }, []);
 
   // ── Flux d'events mpv → state ───────────────────────────────────────────────

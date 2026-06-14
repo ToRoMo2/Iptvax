@@ -135,7 +135,7 @@ export function TvPairing() {
     <div className={styles.screen}>
       <div className={styles.brand}>
         <AppLogo size={30} />
-        IPTVAX
+        UMBRA
       </div>
 
       <div className={styles.card}>

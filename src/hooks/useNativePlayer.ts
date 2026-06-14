@@ -75,9 +75,9 @@ export function useNativePlayer(
   // cette classe propage la transparence à toute la chaîne web pour laisser voir
   // la vidéo rendue par ExoPlayer derrière. ───────────────────────────────────
   useEffect(() => {
-    document.documentElement.classList.add('iptvax-native-playback');
+    document.documentElement.classList.add('umbra-native-playback');
     return () => {
-      document.documentElement.classList.remove('iptvax-native-playback');
+      document.documentElement.classList.remove('umbra-native-playback');
     };
   }, []);
 

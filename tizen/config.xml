@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
-        id="http://iptvax.app/tizen"
+        id="http://umbra.app/tizen"
         version="1.0.0"
         viewmodes="maximized">
-    <tizen:application id="iptvaxtv00.Iptvax"
-                       package="iptvaxtv00"
+    <tizen:application id="umbratv00.Umbra"
+                       package="umbratv00"
                        required_version="4.0"/>
     <content src="index.html"/>
     <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
     <icon src="icon.png"/>
-    <name>Iptvax</name>
+    <name>Umbra</name>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.audio"/>
     <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support" value="true"/>

@@ -1,5 +1,5 @@
 /* ====================================================================
-   IPTVAX — SITE VITRINE (Phase 5, design Claude Design "OLED-First/Vanta")
+   UMBRA — SITE VITRINE (Phase 5, design Claude Design "OLED-First/Vanta")
    Porté depuis le bundle HTML/CSS. TOUT est scopé sous `.vitrine` pour ne
    JAMAIS polluer le `.btn`/tokens de app.css (partagé avec les builds natifs).
    Keyframes préfixées `v-` pour éviter toute collision globale.

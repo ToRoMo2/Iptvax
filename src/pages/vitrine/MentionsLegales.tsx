@@ -6,7 +6,7 @@ export function MentionsLegales() {
     <div className={styles.page}>
       <div className={styles.container}>
         <h1 className={styles.title}>Mentions légales</h1>
-        <p className={styles.sub}>Iptvax</p>
+        <p className={styles.sub}>Umbra</p>
         <div className={styles.placeholder}>
           <strong>Page en cours de rédaction.</strong>
           <br />

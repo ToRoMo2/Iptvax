@@ -27,9 +27,9 @@ export function HeaderVitrine() {
 
   return (
     <header className={`hdr${scrolled ? ' scrolled' : ''}`}>
-      <Link className="brand" to="/" aria-label="Iptvax — accueil">
+      <Link className="brand" to="/" aria-label="Umbra — accueil">
         <AppLogo size={30} />
-        <span>Iptvax</span>
+        <span>Umbra</span>
       </Link>
       <nav className="nav" aria-label="Navigation principale">
         <Link className={`nav-link${activeNav === 'downloads' ? ' active' : ''}`} to="/downloads">

@@ -485,9 +485,9 @@ const fr = {
       "Votre paiement a peut-être été refusé ou n'est pas encore confirmé. Si vous avez bien été débité, l'accès se débloquera sous peu — réessayez dans un instant.",
     retry: 'Réessayer',
     returnToAppDesc:
-      "Votre paiement a bien été reçu. Retournez dans l'application IPTVAX pour profiter de votre abonnement Premium — vous pouvez fermer cet onglet.",
+      "Votre paiement a bien été reçu. Retournez dans l'application UMBRA pour profiter de votre abonnement Premium — vous pouvez fermer cet onglet.",
     lockedFeature: '{feature} est réservé aux membres Premium',
-    unlockAll: 'Débloquez tout IPTVAX',
+    unlockAll: 'Débloquez tout UMBRA',
     pitch:
       'Profils illimités, synchronisation sur tous vos appareils, votre mur de cinéma personnel et bien plus. Annulable à tout moment.',
     cancelled: "Paiement annulé — aucun montant n'a été débité.",
@@ -592,7 +592,7 @@ const fr = {
       "Le code d'appairage a expiré. Rescannez le QR affiché sur votre téléviseur (un nouveau est généré automatiquement).",
     noProfiles: 'Aucun profil IPTV',
     noProfilesSub:
-      "Créez d'abord un profil dans l'application Iptvax, puis revenez scanner le code.",
+      "Créez d'abord un profil dans l'application Umbra, puis revenez scanner le code.",
     loadingProfiles: 'Chargement de vos profils…',
   },
 };

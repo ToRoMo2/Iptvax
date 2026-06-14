@@ -57,7 +57,7 @@ async function main() {
     return;
   }
   mkdirSync(VENDOR, { recursive: true });
-  const archive = join(tmpdir(), 'iptvax-mpv.7z');
+  const archive = join(tmpdir(), 'umbra-mpv.7z');
 
   console.log('[fetch-mpv] téléchargement de mpv (~32 Mo)…');
   await download(MPV_URL, archive);

@@ -13,7 +13,7 @@
 #   - VITE_SUPABASE_URL       : URL du projet Supabase
 #   - VITE_SUPABASE_ANON_KEY  : clé anon Supabase
 #   - VITE_TMDB_API_KEY       : clé TMDB v3 (facultatif — vide = dégradation gracieuse)
-#   - VITE_WEB_URL            : URL publique de la vitrine (https://iptvax.com),
+#   - VITE_WEB_URL            : URL publique de la vitrine (https://umbra.app),
 #                               utilisée pour le retour Premium / OAuth.
 # Electron = Option B (CLAUDE.md §XI) : VITE_API_BASE_URL reste VIDE → chemins relatifs,
 # le proxy `server/proxy.cjs` est embarqué sur la loopback. Ne PAS définir VITE_RUNTIME

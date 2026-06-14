@@ -53,7 +53,7 @@ export function Downloads() {
     <div className="dl-page" ref={ref}>
       <header className="dl-head">
         <h1 className="dl-title" data-reveal>
-          Téléchargez Iptvax
+          Téléchargez Umbra
         </h1>
         <p className="dl-sub" data-reveal style={{ '--reveal-delay': '80ms' } as CSSProperties}>
           Choisissez votre plateforme. Les binaires sont publiés sur GitHub&nbsp;Releases

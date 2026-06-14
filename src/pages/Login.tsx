@@ -156,7 +156,7 @@ export function Login({ redirectTo, hideBrand }: LoginProps = {}) {
         {!hideBrand && (
           <div className={styles.brand}>
             <AppLogo size={28} />
-            IPTVAX
+            UMBRA
           </div>
         )}
         <div className={styles.card}>
@@ -225,7 +225,7 @@ export function Login({ redirectTo, hideBrand }: LoginProps = {}) {
       {!hideBrand && (
         <div className={styles.brand}>
           <AppLogo size={28} />
-          IPTVAX
+          UMBRA
         </div>
       )}
 

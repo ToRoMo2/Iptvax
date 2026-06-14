@@ -747,7 +747,7 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Focus clavier : anneau cyan unique de la DA Iptvax — masqué à la souris. */
+/* Focus clavier : anneau cyan unique de la DA Umbra — masqué à la souris. */
 .controlBtn:focus { outline: none; }
 .controlBtn:focus-visible {
   outline: none;

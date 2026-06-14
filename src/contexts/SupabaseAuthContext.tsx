@@ -36,13 +36,13 @@ const SupabaseAuthContext = createContext<SupabaseAuthContextValue | null>(null)
 
 // Deep link de retour OAuth en mode natif : Supabase y renvoie après la
 // connexion Google/Apple ; l'app l'intercepte via @capacitor/app (intent
-// filter `com.iptvax.app` dans AndroidManifest.xml), puis échange le code
+// filter `com.umbra.app` dans AndroidManifest.xml), puis échange le code
 // d'autorisation contre une session. Voir docs/native-port.md.
-const NATIVE_OAUTH_REDIRECT = 'com.iptvax.app://auth-callback';
+const NATIVE_OAUTH_REDIRECT = 'com.umbra.app://auth-callback';
 
 // Protocole custom Electron — enregistré au niveau OS par `electron/main.cjs`
 // (`app.setAsDefaultProtocolClient`). Même rôle que le deep link Android.
-const ELECTRON_OAUTH_REDIRECT = 'iptvax://auth-callback';
+const ELECTRON_OAUTH_REDIRECT = 'umbra://auth-callback';
 
 // Supabase Auth renvoie ses messages d'erreur en anglais. On traduit les cas
 // fréquents du flux email/OTP en FR (interface française, §I) ; tout message
@@ -81,7 +81,7 @@ async function startNativeOAuth(provider: 'google' | 'apple'): Promise<string | 
 
 // Variante Electron : on ouvre l'URL OAuth dans le NAVIGATEUR SYSTÈME (cookies
 // Chrome/Edge, sélecteur de compte Google natif → UX cohérente avec les autres
-// apps desktop). Le retour `iptvax://auth-callback?code=…` est capté par le
+// apps desktop). Le retour `umbra://auth-callback?code=…` est capté par le
 // main process Electron (protocole custom + single-instance lock) et forwardé
 // au renderer via le pont preload (`window.electron.onAuthCallback`).
 async function startElectronOAuth(provider: 'google' | 'apple'): Promise<string | null> {
@@ -116,7 +116,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Retour OAuth natif : l'app est rouverte via le deep link com.iptvax.app://
+  // Retour OAuth natif : l'app est rouverte via le deep link com.umbra.app://
   // après la connexion Google/Apple. On extrait le code d'autorisation et on
   // l'échange contre une session (flux PKCE) → `onAuthStateChange` ci-dessus
   // prend alors le relais. Voir docs/native-port.md.
@@ -124,7 +124,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     if (!isNative) return;
     let handle: PluginListenerHandle | undefined;
     App.addListener('appUrlOpen', async ({ url }) => {
-      if (!url.startsWith('com.iptvax.app://')) return;
+      if (!url.startsWith('com.umbra.app://')) return;
       try {
         const params = new URL(url).searchParams;
         const code = params.get('code');
@@ -143,7 +143,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return () => { handle?.remove(); };
   }, []);
 
-  // Retour OAuth Electron : le main process capte `iptvax://auth-callback?…`
+  // Retour OAuth Electron : le main process capte `umbra://auth-callback?…`
   // (protocole custom + single-instance lock) et nous le relaie via le pont
   // preload. Même logique que le deep link natif Android : extraire le code,
   // l'échanger contre une session, `onAuthStateChange` prend le relais.

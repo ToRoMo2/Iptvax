@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.iptvax.app',
-  appName: 'Iptvax',
+  appId: 'com.umbra.app',
+  appName: 'Umbra',
   webDir: 'dist',
   android: {
     // Le WebView sert l'app en https://localhost. Les serveurs d'images IPTV

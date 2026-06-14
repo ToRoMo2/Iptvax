@@ -94,7 +94,7 @@ class MpvController {
   start(hwnd) {
     if (this.proc) return this.ready;
     const bin = resolveMpvPath();
-    this.pipePath = `\\\\.\\pipe\\iptvax-mpv-${process.pid}-${Date.now()}`;
+    this.pipePath = `\\\\.\\pipe\\umbra-mpv-${process.pid}-${Date.now()}`;
 
     const args = [
       `--wid=${hwnd}`,

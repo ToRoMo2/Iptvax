@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Build Iptvax pour Samsung Tizen TV — voir docs/native-port.md §4 Phase 4b.
+ * Build Umbra pour Samsung Tizen TV — voir docs/native-port.md §4 Phase 4b.
  *
  * Étapes :
  *   1. Lance `vite build` avec VITE_RUNTIME=tizen → bascule isNative + isTizen
  *      (URLs Xtream directes, plus tard lecteur AVPlay en Phase 4c).
- *   2. Assemble le dossier `tizen/Iptvax/` prêt à packager :
- *        tizen/Iptvax/
+ *   2. Assemble le dossier `tizen/Umbra/` prêt à packager :
+ *        tizen/Umbra/
  *        ├─ index.html
  *        ├─ assets/...               (copie depuis dist/)
  *        ├─ config.xml               (depuis tizen/config.xml)
@@ -17,8 +17,8 @@
  *
  * Le packaging final (.wgt) et l'installation sur la TV sont volontairement
  * gardés hors de ce script : ils dépendent du certificat installé en local
- * (Certificate Manager → profil « Iptvax ») et de la TV cible (IP variable
- * selon le réseau), donc se font à la main avec `tz package --sign Iptvax` et
+ * (Certificate Manager → profil « Umbra ») et de la TV cible (IP variable
+ * selon le réseau), donc se font à la main avec `tz package --sign Umbra` et
  * `sdb install`. Voir docs/native-port.md.
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -30,10 +30,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const TIZEN_DIR = join(ROOT, 'tizen');
 // Le nom du dossier détermine le nom du .wgt produit (`tz pack` ignore
-// `output_name` dans le yaml). On utilise `Iptvax` pour que le packaging
-// produise `Iptvax.wgt`, cohérent avec le `<name>Iptvax</name>` du `.project`
+// `output_name` dans le yaml). On utilise `Umbra` pour que le packaging
+// produise `Umbra.wgt`, cohérent avec le `<name>Umbra</name>` du `.project`
 // et l'`output_name` du yaml.
-const OUT = join(TIZEN_DIR, 'Iptvax');
+const OUT = join(TIZEN_DIR, 'Umbra');
 const CONFIG = join(TIZEN_DIR, 'config.xml');
 const ICON_SRC = join(ROOT, 'public', 'logo.png');
 
@@ -100,7 +100,7 @@ if (existsSync(indexPath)) {
 // échouer `tz pack` avec une erreur « invalid path » trompeuse.
 const projectXml = `<?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-\t<name>Iptvax</name>
+\t<name>Umbra</name>
 \t<comment></comment>
 \t<projects></projects>
 \t<buildSpec>
@@ -170,7 +170,7 @@ const projectYaml = `project_type: web_app
 profile: tv-samsung
 api_version: "10.0"
 build_type: Release
-output_name: Iptvax
+output_name: Umbra
 output_path: ""
 opt: false
 signing_profile: ""
@@ -204,6 +204,6 @@ deps: []
 `;
 writeFileSync(join(OUT, 'tizen_web_project.yaml'), projectYaml);
 
-log('OK. Étapes suivantes (manuelles, certificat « Iptvax » requis) :');
-log('  tz pack -t wgt -s Iptvax tizen/Iptvax');
-log('  sdb -s <IP_TV>:26101 install tizen/Iptvax/Release/Iptvax.wgt');
+log('OK. Étapes suivantes (manuelles, certificat « Umbra » requis) :');
+log('  tz pack -t wgt -s Umbra tizen/Umbra');
+log('  sdb -s <IP_TV>:26101 install tizen/Umbra/Release/Umbra.wgt');

@@ -317,12 +317,12 @@ button:focus-visible,
    En mode natif, la vidéo est rendue par libVLC dans une surface native
    placée DERRIÈRE la WebView. Pour la laisser voir, la WebView est rendue
    transparente côté natif et toute la chaîne web du lecteur doit l'être aussi.
-   La classe `iptvax-native-playback` est posée sur <html> par useNativePlayer
+   La classe `umbra-native-playback` est posée sur <html> par useNativePlayer
    uniquement pendant la lecture → aucun impact sur le mode web. */
-html.iptvax-native-playback,
-html.iptvax-native-playback body,
-html.iptvax-native-playback #root,
-html.iptvax-native-playback .native-video-surface {
+html.umbra-native-playback,
+html.umbra-native-playback body,
+html.umbra-native-playback #root,
+html.umbra-native-playback .native-video-surface {
   background: transparent !important;
 }
 

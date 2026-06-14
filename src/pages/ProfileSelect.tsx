@@ -100,7 +100,7 @@ export function ProfileSelect() {
     <div className={styles.screen}>
       <div className="brand-fixed">
         <AppLogo size={22} />
-        <span className="brand-name">IPTVAX</span>
+        <span className="brand-name">UMBRA</span>
       </div>
 
       <h1 className={styles.title}>{t('profileSelect.who')}</h1>
@@ -248,7 +248,7 @@ function ProfileEditor({ state, onClose, canCancel }: EditorProps) {
     <div className={styles.screen}>
       <div className="brand-fixed">
         <AppLogo size={22} />
-        <span className="brand-name">IPTVAX</span>
+        <span className="brand-name">UMBRA</span>
       </div>
 
       <div className={styles.editor}>

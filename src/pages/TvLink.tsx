@@ -141,7 +141,7 @@ export function TvLink() {
   const header = (
     <div className={styles.brand}>
       <AppLogo size={26} />
-      IPTVAX
+      UMBRA
     </div>
   );
 

@@ -10,7 +10,7 @@ const path = require('path');
 
 const MPV = path.join(__dirname, '..', 'vendor', 'mpv', 'mpv.exe');
 const FILE = path.join(__dirname, '..', 'vendor', 'test-sub.mkv');
-const PIPE = `\\\\.\\pipe\\iptvax-subtext-${process.pid}`;
+const PIPE = `\\\\.\\pipe\\umbra-subtext-${process.pid}`;
 
 let sock = null, rid = 0, buf = '';
 function cmd(c) { if (sock) sock.write(JSON.stringify({ command: c, request_id: ++rid }) + '\n'); }

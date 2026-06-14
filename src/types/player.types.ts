@@ -54,7 +54,7 @@ export interface PlayerController {
    * la WebView) au lieu de l'élément `<video>` HTML5 — cas de libVLC sur
    * Capacitor et de la Media Pipeline webOS. La couche UI doit alors rendre un
    * `<div>` transparent à la place du `<video>` et activer la chaîne CSS
-   * `iptvax-native-playback` sur `<html>`. Défaut implicite : `false`.
+   * `umbra-native-playback` sur `<html>`. Défaut implicite : `false`.
    */
   usesNativeSurface?: boolean;
   adjustSubtitleOffset: (delta: number) => void;

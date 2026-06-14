@@ -434,7 +434,7 @@ export function Settings() {
             <>
               <div className={styles.col}>
               <section className={styles.section}>
-                <div className={styles.sectionLabel}>Iptvax</div>
+                <div className={styles.sectionLabel}>Umbra</div>
                 <InfoRow label={t('settings.version')} value="2.4.0" />
                 <InfoRow label={t('settings.build')} value="2026.05" muted />
                 <InfoRow label={t('settings.framework')} value="React 18 · Vite · TypeScript" muted />
@@ -455,7 +455,7 @@ export function Settings() {
               </section>
 
               <div className={styles.versionChip}>
-                <span>Iptvax</span>
+                <span>Umbra</span>
                 <span className={styles.versionDot} />
                 <span>v2.4.0</span>
                 <span className={styles.versionDot} />

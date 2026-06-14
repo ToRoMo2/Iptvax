@@ -6,7 +6,7 @@ export function CGV() {
     <div className={styles.page}>
       <div className={styles.container}>
         <h1 className={styles.title}>Conditions générales de vente</h1>
-        <p className={styles.sub}>Iptvax · Abonnement Premium</p>
+        <p className={styles.sub}>Umbra · Abonnement Premium</p>
         <div className={styles.placeholder}>
           <strong>Page en cours de rédaction.</strong>
           <br />

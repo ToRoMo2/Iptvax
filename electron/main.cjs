@@ -34,7 +34,7 @@ const { startServer } = require(path.join(__dirname, '..', 'server', 'proxy.cjs'
 
 const isDev = !app.isPackaged;
 
-// ─── Anti-rechargement quand une autre fenêtre recouvre Iptvax ───────────────
+// ─── Anti-rechargement quand une autre fenêtre recouvre Umbra ───────────────
 // Sur une fenêtre `transparent:true` (lecteur mpv), quand une autre fenêtre la
 // recouvre entièrement, le calcul d'occlusion natif de Chromium marque la
 // WebView « cachée » et libère sa surface GPU ; au retour (fenêtre retirée), la
@@ -47,11 +47,11 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 // Pendant le clic « Se connecter avec Google » dans Electron, on ouvre l'URL
 // d'autorisation Supabase dans le navigateur système (cookies Chrome/Edge déjà
 // posés, sélecteur de compte natif). Supabase redirige ensuite vers
-// `iptvax://auth-callback?code=…`. Windows/macOS rappellent Iptvax via le
+// `umbra://auth-callback?code=…`. Windows/macOS rappellent Umbra via le
 // protocole enregistré ; on récupère l'URL et on la transmet au renderer
 // (SupabaseAuthContext appelle `exchangeCodeForSession` — flux PKCE). Même
-// pattern que la Phase 2e Android (deep link `com.iptvax.app://auth-callback`).
-const OAUTH_PROTOCOL = 'iptvax';
+// pattern que la Phase 2e Android (deep link `com.umbra.app://auth-callback`).
+const OAUTH_PROTOCOL = 'umbra';
 const OAUTH_REDIRECT_PREFIX = `${OAUTH_PROTOCOL}://`;
 
 let serverHandle = null;
@@ -64,7 +64,7 @@ function registerOAuthProtocol() {
   // En dev (`electron .`), `process.execPath` = electron.exe dans node_modules
   // → il faut passer le script (`electron/main.cjs`) en argument explicite,
   // sinon Windows lance Electron sans pointer sur notre app. En prod
-  // (`Iptvax.exe`), un simple appel suffit.
+  // (`Umbra.exe`), un simple appel suffit.
   if (process.defaultApp && process.argv.length >= 2) {
     app.setAsDefaultProtocolClient(OAUTH_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
   } else {
@@ -75,7 +75,7 @@ function registerOAuthProtocol() {
 function forwardAuthCallback(url) {
   if (typeof url !== 'string' || !url.startsWith(OAUTH_REDIRECT_PREFIX)) return;
   if (mainWindow && !mainWindow.webContents.isLoading()) {
-    mainWindow.webContents.send('iptvax:auth-callback', url);
+    mainWindow.webContents.send('umbra:auth-callback', url);
   } else {
     pendingAuthUrl = url;
   }
@@ -85,8 +85,8 @@ function forwardAuthCallback(url) {
   }
 }
 
-// Single-instance lock : sous Windows, un clic sur `iptvax://auth-callback?…`
-// lance une 2e Iptvax.exe ; il faut que la 1ère reçoive l'URL et que la 2nde
+// Single-instance lock : sous Windows, un clic sur `umbra://auth-callback?…`
+// lance une 2e Umbra.exe ; il faut que la 1ère reçoive l'URL et que la 2nde
 // quitte. `second-instance` fournit l'argv de la 2nde — l'URL OAuth y figure.
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -115,7 +115,7 @@ async function bootstrap() {
   // IPC : ouvre une URL http(s) dans le navigateur système. Validation stricte
   // côté main pour éviter qu'un compromis renderer ne fasse exécuter n'importe
   // quel `shell://` (potentiellement file://, ftp://, javascript:…).
-  ipcMain.handle('iptvax:open-external', async (_event, url) => {
+  ipcMain.handle('umbra:open-external', async (_event, url) => {
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
       return { ok: false, error: 'invalid url' };
     }
@@ -191,11 +191,11 @@ async function bootstrap() {
       return;
     }
     if (!mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('iptvax:window-fs-state', fsSavedBounds !== null);
+      mainWindow.webContents.send('umbra:window-fs-state', fsSavedBounds !== null);
     }
   };
 
-  ipcMain.on('iptvax:window', (_event, action) => {
+  ipcMain.on('umbra:window', (_event, action) => {
     if (!mainWindow) return;
     if (action === 'minimize') mainWindow.minimize();
     else if (action === 'maximize') {
@@ -205,10 +205,10 @@ async function bootstrap() {
     else if (action === 'toggle-fullscreen') setBorderlessFullscreen(fsSavedBounds === null);
     else if (action === 'exit-fullscreen') setBorderlessFullscreen(false);
   });
-  ipcMain.handle('iptvax:window-is-maximized', () => !!(mainWindow && mainWindow.isMaximized()));
+  ipcMain.handle('umbra:window-is-maximized', () => !!(mainWindow && mainWindow.isMaximized()));
   const sendMaxState = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('iptvax:window-max-state', mainWindow.isMaximized());
+      mainWindow.webContents.send('umbra:window-max-state', mainWindow.isMaximized());
     }
   };
   mainWindow.on('maximize', sendMaxState);
@@ -223,7 +223,7 @@ async function bootstrap() {
   // sont tous deux en DIP → l'offset reste cohérent (y compris multi-écran).
   const SNAP_TOP_PX = 6;
   let winDrag = null;
-  ipcMain.on('iptvax:window-drag', (_event, phase) => {
+  ipcMain.on('umbra:window-drag', (_event, phase) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (phase === 'start') {
       const cursor = screen.getCursorScreenPoint();
@@ -261,7 +261,7 @@ async function bootstrap() {
   // instance pour la session, réutilisée via `loadfile replace`.
   mpv.setEventSink((ev) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('iptvax:mpv-event', ev);
+      mainWindow.webContents.send('umbra:mpv-event', ev);
     }
   });
   const ensureMpv = async () => {
@@ -275,8 +275,8 @@ async function bootstrap() {
     'setSubtitle', 'setSubScale', 'setSubColor', 'setSubBackColor', 'setSubBold',
     'setSubPos', 'setSubDelay', 'stop',
   ]);
-  ipcMain.handle('iptvax:mpv-available', () => mpv.available());
-  ipcMain.handle('iptvax:mpv', async (_event, method, args) => {
+  ipcMain.handle('umbra:mpv-available', () => mpv.available());
+  ipcMain.handle('umbra:mpv', async (_event, method, args) => {
     if (!MPV_METHODS.has(method)) return { ok: false, error: 'method not allowed' };
     try {
       if (method === 'load') await ensureMpv();
@@ -287,7 +287,7 @@ async function bootstrap() {
     }
   });
 
-  // Liens externes (ex. paiement Stripe sur iptvax.com) → navigateur par défaut.
+  // Liens externes (ex. paiement Stripe sur umbra.app) → navigateur par défaut.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -296,14 +296,14 @@ async function bootstrap() {
   const url = `http://127.0.0.1:${serverHandle.port}/`;
   await mainWindow.loadURL(url);
 
-  // Si l'app a été lancée PAR un clic sur `iptvax://…` (1er lancement à froid),
+  // Si l'app a été lancée PAR un clic sur `umbra://…` (1er lancement à froid),
   // l'URL est dans `process.argv` côté Windows — on la rejoue maintenant.
   const initialAuthUrl = process.argv.find((a) => typeof a === 'string' && a.startsWith(OAUTH_REDIRECT_PREFIX));
   if (initialAuthUrl) pendingAuthUrl = initialAuthUrl;
 
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingAuthUrl) {
-      mainWindow.webContents.send('iptvax:auth-callback', pendingAuthUrl);
+      mainWindow.webContents.send('umbra:auth-callback', pendingAuthUrl);
       pendingAuthUrl = null;
     }
   });

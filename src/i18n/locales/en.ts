@@ -482,9 +482,9 @@ const en: typeof frDict = {
       'Your payment may have been declined or is not confirmed yet. If you were charged, access will unlock shortly — try again in a moment.',
     retry: 'Try again',
     returnToAppDesc:
-      'Your payment was received. Return to the IPTVAX app to enjoy your Premium subscription — you can close this tab.',
+      'Your payment was received. Return to the UMBRA app to enjoy your Premium subscription — you can close this tab.',
     lockedFeature: '{feature} is reserved for Premium members',
-    unlockAll: 'Unlock all of IPTVAX',
+    unlockAll: 'Unlock all of UMBRA',
     pitch:
       'Unlimited profiles, sync across all your devices, your personal cinema wall and much more. Cancel anytime.',
     cancelled: 'Payment cancelled — no amount was charged.',
@@ -585,7 +585,7 @@ const en: typeof frDict = {
       'The pairing code has expired. Scan the QR shown on your television again (a fresh one is generated automatically).',
     noProfiles: 'No IPTV profile',
     noProfilesSub:
-      'Create a profile in the Iptvax app first, then come back to scan the code.',
+      'Create a profile in the Umbra app first, then come back to scan the code.',
     loadingProfiles: 'Loading your profiles…',
   },
 };

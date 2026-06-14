@@ -896,7 +896,7 @@ export function VideoPlayer({
   //     pour les fichiers directs (MKV/MP4), false en HLS (rendu par <video>)
   // Dans ces cas on n'affiche pas de <video> — juste un élément transparent
   // cliquable. La classe `native-video-surface` complète la chaîne CSS de
-  // transparence (cf. `iptvax-native-playback` dans app.css).
+  // transparence (cf. `umbra-native-playback` dans app.css).
   const useNativeSurface = player.usesNativeSurface === true;
   return (
     <div

@@ -13,7 +13,7 @@
 #   - VITE_SUPABASE_URL       : URL du projet Supabase
 #   - VITE_SUPABASE_ANON_KEY  : clé anon Supabase
 #   - VITE_TMDB_API_KEY       : clé TMDB v3 (facultatif — vide = dégradation gracieuse)
-#   - VITE_WEB_URL            : URL publique de la vitrine (https://iptvax.com),
+#   - VITE_WEB_URL            : URL publique de la vitrine (https://umbra.app),
 #                               OBLIGATOIRE pour les builds natifs (appairage TV, retour Premium)
 # Sans ces secrets, le build passe mais l'app native ne pourra pas joindre Supabase.
 #
@@ -80,7 +80,7 @@ jobs:
         working-directory: android
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk iptvax-debug.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk umbra-debug.apk
 
       - name: Publish to GitHub Release (android-latest)
         uses: softprops/action-gh-release@v2
@@ -92,4 +92,4 @@ jobs:
             Commit : ${{ github.sha }}
             Build : ${{ github.run_number }} — ${{ github.event.head_commit.message }}
           prerelease: true
-          files: iptvax-debug.apk
+          files: umbra-debug.apk

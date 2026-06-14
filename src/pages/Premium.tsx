@@ -163,7 +163,7 @@ export function Premium({ lockedFeature, onBack }: Props) {
         </button>
       )}
       <AppLogo size={26} />
-      IPTVAX <span className={styles.plus}>Premium</span>
+      UMBRA <span className={styles.plus}>Premium</span>
     </div>
   );
 

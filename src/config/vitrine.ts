@@ -6,7 +6,7 @@
  */
 
 /** Domaine public canonique du site vitrine (meta og:url, liens absolus). */
-export const WEB_URL = 'https://iptvax.com';
+export const WEB_URL = 'https://umbra.app';
 
 /** Repo GitHub où sont publiées les releases (owner/name). */
 export const GITHUB_REPO = 'ToRoMo2/Iptvax';
@@ -30,29 +30,29 @@ export const DOWNLOADS: DownloadAsset[] = [
   {
     id: 'android',
     label: 'Android',
-    filename: 'iptvax.apk',
-    url: `${RELEASES_BASE}/iptvax.apk`,
+    filename: 'umbra.apk',
+    url: `${RELEASES_BASE}/umbra.apk`,
     description: 'Smartphone, tablette, Android TV — APK à installer directement.',
   },
   {
     id: 'windows',
     label: 'Windows',
-    filename: 'Iptvax-Setup.exe',
-    url: `${RELEASES_BASE}/Iptvax-Setup.exe`,
+    filename: 'Umbra-Setup.exe',
+    url: `${RELEASES_BASE}/Umbra-Setup.exe`,
     description: 'Windows 10 / 11 — installeur classique.',
   },
   {
     id: 'webos',
     label: 'TV LG (webOS)',
-    filename: 'com.iptvax.app_1.0.0_all.ipk',
-    url: `${RELEASES_BASE}/com.iptvax.app_1.0.0_all.ipk`,
+    filename: 'com.umbra.app_1.0.0_all.ipk',
+    url: `${RELEASES_BASE}/com.umbra.app_1.0.0_all.ipk`,
     description: 'TV LG webOS 4+ — sideload en mode développeur.',
   },
   {
     id: 'tizen',
     label: 'TV Samsung (Tizen)',
-    filename: 'Iptvax.wgt',
-    url: `${RELEASES_BASE}/Iptvax.wgt`,
+    filename: 'Umbra.wgt',
+    url: `${RELEASES_BASE}/Umbra.wgt`,
     description: 'TV Samsung Tizen 5+ — sideload en mode développeur.',
   },
 ];

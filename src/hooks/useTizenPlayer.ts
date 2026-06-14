@@ -65,8 +65,8 @@ export function useTizenPlayer(url: string | null, _mediaUrl?: string | null): W
   // ── Transparence : la WebView est rendue transparente pendant la lecture pour
   // laisser voir le plan vidéo AVPlay (même plombing que libVLC). ───────────────
   useEffect(() => {
-    document.documentElement.classList.add('iptvax-native-playback');
-    return () => { document.documentElement.classList.remove('iptvax-native-playback'); };
+    document.documentElement.classList.add('umbra-native-playback');
+    return () => { document.documentElement.classList.remove('umbra-native-playback'); };
   }, []);
 
   // ── Reflète le volume système courant de la TV au montage ──────────────────

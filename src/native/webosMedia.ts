@@ -16,7 +16,7 @@
  * Couplage avec la transparence WebView : les frames sont rendues sur un plan
  * hardware DERRIÈRE la WebView (similaire au mécanisme libVLC sur Android).
  * Le hook consommateur (`useWebOSPlayer`) doit poser la classe
- * `iptvax-native-playback` sur `<html>` pendant la lecture pipeline pour que
+ * `umbra-native-playback` sur `<html>` pendant la lecture pipeline pour que
  * la chaîne web devienne transparente et laisse voir la vidéo.
  *
  * ⚠ L'API exacte de `luna://com.webos.media` n'est pas figée entre versions
@@ -118,7 +118,7 @@ async function load(
   opts: MediaLoadOptions = {},
 ): Promise<string> {
   const service = await resolveMediaService();
-  const appId = opts.appId ?? 'com.iptvax.app';
+  const appId = opts.appId ?? 'com.umbra.app';
   const win = opts.displayWindow ?? { x: 0, y: 0, width: 1920, height: 1080 };
   const res = await lunaRequest<{ mediaId: string }>(service, 'load', {
     uri,

@@ -56,7 +56,7 @@ export function HomeVitrine() {
           </h1>
 
           <p className="hero-sub">
-            Une seule app, tous vos écrans. Téléphone, ordinateur, TV — Iptvax lit vos
+            Une seule app, tous vos écrans. Téléphone, ordinateur, TV — Umbra lit vos
             abonnements Xtream&nbsp;Codes sans publicité, avec vos favoris et votre
             historique synchronisés à la seconde près.
           </p>
@@ -201,7 +201,7 @@ export function HomeVitrine() {
             <div className="story-steps">
               <article className="story-step" data-step="0">
                 <div className="idx">01 / Connexion</div>
-                <h3>Un seul compte Iptvax</h3>
+                <h3>Un seul compte Umbra</h3>
                 <p>
                   Connectez-vous une fois. Vos abonnements Xtream Codes, vos profils et vos
                   préférences vivent dans votre compte — pas sur un appareil.
@@ -422,7 +422,7 @@ export function HomeVitrine() {
         <div className="final-inner">
           <h2 data-reveal>Prêt à reprendre le contrôle ?</h2>
           <p data-reveal style={{ '--reveal-delay': '80ms' } as CSSProperties}>
-            Iptvax est libre, sans pub, sans tracker. Choisissez votre plateforme et
+            Umbra est libre, sans pub, sans tracker. Choisissez votre plateforme et
             commencez en 2&nbsp;minutes.
           </p>
           <div data-reveal style={{ '--reveal-delay': '160ms' } as CSSProperties}>

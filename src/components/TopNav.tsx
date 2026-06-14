@@ -124,12 +124,12 @@ export function TopNav({ onSearch }: { onSearch?: () => void } = {}) {
       <button
         type="button"
         className="brand-fixed"
-        title="Iptvax"
+        title="Umbra"
         aria-label={t('nav.home')}
         onClick={() => navigate('/')}
       >
         <AppLogo size={26} />
-        <span className="brand-name">iptv<span className="brand-ax">ax</span></span>
+        <span className="brand-name">Umbra</span>
       </button>
 
       {/* ── Search button — mobile only (en haut à droite, à côté du profil)

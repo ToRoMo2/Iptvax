@@ -30,7 +30,7 @@ import { hasLunaBridge } from '../native/webosLuna';
  *     au DOM). La pipeline, elle, expose toutes les pistes via l'event
  *     `sourceInfo` et offre `selectTrack` pour basculer à chaud.
  *     La vidéo est rendue sur un plan hardware DERRIÈRE la WebView : on pose
- *     la classe `iptvax-native-playback` sur `<html>` pendant la lecture
+ *     la classe `umbra-native-playback` sur `<html>` pendant la lecture
  *     (transparence chaîne web → la vidéo apparaît à travers).
  *
  * Différences avec `usePlayer` (web/ffmpeg) :
@@ -88,8 +88,8 @@ export function useWebOSPlayer(url: string | null, _mediaUrl?: string | null): W
   // ── Transparence WebView : posée tant que la pipeline est active ───────────
   useEffect(() => {
     if (!usesNativeSurface) return;
-    document.documentElement.classList.add('iptvax-native-playback');
-    return () => { document.documentElement.classList.remove('iptvax-native-playback'); };
+    document.documentElement.classList.add('umbra-native-playback');
+    return () => { document.documentElement.classList.remove('umbra-native-playback'); };
   }, [usesNativeSurface]);
 
   // ── Pipeline : application d'un update reçu via subscribe ──────────────────

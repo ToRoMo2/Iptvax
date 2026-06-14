@@ -7,9 +7,9 @@ interface AppLogoProps {
 }
 
 // `BASE_URL` est substitué au build par Vite (= `base` dans vite.config.ts).
-// Web : `/` → `/logo.png` ; Tizen/webOS : `./` → `./logo.png` (relatif à
+// Web : `/` → `/logo.svg` ; Tizen/webOS : `./` → `./logo.svg` (relatif à
 // l'index.html servi depuis `file://` dans l'app .wgt/.ipk).
-const LOGO_URL = `${import.meta.env.BASE_URL}logo.png`;
+const LOGO_URL = `${import.meta.env.BASE_URL}logo.svg`;
 
 export function AppLogo({ size = 32, spin = false, className }: AppLogoProps) {
   return (

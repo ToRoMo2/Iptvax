@@ -16,7 +16,7 @@ export function FooterVitrine() {
           <div className="ftr-col ftr-brand">
             <div className="brand-line">
               <AppLogo size={24} />
-              <span>Iptvax</span>
+              <span>Umbra</span>
             </div>
             <p className="ftr-tagline">
               Votre client IPTV moderne, multi-plateforme. Sans publicité, sans
@@ -52,11 +52,11 @@ export function FooterVitrine() {
         </div>
       </div>
       <div className="ftr-bottom">
-        <span>© {year} Iptvax. Tous droits réservés.</span>
+        <span>© {year} Umbra. Tous droits réservés.</span>
         <span className="mono">Fait avec ❤ en France.</span>
       </div>
       <div className="ftr-watermark" aria-hidden="true">
-        Iptvax
+        Umbra
       </div>
     </footer>
   );

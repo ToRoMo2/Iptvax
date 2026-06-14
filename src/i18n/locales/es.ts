@@ -482,9 +482,9 @@ const es: typeof frDict = {
       'Es posible que tu pago haya sido rechazado o que aún no esté confirmado. Si se te ha cobrado, el acceso se desbloqueará en breve — vuelve a intentarlo en un momento.',
     retry: 'Reintentar',
     returnToAppDesc:
-      'Tu pago se ha recibido. Vuelve a la aplicación IPTVAX para disfrutar de tu suscripción Premium — puedes cerrar esta pestaña.',
+      'Tu pago se ha recibido. Vuelve a la aplicación UMBRA para disfrutar de tu suscripción Premium — puedes cerrar esta pestaña.',
     lockedFeature: '{feature} está reservado a los miembros Premium',
-    unlockAll: 'Desbloquea todo IPTVAX',
+    unlockAll: 'Desbloquea todo UMBRA',
     pitch:
       'Perfiles ilimitados, sincronización en todos tus dispositivos, tu muro de cine personal y mucho más. Cancela cuando quieras.',
     cancelled: 'Pago cancelado — no se ha cobrado ningún importe.',
@@ -588,7 +588,7 @@ const es: typeof frDict = {
       'El código de emparejamiento ha caducado. Vuelve a escanear el QR mostrado en tu televisor (se genera uno nuevo automáticamente).',
     noProfiles: 'Sin perfil IPTV',
     noProfilesSub:
-      'Crea primero un perfil en la aplicación Iptvax y luego vuelve a escanear el código.',
+      'Crea primero un perfil en la aplicación Umbra y luego vuelve a escanear el código.',
     loadingProfiles: 'Cargando tus perfiles…',
   },
 };

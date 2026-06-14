@@ -6,7 +6,7 @@
  * tous les conteneurs/codecs (HLS, DASH, MP4, MKV, MPEG-TS…) et expose les
  * pistes audio/sous-titres embarquées — l'équivalent logique de libVLC côté
  * Android. La vidéo est rendue sur un PLAN HARDWARE derrière la WebView (comme
- * libVLC) : la chaîne web doit être transparente (`iptvax-native-playback`).
+ * libVLC) : la chaîne web doit être transparente (`umbra-native-playback`).
  *
  * Sur une TV Samsung, `window.webapis` et `window.tizen` sont injectés
  * automatiquement par le runtime web pour les apps empaquetées (.wgt). Le build
