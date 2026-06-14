@@ -323,7 +323,8 @@
    grande affiche verticale précédée d'un numéro de rang doré qui la chevauche.
    ════════════════════════════════════════════════════════════════════════════ */
 .mWrap {
-  margin-bottom: var(--row-gap);
+  /* Pas de margin-bottom ici : le `.shelf` parent porte déjà `--row-gap`. */
+  margin-bottom: 4px;
 }
 
 .mHead {
@@ -331,7 +332,7 @@
   align-items: baseline;
   gap: 10px;
   padding: 0 var(--pad-edge);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .mHeadTitle {
   font-family: var(--font-display);
@@ -352,62 +353,85 @@
   text-shadow: 0 0 12px var(--accent-glow);
 }
 
+/* ── Coverflow tactile ────────────────────────────────────────────────────────
+   Rail à snap centré : l'affiche centrée est en pleine taille (`scale(1)`), ses
+   voisines rétrécissent/s'estompent (scaling posé en JS par frame de scroll →
+   suit le doigt). HAUTEUR FIXE (= affiche pleine taille) + `overflow-y: hidden`
+   → impossible de scroller verticalement « dans » la zone, pas d'espace mort. */
 .mRail {
+  --pop-w: 168px;
+  --pop-gap: 74px;
   display: flex;
-  align-items: flex-end;
-  gap: 12px;
+  align-items: center;
+  gap: var(--pop-gap);
+  height: calc(var(--pop-w) * 1.5 + 16px);
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* Padding-left réduit : le grand numéro de la 1re carte « mord » dans la marge
-     mais reste lisible. Padding-bottom : laisse respirer l'ombre des affiches. */
-  padding: 6px var(--pad-edge) 8px;
+  scroll-behavior: smooth;
+  /* Padding latéral = (50% − moitié d'affiche) → 1re et dernière peuvent venir se
+     centrer sous la zone de mise en valeur. */
+  padding: 0 calc(50% - var(--pop-w) / 2);
 }
 .mRail::-webkit-scrollbar { display: none; }
 
 .mItem {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: flex-end;
-  gap: 0;
+  position: relative;
+  flex: 0 0 var(--pop-w);
+  width: var(--pop-w);
+  margin: 0;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
+  scroll-snap-align: center;
   -webkit-tap-highlight-color: transparent;
+  /* Scale/opacity posés en JS via ces variables (zéro transition → colle au
+     doigt). transform-origin centre → chaque voisine rétrécit sur elle-même. */
+  transform: scale(var(--s, 1));
+  opacity: var(--o, 1);
+  transform-origin: center center;
+  will-change: transform, opacity;
 }
 
-/* Grand numéro de rang — chevauché par l'affiche (marge négative). */
+/* Grand numéro de rang doré, posé À GAUCHE de l'affiche (dans le gap). Il scale
+   avec l'item (enfant transformé) → grandit avec l'affiche centrée. */
 .mRank {
+  position: absolute;
+  right: calc(100% + 2px);
+  top: 50%;
+  transform: translateY(-50%);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 132px;
-  line-height: 0.66;
-  letter-spacing: -0.06em;
+  font-size: 128px;
+  line-height: 0.8;
+  letter-spacing: -0.05em;
   color: transparent;
   -webkit-text-stroke: 2.5px var(--accent);
   text-shadow: 0 6px 26px var(--accent-glow);
-  /* L'affiche recouvre le bord droit du chiffre → effet « Top 10 » Netflix. */
-  margin-right: -26px;
-  margin-bottom: -6px;
   pointer-events: none;
   user-select: none;
-  flex: 0 0 auto;
+  z-index: 0;
 }
 
 .mPoster {
   position: relative;
-  flex: 0 0 auto;
-  width: 132px;
+  width: 100%;
   aspect-ratio: 2 / 3;
   border-radius: var(--r-card);
   overflow: hidden;
   background: var(--bg-elev);
   border: 1px solid var(--line);
-  box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.82);
+  transition: box-shadow 0.32s var(--ease), border-color 0.32s var(--ease);
   z-index: 1;
+}
+.mActive .mPoster {
+  border-color: var(--accent-faint);
+  box-shadow: 0 22px 48px -16px rgba(0, 0, 0, 0.85), 0 0 26px -6px var(--accent-glow);
 }
 .mPosterImg {
   position: absolute;
@@ -433,9 +457,12 @@
 .mShade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(8, 6, 3, 0.88) 0%, rgba(8, 6, 3, 0.12) 42%, transparent 64%);
+  background: linear-gradient(to top, rgba(8, 6, 3, 0.9) 0%, rgba(8, 6, 3, 0.1) 44%, transparent 66%);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
 }
+.mActive .mShade { opacity: 1; }
 .mRating {
   position: absolute;
   top: 8px;
@@ -452,24 +479,34 @@
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
 }
+/* Titre + note : visibles uniquement sur l'affiche centrée (les voisines
+   restent épurées, façon coverflow). */
 .mTitle {
   position: absolute;
-  left: 9px;
-  right: 9px;
-  bottom: 9px;
-  font-size: 12.5px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--t-1);
   text-align: left;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
 }
+.mActive .mTitle { opacity: 1; }
 
 @media (max-width: 380px) {
-  .mPoster { width: 118px; }
-  .mRank { font-size: 116px; margin-right: -22px; }
+  .mRail { --pop-w: 150px; --pop-gap: 64px; }
+  .mRank { font-size: 112px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mRail { scroll-behavior: auto; }
+  .mItem { transform: none !important; opacity: 1 !important; }
 }
