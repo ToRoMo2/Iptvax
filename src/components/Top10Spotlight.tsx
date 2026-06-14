@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { safeImgUrl } from '../utils/image';
 import { Focusable } from './Focusable';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useI18n } from '../contexts/I18nContext';
 import styles from './Top10Spotlight.module.css';
 
@@ -10,6 +11,9 @@ export interface Top10SpotlightItem {
   title: string;
   /** Backdrop paysage HD (TMDB de préférence). */
   backdrop?: string;
+  /** Affiche portrait (poster Xtream `stream_icon`/`cover`) — utilisée par le
+   *  rendu mobile « Top 10 » (cartes verticales façon Netflix). */
+  poster?: string;
   /** Note sur 10 déjà formatée (ex. « 6.7 »). */
   ratingBadge?: string;
   /** Métadonnées affichées en ligne (année, genre…), séparées par des points. */
@@ -51,12 +55,64 @@ export function Top10Spotlight({ items }: { items: Top10SpotlightItem[] }) {
   const { t } = useI18n();
   const [active, setActive] = useState(0);
   const n = items.length;
+  // Mobile portrait : l'accordéon paysage écrase les cartes en fins copeaux
+  // illisibles → on bascule sur un rail « Top 10 » d'affiches verticales (façon
+  // Netflix mobile), bien plus tactile. Desktop/tablette gardent l'accordéon.
+  // `useMediaQuery` (≤640px) plutôt qu'un toggle CSS : on ne monte qu'un seul
+  // jeu d'images (posters OU backdrops, jamais les deux).
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowRight') { e.preventDefault(); setActive((a) => Math.min(a + 1, n - 1)); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
   };
 
+  // ── Rendu MOBILE : rail « Top 10 » d'affiches portrait + grand numéro doré ──
+  if (isMobile) {
+    return (
+      <div className={styles.mWrap}>
+        <div className={styles.mHead}>
+          <span className={styles.mHeadTitle}>{t('common.popular')}</span>
+          <span className={styles.mHeadTag}>TOP {Math.min(n, 10)}</span>
+        </div>
+        <div className={styles.mRail}>
+          {items.map((it) => {
+            const poster = safeImgUrl(it.poster) || safeImgUrl(it.backdrop);
+            return (
+              <button
+                key={it.id}
+                type="button"
+                className={styles.mItem}
+                onClick={it.onOpen}
+                aria-label={`#${it.rank} ${it.title}`}
+              >
+                <span className={styles.mRank} aria-hidden="true">{it.rank}</span>
+                <span className={styles.mPoster}>
+                  {poster ? (
+                    <img
+                      className={styles.mPosterImg}
+                      src={poster}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <span className={styles.mPh}>{it.title}</span>
+                  )}
+                  {it.ratingBadge && <span className={styles.mRating}>★ {it.ratingBadge}</span>}
+                  <span className={styles.mShade} aria-hidden="true" />
+                  <span className={styles.mTitle}>{it.title}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Rendu DESKTOP / TABLETTE : accordéon paysage (inchangé) ─────────────────
   return (
     <div className={styles.rail} onKeyDown={onKeyDown}>
       {items.map((it, i) => {

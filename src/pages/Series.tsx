@@ -356,6 +356,7 @@ export function Series() {
     rank: i + 1,
     title: g.title,
     backdrop: backdrop ?? g.primary.backdrop_path?.[0] ?? g.primary.cover,
+    poster: g.primary.cover,
     ratingBadge: g.primary.rating_5based > 0 ? (g.primary.rating_5based * 2).toFixed(1) : undefined,
     meta: [g.year, g.primary.genre?.split('/')[0].trim()].filter(Boolean) as string[],
     synopsis: overview ?? g.primary.plot,
