@@ -105,8 +105,13 @@ export function SeriesDetail() {
     xtreamService
       .getSeriesInfo(credentials, seriesId)
       .then((data) => {
-        setInfo(data);
-        const firstSeason = Object.keys(data.episodes).sort((a, b) => Number(a) - Number(b))[0];
+        // Certains fournisseurs renvoient une série SANS objet `episodes`
+        // (null / absent) → on normalise en {} pour que tout le rendu
+        // (Object.keys/values sur info.episodes) reste sûr. Sinon écran vide :
+        // `Object.keys(undefined)` → TypeError.
+        const safe = data.episodes ? data : { ...data, episodes: {} };
+        setInfo(safe);
+        const firstSeason = Object.keys(safe.episodes).sort((a, b) => Number(a) - Number(b))[0];
         if (firstSeason) setSelectedSeason(firstSeason);
       })
       .catch((e: Error) => setError(e.message))
