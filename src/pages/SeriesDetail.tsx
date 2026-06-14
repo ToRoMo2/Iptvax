@@ -147,6 +147,35 @@ export function SeriesDetail() {
     return () => { alive = false; };
   }, [credentials, seriesId, passedVariants, seriesMeta]);
 
+  // Repli épisodes : certains fournisseurs ont des entrées DUPLIQUÉES d'une même
+  // série (variantes langue/qualité) dont l'une renvoie 0 épisode. Si la variante
+  // affichée n'a aucun épisode mais qu'il en existe d'autres, on sonde les autres
+  // variantes et on bascule sur la 1re qui a des épisodes. (Le lecteur utilisait
+  // déjà l'id « plein » via l'historique → d'où la liste vide ici mais pleine là.)
+  const episodeProbeRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (loading || !info || !credentials || Number.isNaN(seriesId)) return;
+    if (Object.keys(info.episodes ?? {}).length > 0) return;
+    if (variants.length <= 1 || episodeProbeRef.current === seriesId) return;
+    episodeProbeRef.current = seriesId;
+    let alive = true;
+    (async () => {
+      for (const v of variants) {
+        if (v.series_id === seriesId) continue;
+        try {
+          const alt = await xtreamService.getSeriesInfo(credentials, v.series_id);
+          if (alive && alt.episodes && Object.keys(alt.episodes).length > 0) {
+            setVariant(v); // change seriesId → l'effet getSeriesInfo recharge v
+            return;
+          }
+        } catch {
+          /* variante injoignable → on tente la suivante */
+        }
+      }
+    })();
+    return () => { alive = false; };
+  }, [loading, info, credentials, seriesId, variants]);
+
   // Quand le chargement se termine : si l'utilisateur avait déjà appuyé ↓
   // depuis le bouton Retour, le focus atterrit maintenant sur « Lire ».
   useEffect(() => {
