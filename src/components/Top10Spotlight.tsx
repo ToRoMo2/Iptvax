@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { safeImgUrl } from '../utils/image';
 import { Focusable } from './Focusable';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -67,50 +67,8 @@ export function Top10Spotlight({ items }: { items: Top10SpotlightItem[] }) {
     else if (e.key === 'ArrowLeft') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
   };
 
-  // ── Rendu MOBILE : rail « Top 10 » d'affiches portrait + grand numéro doré ──
-  if (isMobile) {
-    return (
-      <div className={styles.mWrap}>
-        <div className={styles.mHead}>
-          <span className={styles.mHeadTitle}>{t('common.popular')}</span>
-          <span className={styles.mHeadTag}>TOP {Math.min(n, 10)}</span>
-        </div>
-        <div className={styles.mRail}>
-          {items.map((it) => {
-            const poster = safeImgUrl(it.poster) || safeImgUrl(it.backdrop);
-            return (
-              <button
-                key={it.id}
-                type="button"
-                className={styles.mItem}
-                onClick={it.onOpen}
-                aria-label={`#${it.rank} ${it.title}`}
-              >
-                <span className={styles.mRank} aria-hidden="true">{it.rank}</span>
-                <span className={styles.mPoster}>
-                  {poster ? (
-                    <img
-                      className={styles.mPosterImg}
-                      src={poster}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <span className={styles.mPh}>{it.title}</span>
-                  )}
-                  {it.ratingBadge && <span className={styles.mRating}>★ {it.ratingBadge}</span>}
-                  <span className={styles.mShade} aria-hidden="true" />
-                  <span className={styles.mTitle}>{it.title}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  // ── Rendu MOBILE : coverflow « Top 10 » d'affiches portrait + numéro doré ───
+  if (isMobile) return <Top10MobileRail items={items} />;
 
   // ── Rendu DESKTOP / TABLETTE : accordéon paysage (inchangé) ─────────────────
   return (
@@ -189,6 +147,158 @@ export function Top10Spotlight({ items }: { items: Top10SpotlightItem[] }) {
           </Focusable>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Rendu MOBILE du Top 10 (coverflow tactile). Rail à snap centré d'affiches
+ * portrait : l'affiche centrée est en pleine taille avec son grand numéro de
+ * rang doré ; les voisines rétrécissent/s'estompent. Le scaling « coverflow »
+ * est posé en JS par frame de scroll (suit le doigt, métriques mises en cache →
+ * zéro reflow). Hauteur fixe + overflow-y caché → pas de scroll vertical parasite
+ * ni d'espace mort. Tap sur l'affiche centrée → ouvre la fiche ; tap sur une
+ * voisine → la recentre.
+ */
+function Top10MobileRail({ items }: { items: Top10SpotlightItem[] }) {
+  const { t } = useI18n();
+  const railRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  // Centre (px, repère contenu) de chaque item — mesuré une fois, relu sans reflow.
+  const centersRef = useRef<number[]>([]);
+  // Pas inter-items (largeur + gap) — référence de l'atténuation du scaling.
+  const pitchRef = useRef(1);
+  // Index de l'affiche la plus centrée (relu au tap pour ouvrir vs recentrer).
+  const nearestRef = useRef(0);
+
+  const apply = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const centers = centersRef.current;
+    if (centers.length === 0) return;
+    const viewCenter = el.scrollLeft + el.clientWidth / 2;
+    const pitch = pitchRef.current || 1;
+    const kids = el.children;
+    let nearest = 0;
+    let best = Infinity;
+    for (let i = 0; i < kids.length; i++) {
+      const child = kids[i] as HTMLElement;
+      const c = centers[i];
+      if (c == null) continue;
+      const dist = Math.abs(viewCenter - c);
+      // Atténuation rapportée au pas inter-items → la voisine immédiate (~1 pas)
+      // arrive au minimum de taille.
+      const norm = Math.min(dist / pitch, 1);
+      child.style.setProperty('--s', (1 - norm * 0.32).toFixed(3));
+      child.style.setProperty('--o', (1 - norm * 0.45).toFixed(3));
+      child.style.zIndex = String(Math.round((1 - norm) * 10));
+      if (dist < best) {
+        best = dist;
+        nearest = i;
+      }
+    }
+    nearestRef.current = nearest;
+    for (let i = 0; i < kids.length; i++) {
+      (kids[i] as HTMLElement).classList.toggle(styles.mActive, i === nearest);
+    }
+  }, []);
+
+  const measure = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const kids = el.children;
+    const centers: number[] = [];
+    for (let i = 0; i < kids.length; i++) {
+      const child = kids[i] as HTMLElement;
+      centers.push(child.offsetLeft + child.offsetWidth / 2);
+    }
+    centersRef.current = centers;
+    pitchRef.current = centers.length > 1 ? Math.abs(centers[1] - centers[0]) : el.clientWidth || 1;
+    apply();
+  }, [apply]);
+
+  const onScroll = useCallback(() => {
+    if (rafRef.current != null) return; // déjà programmé pour la prochaine frame
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      apply();
+    });
+  }, [apply]);
+
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+    measure();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      ro.disconnect();
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [measure, onScroll]);
+
+  // Re-mesure quand la liste change (chargement asynchrone TMDB).
+  useEffect(() => {
+    measure();
+  }, [items, measure]);
+
+  const handleClick = (i: number, onOpen: () => void) => {
+    const el = railRef.current;
+    if (!el) {
+      onOpen();
+      return;
+    }
+    // Affiche déjà centrée → ouvre ; sinon, recentre-la (un tap ne saute jamais
+    // directement dans la fiche d'une carte « de côté »).
+    if (i === nearestRef.current) {
+      onOpen();
+      return;
+    }
+    const c = centersRef.current[i];
+    if (c != null) el.scrollTo({ left: c - el.clientWidth / 2, behavior: 'smooth' });
+  };
+
+  return (
+    <div className={styles.mWrap}>
+      <div className={styles.mHead}>
+        <span className={styles.mHeadTitle}>{t('common.popular')}</span>
+        <span className={styles.mHeadTag}>TOP {Math.min(items.length, 10)}</span>
+      </div>
+      <div ref={railRef} className={styles.mRail}>
+        {items.map((it, i) => {
+          const poster = safeImgUrl(it.poster) || safeImgUrl(it.backdrop);
+          return (
+            <button
+              key={it.id}
+              type="button"
+              className={styles.mItem}
+              onClick={() => handleClick(i, it.onOpen)}
+              aria-label={`#${it.rank} ${it.title}`}
+            >
+              <span className={styles.mRank} aria-hidden="true">{it.rank}</span>
+              <span className={styles.mPoster}>
+                {poster ? (
+                  <img
+                    className={styles.mPosterImg}
+                    src={poster}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <span className={styles.mPh}>{it.title}</span>
+                )}
+                {it.ratingBadge && <span className={styles.mRating}>★ {it.ratingBadge}</span>}
+                <span className={styles.mShade} aria-hidden="true" />
+                <span className={styles.mTitle}>{it.title}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
