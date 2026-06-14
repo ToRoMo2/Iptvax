@@ -49,7 +49,7 @@ export function DeviceShowcase() {
               </div>
             </div>
           </div>
-          <span className="dev-label">Android · iOS</span>
+          <span className="dev-label">Android · Mobile</span>
         </div>
 
         {/* laptop */}

@@ -15,7 +15,7 @@ import '../../styles/vitrine.css';
 export function VitrineLayout({ children }: { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const { pathname, hash } = useLocation();
-  const cursorReady = useVitrineChrome(rootRef, pathname);
+  useVitrineChrome(rootRef, pathname);
 
   // Smooth scroll global pendant la durée de vie de la vitrine.
   useEffect(() => {
@@ -42,10 +42,10 @@ export function VitrineLayout({ children }: { children: ReactNode }) {
   }, [pathname, hash]);
 
   return (
-    <div ref={rootRef} className={`vitrine${cursorReady ? ' cursor-ready' : ''}`}>
+    <div ref={rootRef} className="vitrine">
       <div className="grain" />
-      <div className="cursor-ring" />
-      <div className="cursor-dot" />
+      <div className="edge-vignette" />
+      <div className="cursor-glow" />
       <HeaderVitrine />
       <main>{children}</main>
       <FooterVitrine />

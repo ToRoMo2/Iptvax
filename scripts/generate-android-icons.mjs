@@ -10,8 +10,8 @@
  *   et placé sur fond transparent.
  *
  * La couleur de fond adaptive (ic_launcher_background) est mise à jour dans
- * android/app/src/main/res/values/ic_launcher_background.xml → noir #08080A
- * (cohérent avec le thème Vanta de l'app).
+ * android/app/src/main/res/values/ic_launcher_background.xml → espresso #19120D
+ * (cohérent avec le thème Umbra de l'app).
  */
 import sharp from 'sharp';
 import path from 'path';
@@ -71,11 +71,11 @@ async function main() {
   const bgXml = path.join(res, 'values', 'ic_launcher_background.xml');
   const bgContent = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#08080A</color>
+    <color name="ic_launcher_background">#19120D</color>
 </resources>
 `;
   fs.writeFileSync(bgXml, bgContent, 'utf-8');
-  console.log('✅ fond adaptive → #08080A (noir Vanta)');
+  console.log('✅ fond adaptive → #19120D (espresso Umbra)');
 
   console.log('\n🎉 Icônes générées avec succès !');
   console.log('   Rebuild + cap sync android pour les pousser dans le projet.');

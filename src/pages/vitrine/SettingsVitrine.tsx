@@ -1,31 +1,30 @@
-import { useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
-import styles from './SettingsVitrine.module.css';
+import { useScrollReveal } from '../../hooks/useScrollReveal';
 
 /**
- * Page « Mon compte » en mode vitrine. N'utilise QUE Supabase + Subscription
- * (pas Xtream, pas IptvProfile — ces providers ne sont pas montés en vitrine).
- *
- * Sections : abonnement, compte, déconnexion. Les vrais réglages (profils
- * IPTV, sous-titres, lecture) vivent dans l'app native, pas ici.
+ * Page « Mon compte » en mode vitrine (design Umbra). N'utilise QUE Supabase +
+ * Subscription (pas Xtream, pas IptvProfile — ces providers ne sont pas montés
+ * en vitrine). Sections : abonnement, identifiants, déconnexion. Classes
+ * globales `.set-*` scopées sous `.vitrine`.
  */
 export function SettingsVitrine() {
   const { user, signOut } = useSupabaseAuth();
   const { isPremium, subscription, loading } = useSubscription();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useScrollReveal(ref);
 
   if (!user) {
     return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <div className={styles.head}>
-            <h1 className={styles.title}>Mon compte</h1>
-            <p className={styles.sub}>
-              Vous devez être connecté pour accéder à cette page.
-            </p>
+      <div className="set-page">
+        <div className="set-container">
+          <div className="set-head">
+            <h1 className="set-title">Mon compte</h1>
+            <p className="set-sub">Vous devez être connecté pour accéder à cette page.</p>
           </div>
           <Link to="/login" className="btn btn-primary">
             Se connecter
@@ -57,51 +56,49 @@ export function SettingsVitrine() {
     : null;
 
   return (
-    <div className={styles.page}>
-      <div className={styles.container}>
-        <div className={styles.head}>
-          <h1 className={styles.title}>Mon compte</h1>
-          <p className={styles.sub}>Gérez votre abonnement et votre session.</p>
+    <div className="set-page" ref={ref}>
+      <div className="set-container">
+        <div className="set-head" data-reveal="fade">
+          <h1 className="set-title">Mon compte</h1>
+          <p className="set-sub">Gérez votre abonnement et votre session.</p>
         </div>
 
         {/* ── Abonnement ─────────────────────────────────────────── */}
-        <section className={styles.section}>
-          <div className={styles.sectionTitle}>Abonnement</div>
-          <div className={styles.row}>
-            <span className={styles.rowLabel}>Statut</span>
-            <span
-              className={`${styles.badge} ${isPremium ? styles.badgeActive : styles.badgeFree}`}
-            >
+        <section className="set-section" data-reveal>
+          <div className="set-section-title">Abonnement</div>
+          <div className="set-row">
+            <span className="set-row-label">Statut</span>
+            <span className={`set-badge ${isPremium ? 'active' : 'free'}`}>
               {loading ? '…' : isPremium ? 'Premium' : 'Gratuit'}
             </span>
           </div>
           {isPremium && planLabel && (
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>Formule</span>
-              <span className={styles.rowValue}>{planLabel}</span>
+            <div className="set-row">
+              <span className="set-row-label">Formule</span>
+              <span className="set-row-value">{planLabel}</span>
             </div>
           )}
           {isPremium && renewDate && (
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>
+            <div className="set-row">
+              <span className="set-row-label">
                 {subscription.cancelAtPeriodEnd ? 'Fin' : 'Renouvellement'}
               </span>
-              <span className={styles.rowValue}>{renewDate}</span>
+              <span className="set-row-value">{renewDate}</span>
             </div>
           )}
-          <div className={styles.row}>
-            <div className={styles.rowText}>
-              <span className={styles.rowLabel}>
+          <div className="set-row">
+            <div className="set-row-text">
+              <span className="set-row-label">
                 {isPremium ? 'Gérer mon abonnement' : 'Passer à Premium'}
               </span>
-              <div className={styles.rowDesc}>
+              <div className="set-row-desc">
                 {isPremium
                   ? 'Modifier ou annuler depuis le portail client.'
-                  : 'Profils illimités, sync cross-device, Mon ciné, communauté.'}
+                  : 'Profils illimités, sync cloud, Mon ciné, Communauté.'}
               </div>
             </div>
             <button
-              className={styles.actionBtn}
+              className={`set-action${isPremium ? '' : ' primary'}`}
               onClick={() => navigate('/premium')}
             >
               {isPremium ? 'Gérer' : 'Passer Premium'}
@@ -109,35 +106,27 @@ export function SettingsVitrine() {
           </div>
         </section>
 
-        {/* ── Compte ─────────────────────────────────────────────── */}
-        <section className={styles.section}>
-          <div className={styles.sectionTitle}>Identifiants</div>
-          <div className={styles.row}>
-            <span className={styles.rowLabel}>Email</span>
-            <span className={styles.rowValue}>{user.email ?? '—'}</span>
+        {/* ── Identifiants ───────────────────────────────────────── */}
+        <section className="set-section" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
+          <div className="set-section-title">Identifiants</div>
+          <div className="set-row">
+            <span className="set-row-label">Email</span>
+            <span className="set-row-value mono">{user.email ?? '—'}</span>
           </div>
-          <div className={styles.row}>
-            <div className={styles.rowText}>
-              <span className={styles.rowLabel}>Déconnexion</span>
-              <div className={styles.rowDesc}>
-                Vous serez redirigé vers la page d'accueil.
-              </div>
+          <div className="set-row">
+            <div className="set-row-text">
+              <span className="set-row-label">Déconnexion</span>
+              <div className="set-row-desc">Vous serez redirigé vers la page d'accueil.</div>
             </div>
-            <button
-              className={styles.actionBtn}
-              onClick={handleSignOut}
-              disabled={signingOut}
-            >
+            <button className="set-action" onClick={handleSignOut} disabled={signingOut}>
               {signingOut ? 'Déconnexion…' : 'Se déconnecter'}
             </button>
           </div>
         </section>
 
-        {/* ── Note vitrine ───────────────────────────────────────── */}
-        <p className={styles.note}>
-          Vos profils IPTV, favoris et historique se gèrent depuis l'app
-          native. <Link to="/downloads">Téléchargez Iptvax</Link> pour la
-          plateforme de votre choix.
+        <p className="set-note" data-reveal>
+          Vos profils, favoris et historique se gèrent depuis l'app native.{' '}
+          <Link to="/downloads">Téléchargez Umbra</Link> pour la plateforme de votre choix.
         </p>
       </div>
     </div>

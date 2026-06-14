@@ -1,17 +1,12 @@
 import { useEffect, type RefObject } from 'react';
 
-type HeroVariant = 'waves' | 'mesh' | 'scan';
-
 /**
- * Tous les effets propres à la home vitrine (portage du moteur vanilla du
- * design, sections 4-10) : hero `.in` + glow curseur, ondes broadcast canvas,
- * power-on / tilt / parallaxe / hop du showcase, compteurs animés, étape de
- * story active, spotlight + révélation des coches du pricing.
- *
- * `variant` pilote le fond animé du hero — l'effet canvas est relancé à chaque
- * changement. Tout dégrade sous `prefers-reduced-motion`.
+ * Tous les effets propres à la home vitrine (design Umbra) : hero `.in` +
+ * poussière dorée (canvas cinéma), power-on / tilt / parallaxe / hop du
+ * showcase, compteurs animés, étape de story active, spotlight + révélation des
+ * coches du pricing. Tout dégrade sous `prefers-reduced-motion`.
  */
-export function useHomeFx(rootRef: RefObject<HTMLElement>, variant: HeroVariant) {
+export function useHomeFx(rootRef: RefObject<HTMLElement>) {
   const reduce =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -19,7 +14,7 @@ export function useHomeFx(rootRef: RefObject<HTMLElement>, variant: HeroVariant)
     typeof window !== 'undefined' &&
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-  // ── Effets indépendants du variant (montés une fois) ───────────────
+  // ── Effets DOM (montés une fois) ───────────────────────────────────
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -27,7 +22,7 @@ export function useHomeFx(rootRef: RefObject<HTMLElement>, variant: HeroVariant)
     const $$ = <T extends Element>(s: string) => Array.from(root.querySelectorAll<T>(s));
     const cleanups: Array<() => void> = [];
 
-    // ── Hero reveal + glow curseur ──────────────────────────────────
+    // ── Hero reveal (déclenche l'entrée échelonnée + slide des titres) ─
     const hero = $<HTMLElement>('.hero');
     if (hero) {
       const t = window.setTimeout(() => hero.classList.add('in'), 80);
@@ -37,17 +32,6 @@ export function useHomeFx(rootRef: RefObject<HTMLElement>, variant: HeroVariant)
         window.clearTimeout(t);
         window.removeEventListener('load', onLoad);
       });
-
-      const glow = hero.querySelector<HTMLElement>('.hero-cursor-glow');
-      if (glow && fine && !reduce) {
-        const onMove = (e: MouseEvent) => {
-          const r = hero.getBoundingClientRect();
-          glow.style.setProperty('--mx', `${e.clientX - r.left}px`);
-          glow.style.setProperty('--my', `${e.clientY - r.top}px`);
-        };
-        hero.addEventListener('mousemove', onMove);
-        cleanups.push(() => hero.removeEventListener('mousemove', onMove));
-      }
     }
 
     // ── Showcase : power-on + tilt + parallaxe + hop ────────────────
@@ -221,7 +205,7 @@ export function useHomeFx(rootRef: RefObject<HTMLElement>, variant: HeroVariant)
       cleanups.push(() => storyIO.disconnect());
     }
 
-    // ── Pricing : spotlight + révélation des coches ─────────────────
+    // ── Pricing : révélation des coches ─────────────────────────────
     $$<HTMLElement>('.plan').forEach((p) => {
       const planIO = new IntersectionObserver(
         (en) => {
@@ -235,88 +219,76 @@ export function useHomeFx(rootRef: RefObject<HTMLElement>, variant: HeroVariant)
       planIO.observe(p);
       cleanups.push(() => planIO.disconnect());
     });
-    const feat = $<HTMLElement>('.plan-featured');
-    const spot = $<HTMLElement>('.spotlight');
-    if (feat && spot && fine && !reduce) {
-      const onMove = (e: MouseEvent) => {
-        const r = feat.getBoundingClientRect();
-        spot.style.setProperty('--sx', `${e.clientX - r.left}px`);
-        spot.style.setProperty('--sy', `${e.clientY - r.top}px`);
-      };
-      feat.addEventListener('mousemove', onMove);
-      cleanups.push(() => feat.removeEventListener('mousemove', onMove));
-    }
 
     return () => cleanups.forEach((fn) => fn());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootRef]);
 
-  // ── Ondes broadcast (canvas) — relancées à chaque variant ──────────
+  // ── Poussière dorée dans le faisceau (canvas cinéma) ───────────────
   useEffect(() => {
     const root = rootRef.current;
     if (!root || reduce) return;
-    const cv = root.querySelector<HTMLCanvasElement>('.layer-waves');
-    const hero = root.querySelector<HTMLElement>('.hero');
-    if (!cv || !hero) return;
-    if (variant !== 'waves') return; // canvas inactif sur mesh/scan
-
-    const ctx = cv.getContext('2d');
+    const canvas = root.querySelector<HTMLCanvasElement>('.hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let W = 0;
-    let H = 0;
-    const origin = { x: 0.5, y: 0.45 };
 
-    const size = () => {
-      const r = cv.getBoundingClientRect();
-      W = cv.width = r.width * dpr;
-      H = cv.height = r.height * dpr;
-    };
-    size();
-    window.addEventListener('resize', size);
-
-    const onMove = (e: MouseEvent) => {
-      const r = hero.getBoundingClientRect();
-      origin.x = (e.clientX - r.left) / r.width;
-      origin.y = (e.clientY - r.top) / r.height;
-    };
-    if (fine) hero.addEventListener('mousemove', onMove);
-
-    const N = 7;
-    const period = 5200;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const COUNT = 70;
+    let w = 0;
+    let h = 0;
     let raf = 0;
-    const frame = (t: number) => {
-      ctx.clearRect(0, 0, W, H);
-      const ox = origin.x * W;
-      const oy = origin.y * H;
-      const maxR = Math.hypot(W, H) * 0.62;
-      for (let i = 0; i < N; i++) {
-        const phase = ((t / period) + i / N) % 1;
-        const r = phase * maxR;
-        const alpha = (1 - phase) * 0.28;
-        ctx.beginPath();
-        ctx.arc(ox, oy, r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(0,212,255,${alpha})`;
-        ctx.lineWidth = (1 - phase) * 2.2 * dpr + 0.3;
-        ctx.stroke();
-      }
-      const sweep = ((t / 7000) % 1) * Math.PI * 2;
-      const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, maxR);
-      grad.addColorStop(0, 'rgba(0,212,255,0.05)');
-      grad.addColorStop(Math.min(0.99, Math.max(0.01, 0.5 + 0.3 * Math.sin(sweep))), 'rgba(0,212,255,0.02)');
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, W, H);
-      raf = requestAnimationFrame(frame);
+    let t = 0;
+
+    const seed = () => ({
+      x: Math.random(),
+      y: Math.random(),
+      r: Math.random() * 1.8 + 0.4,
+      vy: -(Math.random() * 0.00035 + 0.00012),
+      vx: (Math.random() - 0.5) * 0.0002,
+      a: Math.random() * 0.5 + 0.15,
+      tw: Math.random() * Math.PI * 2,
+    });
+    const motes = Array.from({ length: COUNT }, seed);
+
+    const resize = () => {
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      canvas.width = w * DPR;
+      canvas.height = h * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     };
-    raf = requestAnimationFrame(frame);
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    const draw = () => {
+      t += 1;
+      ctx.clearRect(0, 0, w, h);
+      for (const m of motes) {
+        m.x += m.vx;
+        m.y += m.vy;
+        if (m.y < -0.05) {
+          m.y = 1.05;
+          m.x = Math.random();
+        }
+        const tw = 0.6 + 0.4 * Math.sin(t * 0.02 + m.tw);
+        const px = m.x * w;
+        const py = m.y * h;
+        const beam = 1 - Math.min(1, Math.abs(m.x - 0.5) * 1.6);
+        ctx.beginPath();
+        ctx.arc(px, py, m.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(245, 182, 88, ${m.a * tw * (0.35 + beam * 0.65)})`;
+        ctx.fill();
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener('resize', size);
-      if (fine) hero.removeEventListener('mousemove', onMove);
-      ctx.clearRect(0, 0, cv.width, cv.height);
+      ro.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rootRef, variant]);
+  }, [rootRef]);
 }

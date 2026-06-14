@@ -53,14 +53,14 @@ export function Downloads() {
     <div className="dl-page" ref={ref}>
       <header className="dl-head">
         <h1 className="dl-title" data-reveal>
-          Téléchargez Iptvax
+          Téléchargez Umbra
         </h1>
-        <p className="dl-sub" data-reveal style={{ '--reveal-delay': '80ms' } as CSSProperties}>
+        <p className="dl-sub" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
           Choisissez votre plateforme. Les binaires sont publiés sur GitHub&nbsp;Releases
           et signés.
         </p>
         {detected && (
-          <div className="dl-detected">
+          <div className="dl-detected" data-reveal style={{ '--rd': '140ms' } as CSSProperties}>
             <span className="live-dot" />
             Détecté : {PLATFORM_LABELS[detected]}
           </div>
@@ -104,7 +104,7 @@ function DownloadCard({
       className={`dl-card${featured ? ' featured' : ''}`}
       data-platform={asset.id}
       data-reveal
-      style={{ '--reveal-delay': delay } as CSSProperties}
+      style={{ '--rd': delay } as CSSProperties}
     >
       {featured && <span className="dl-badge">Recommandé pour vous</span>}
 
@@ -126,7 +126,7 @@ function DownloadCard({
       <div className="dl-actions">
         <span className="magnetic" style={{ width: '100%' }}>
           <a
-            className={`btn ${featured ? 'btn-accent' : 'btn-secondary'}`}
+            className={`btn ${featured ? 'btn-primary' : 'btn-ghost'}`}
             style={{ width: '100%' }}
             href={asset.url}
             rel="noreferrer noopener"

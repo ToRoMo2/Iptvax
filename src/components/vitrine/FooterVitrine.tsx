@@ -3,9 +3,9 @@ import { AppLogo } from '../AppLogo';
 import { GITHUB_REPO } from '../../config/vitrine';
 
 /**
- * Footer vitrine (design Vanta) : 4 colonnes, hairline cyan, logotype géant en
- * filigrane (outline) et fondu vers le noir absolu. Classes globales scopées
- * sous `.vitrine`.
+ * Footer vitrine (design Umbra) : 4 colonnes, hairline dorée, watermark
+ * « Umbra » géant en outline et fondu vers le fond espresso. Classes globales
+ * scopées sous `.vitrine`.
  */
 export function FooterVitrine() {
   const year = new Date().getFullYear();
@@ -15,12 +15,12 @@ export function FooterVitrine() {
         <div className="ftr-cols">
           <div className="ftr-col ftr-brand">
             <div className="brand-line">
-              <AppLogo size={24} />
-              <span>Iptvax</span>
+              <AppLogo size={24} className="logo-mark" />
+              <span className="wordmark">Umbra</span>
             </div>
             <p className="ftr-tagline">
-              Votre client IPTV moderne, multi-plateforme. Sans publicité, sans
-              compromis.
+              Le streaming, à la lumière du cinéma. Vos contenus sur tous vos
+              écrans — sans publicité, sans compromis.
             </p>
           </div>
           <div className="ftr-col">
@@ -28,7 +28,7 @@ export function FooterVitrine() {
             <div className="links">
               <Link to="/downloads">Téléchargements</Link>
               <a href="/#pricing">Premium</a>
-              <Link to="/tv-link">Appairage TV</Link>
+              <a href="/#features">Fonctionnalités</a>
             </div>
           </div>
           <div className="ftr-col">
@@ -52,11 +52,11 @@ export function FooterVitrine() {
         </div>
       </div>
       <div className="ftr-bottom">
-        <span>© {year} Iptvax. Tous droits réservés.</span>
+        <span>© {year} Umbra. Tous droits réservés.</span>
         <span className="mono">Fait avec ❤ en France.</span>
       </div>
       <div className="ftr-watermark" aria-hidden="true">
-        Iptvax
+        Umbra
       </div>
     </footer>
   );

@@ -1,23 +1,19 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 
 /**
- * « Chrome » interactif partagé par toutes les pages vitrine :
- *  - curseur custom (point + anneau lissé, état « hot » sur les cibles)
+ * « Chrome » interactif partagé par toutes les pages vitrine (design Umbra) :
+ *  - glow doré qui suit la souris (`.cursor-glow`, lissé), gardé derrière la
+ *    classe `cursor-on` posée sur la racine au premier mouvement
  *  - boutons magnétiques (`.magnetic`)
  *
- * Portage de `initCursor()` + `initMagnetic()` du moteur vanilla. Actif
- * uniquement sur pointeur fin (souris) hors `prefers-reduced-motion`.
- * Retourne `cursorReady` à poser sur la racine `.vitrine` (active `cursor:none`
- * + la visibilité du curseur custom).
+ * Actif uniquement sur pointeur fin (souris) hors `prefers-reduced-motion`.
+ * `rerunKey` (ex. pathname) ré-attache le magnétisme aux boutons de la nouvelle
+ * page après une navigation SPA.
  */
 export function useVitrineChrome(
   rootRef: RefObject<HTMLElement>,
-  /** Clé de re-exécution (ex. pathname) : ré-attache le magnétisme aux boutons
-   *  de la nouvelle page après une navigation SPA. */
   rerunKey?: unknown,
-): boolean {
-  const [cursorReady, setCursorReady] = useState(false);
-
+): void {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -26,65 +22,46 @@ export function useVitrineChrome(
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!fine || reduce) return;
 
-    const dot = root.querySelector<HTMLElement>('.cursor-dot');
-    const ring = root.querySelector<HTMLElement>('.cursor-ring');
-
     const cleanups: Array<() => void> = [];
 
-    // ── Curseur custom ──────────────────────────────────────────────
-    let raf = 0;
-    if (dot && ring) {
-      setCursorReady(true);
-      let rx = window.innerWidth / 2;
-      let ry = window.innerHeight / 2;
-      let mx = rx;
-      let my = ry;
-
-      const onMove = (e: MouseEvent) => {
-        mx = e.clientX;
-        my = e.clientY;
-        dot.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`;
-      };
+    // ── Glow doré qui suit la souris ────────────────────────────────
+    const glow = root.querySelector<HTMLElement>('.cursor-glow');
+    if (glow) {
+      let raf = 0;
+      let tx = 0;
+      let ty = 0;
+      let x = 0;
+      let y = 0;
       const loop = () => {
-        rx += (mx - rx) * 0.18;
-        ry += (my - ry) * 0.18;
-        ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
-        raf = requestAnimationFrame(loop);
+        x += (tx - x) * 0.16;
+        y += (ty - y) * 0.16;
+        glow.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+        raf = Math.abs(tx - x) > 0.4 || Math.abs(ty - y) > 0.4 ? requestAnimationFrame(loop) : 0;
       };
-      window.addEventListener('mousemove', onMove);
-      raf = requestAnimationFrame(loop);
-
-      const HOT = 'a, button, .magnetic, .bento-card, .plan, [data-hot]';
-      const onOver = (e: Event) => {
-        if ((e.target as Element).closest(HOT)) ring.classList.add('is-hot');
+      const onMove = (e: MouseEvent) => {
+        tx = e.clientX;
+        ty = e.clientY;
+        root.classList.add('cursor-on');
+        if (!raf) raf = requestAnimationFrame(loop);
       };
-      const onOut = (e: Event) => {
-        if ((e.target as Element).closest(HOT)) ring.classList.remove('is-hot');
-      };
-      root.addEventListener('mouseover', onOver);
-      root.addEventListener('mouseout', onOut);
-
+      window.addEventListener('mousemove', onMove, { passive: true });
       cleanups.push(() => {
         window.removeEventListener('mousemove', onMove);
         cancelAnimationFrame(raf);
-        root.removeEventListener('mouseover', onOver);
-        root.removeEventListener('mouseout', onOut);
+        root.classList.remove('cursor-on');
       });
     }
 
     // ── Boutons magnétiques ─────────────────────────────────────────
     root.querySelectorAll<HTMLElement>('.magnetic').forEach((m) => {
-      const el = (m.firstElementChild as HTMLElement) || m;
       const onMove = (e: MouseEvent) => {
         const r = m.getBoundingClientRect();
-        const x = e.clientX - r.left - r.width / 2;
-        const y = e.clientY - r.top - r.height / 2;
-        m.style.transform = `translate(${x * 0.25}px, ${y * 0.35}px)`;
-        el.style.transform = `translate(${x * 0.12}px, ${y * 0.18}px)`;
+        const dx = (e.clientX - (r.left + r.width / 2)) * 0.22;
+        const dy = (e.clientY - (r.top + r.height / 2)) * 0.3;
+        m.style.transform = `translate(${dx}px, ${dy}px)`;
       };
       const onLeave = () => {
         m.style.transform = '';
-        el.style.transform = '';
       };
       m.addEventListener('mousemove', onMove);
       m.addEventListener('mouseleave', onLeave);
@@ -96,6 +73,4 @@ export function useVitrineChrome(
 
     return () => cleanups.forEach((fn) => fn());
   }, [rootRef, rerunKey]);
-
-  return cursorReady;
 }
