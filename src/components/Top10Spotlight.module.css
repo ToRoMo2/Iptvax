@@ -419,7 +419,7 @@
 
 .mPoster {
   position: relative;
-  width: 100%;
+  width: var(--pop-w);
   aspect-ratio: 2 / 3;
   border-radius: var(--r-card);
   overflow: hidden;
