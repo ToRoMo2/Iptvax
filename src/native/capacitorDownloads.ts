@@ -1,8 +1,9 @@
 // Pont typé vers le plugin Capacitor maison `Downloader`
-// (android/app/src/main/java/com/iptvax/app/DownloaderPlugin.java), qui
-// s'appuie sur Android `DownloadManager` (téléchargement en arrière-plan,
-// notification système, reprise réseau, écriture dans le dossier app-specific
-// sans permission runtime).
+// (android/app/src/main/java/com/iptvax/app/DownloaderPlugin.java) : un
+// téléchargeur en-process déterministe (un fil par transfert, HttpURLConnection
+// + RandomAccessFile) qui rapatrie le fichier par tranches `Range` dans le
+// dossier app-specific (sans permission runtime). Remplace l'ancien
+// `DownloadManager` (restait bloqué en PENDING sur les sources IPTV).
 //
 // ⚠ Validation device requise (non compilable/testable en CI) — comme tout le
 // natif Android. Voir CLAUDE.md §XI (téléchargements) et docs/native-port.md.

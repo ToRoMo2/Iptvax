@@ -14,7 +14,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TvDetectPlugin.class);
         // Plugin de contrôle du volume média système (Chantier 4 — slider volume lecteur).
         registerPlugin(VolumeControlPlugin.class);
-        // Téléchargement hors-ligne via Android DownloadManager (CLAUDE.md §XI).
+        // Téléchargement hors-ligne (téléchargeur en-process, tranches Range —
+        // CLAUDE.md §XI).
         registerPlugin(DownloaderPlugin.class);
         super.onCreate(savedInstanceState);
     }
