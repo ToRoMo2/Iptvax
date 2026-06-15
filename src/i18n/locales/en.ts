@@ -222,6 +222,7 @@ const en: typeof frDict = {
     less: 'Less',
     version: 'Version',
     chooseVersion: 'Choose a version',
+    chooseVersionDownload: 'Version to download',
     source: 'Source {n}',
     casting: 'Cast',
     media: 'Media',

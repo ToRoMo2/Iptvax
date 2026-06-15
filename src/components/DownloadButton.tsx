@@ -11,6 +11,16 @@ interface Props {
   /** Variante icône seule (fiches compactes / listes d'épisodes). */
   compact?: boolean;
   className?: string;
+  /**
+   * Intercepte le DÉMARRAGE d'un nouveau téléchargement (premier clic, pas de
+   * transfert en cours) : si fourni, le bouton appelle ce callback AU LIEU de
+   * lancer `download(request)` directement. Sert au choix de version (films à
+   * plusieurs sources) : le parent ouvre la popup « Choisir une version » et
+   * déclenche lui-même le téléchargement de la version retenue. Les autres
+   * états (pause/reprise/terminé/erreur) restent gérés par le bouton sur
+   * `request`.
+   */
+  onRequestDownload?: () => void;
 }
 
 function IconDownload() {
@@ -50,7 +60,7 @@ function IconLock() {
   );
 }
 
-export function DownloadButton({ request, compact, className }: Props) {
+export function DownloadButton({ request, compact, className, onRequestDownload }: Props) {
   const { available, allowed, byId, download, pause, resume, remove } = useDownloads();
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -69,6 +79,12 @@ export function DownloadButton({ request, compact, className }: Props) {
       return;
     }
     if (!item || status === 'error') {
+      // Premier démarrage avec choix de version : laisse le parent ouvrir la
+      // popup et lancer le téléchargement de la version retenue.
+      if (onRequestDownload && !item) {
+        onRequestDownload();
+        return;
+      }
       void download(request);
       return;
     }

@@ -224,6 +224,7 @@ const fr = {
     less: 'Moins',
     version: 'Version',
     chooseVersion: 'Choisir une version',
+    chooseVersionDownload: 'Version à télécharger',
     source: 'Source {n}',
     casting: 'Casting',
     media: 'Médias',

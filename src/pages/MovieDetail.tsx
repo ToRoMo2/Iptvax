@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
+import { useDownloads } from '../contexts/DownloadsContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
@@ -44,6 +45,14 @@ function PlayIcon() {
   return <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z" /></svg>;
 }
 
+function DownloadGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+      <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+    </svg>
+  );
+}
+
 function VersionIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
@@ -66,6 +75,7 @@ export function MovieDetail() {
   const navigate = useNavigate();
   const { credentials } = useXtream();
   const { history, addToHistory, isFavorite, toggleFavorite } = useLibrary();
+  const { download } = useDownloads();
   const { t } = useI18n();
 
   const passed = (location.state as LocationState)?.movie ?? null;
@@ -81,8 +91,10 @@ export function MovieDetail() {
   const [aboutOpen, setAboutOpen] = useState(false);
   // Synopsis replié par défaut (bouton « Plus / Moins »).
   const [synopsisOpen, setSynopsisOpen] = useState(false);
-  // Popup « Choisir une version » (ouverte par « Regarder » si > 1 variante).
+  // Popup « Choisir une version » (ouverte par « Regarder » OU « Télécharger »
+  // si > 1 variante). `versionAction` mémorise l'action à exécuter sur le choix.
   const [showVersions, setShowVersions] = useState(false);
+  const [versionAction, setVersionAction] = useState<'play' | 'download'>('play');
 
   // Deep-link / refresh / clic historique / vedette accueil : on (re)trouve le
   // film par id si besoin ET on reconstruit le groupe de variantes (langues /
@@ -172,7 +184,7 @@ export function MovieDetail() {
   // « Regarder » : > 1 variante → popup de choix ; sinon lecture directe.
   const handlePlay = () => {
     if (!movie) return;
-    if (variants.length > 1) setShowVersions(true);
+    if (variants.length > 1) openVersions('play');
     else playMovie(selected ?? movie);
   };
 
@@ -258,25 +270,59 @@ export function MovieDetail() {
     };
   }, [movie, selected, displayTitle, year, tmdb]);
 
-  // Descripteur de téléchargement de la version courante (la même que
-  // « Regarder » lit). On télécharge le fichier direct UPSTREAM complet → mpv /
-  // ExoPlayer choisira audio/sous-titres à la lecture hors-ligne. Premium-only
-  // et plateformes Android/Windows : géré par <DownloadButton>.
-  const downloadRequest = useMemo<Omit<DownloadRequest, 'profileId'> | null>(() => {
-    if (!credentials || !movie) return null;
-    const target = selected ?? movie;
-    const landscape = tmdb?.backdrop ?? movie.backdrop_path?.[0] ?? tmdb?.poster ?? target.stream_icon;
-    return {
-      id: `movie-${target.stream_id}`,
-      type: 'movie',
-      title: displayTitle,
-      subtitle: year ?? t('detail.film'),
-      poster: landscape ?? '',
-      sourceUrl: xtreamService.rawMovieUrl(credentials, target.stream_id, target.container_extension),
-      ext: target.container_extension,
-      durationSec: tmdb?.runtime ? tmdb.runtime * 60 : undefined,
-    };
-  }, [credentials, movie, selected, displayTitle, year, tmdb, t]);
+  // Descripteur de téléchargement d'une variante précise (fichier direct
+  // UPSTREAM complet → mpv / ExoPlayer choisira audio/sous-titres à la lecture
+  // hors-ligne). Premium-only / Android & Windows : géré par <DownloadButton>.
+  const makeDownloadRequest = useCallback(
+    (target: VodStream): Omit<DownloadRequest, 'profileId'> | null => {
+      if (!credentials || !movie) return null;
+      const landscape = tmdb?.backdrop ?? movie.backdrop_path?.[0] ?? tmdb?.poster ?? target.stream_icon;
+      return {
+        id: `movie-${target.stream_id}`,
+        type: 'movie',
+        title: displayTitle,
+        subtitle: year ?? t('detail.film'),
+        poster: landscape ?? '',
+        sourceUrl: xtreamService.rawMovieUrl(credentials, target.stream_id, target.container_extension),
+        ext: target.container_extension,
+        durationSec: tmdb?.runtime ? tmdb.runtime * 60 : undefined,
+      };
+    },
+    [credentials, movie, displayTitle, year, tmdb, t],
+  );
+
+  // Descripteur de la version COURANTE (= celle que « Regarder » lirait) →
+  // état affiché par le bouton + téléchargement direct quand mono-variante.
+  const downloadRequest = useMemo(
+    () => (movie ? makeDownloadRequest(selected ?? movie) : null),
+    [movie, selected, makeDownloadRequest],
+  );
+
+  // Ouvre la popup de versions pour l'action voulue (lecture ou téléchargement).
+  const openVersions = (action: 'play' | 'download') => {
+    setVersionAction(action);
+    setShowVersions(true);
+  };
+
+  // Télécharge UNIQUEMENT la version choisie dans la popup (et la mémorise comme
+  // version courante → le bouton reflète ensuite sa progression).
+  const downloadMovie = (target: VodStream) => {
+    setSelected(target);
+    setShowVersions(false);
+    setVersionAction('play');
+    const req = makeDownloadRequest(target);
+    if (req) void download(req);
+  };
+
+  // Clic sur une version dans la popup : route vers lecture ou téléchargement.
+  const chooseVersion = (v: VodStream) => {
+    if (versionAction === 'download') downloadMovie(v);
+    else playMovie(v);
+  };
+
+  // Clic « Télécharger » du bouton : > 1 variante → popup ; sinon géré par le
+  // bouton lui-même (téléchargement direct de la version courante).
+  const handleDownloadClick = variants.length > 1 ? () => openVersions('download') : undefined;
 
   // ── Desktop (≥901px) : refonte « fond plein écran » (§Phase 4). Mobile garde
   //    l'affiche portrait (rendu inchangé plus bas). ──────────────────────────
@@ -295,14 +341,14 @@ export function MovieDetail() {
     <div className={styles.versionModal} onClick={() => setShowVersions(false)} role="dialog" aria-modal="true">
       <div className={styles.versionCard} onClick={(e) => e.stopPropagation()}>
         <div className={styles.versionHead}>
-          <span className={styles.versionTitle}>{t('detail.chooseVersion')}</span>
+          <span className={styles.versionTitle}>{versionAction === 'download' ? t('detail.chooseVersionDownload') : t('detail.chooseVersion')}</span>
           <button className={styles.versionClose} onClick={() => setShowVersions(false)} aria-label={t('common.close')}>✕</button>
         </div>
         <div className={styles.versionOpts}>
           {variants.map((v, i) => (
-            <button key={v.stream_id} type="button" className={styles.versionOpt} onClick={() => playMovie(v)}>
+            <button key={v.stream_id} type="button" className={styles.versionOpt} onClick={() => chooseVersion(v)}>
               <span>{versionLabel(v.name, t('detail.source', { n: i + 1 }))}</span>
-              <PlayIcon />
+              {versionAction === 'download' ? <DownloadGlyph /> : <PlayIcon />}
             </button>
           ))}
         </div>
@@ -360,8 +406,8 @@ export function MovieDetail() {
                     <Focusable
                       className={styles.versionRoundBtn}
                       ariaLabel={t('detail.changeVersion')}
-                      onEnter={() => setShowVersions(true)}
-                      onClick={() => setShowVersions(true)}
+                      onEnter={() => openVersions('play')}
+                      onClick={() => openVersions('play')}
                     >
                       <VersionIcon />
                     </Focusable>
@@ -374,7 +420,7 @@ export function MovieDetail() {
                   >
                     <StarIcon filled={isFavorite('movie', String(movie.stream_id))} />
                   </Focusable>
-                  {downloadRequest && <DownloadButton request={downloadRequest} compact />}
+                  {downloadRequest && <DownloadButton request={downloadRequest} onRequestDownload={handleDownloadClick} compact />}
                 </>
               }
               rateInput={watchedInput}
@@ -510,8 +556,8 @@ export function MovieDetail() {
                     <Focusable
                       className={styles.versionRoundBtn}
                       ariaLabel={t('detail.changeVersion')}
-                      onEnter={() => setShowVersions(true)}
-                      onClick={() => setShowVersions(true)}
+                      onEnter={() => openVersions('play')}
+                      onClick={() => openVersions('play')}
                     >
                       <VersionIcon />
                     </Focusable>
@@ -524,7 +570,7 @@ export function MovieDetail() {
                   >
                     <StarIcon filled={isFavorite('movie', String(movie.stream_id))} />
                   </Focusable>
-                  {downloadRequest && <DownloadButton request={downloadRequest} compact />}
+                  {downloadRequest && <DownloadButton request={downloadRequest} onRequestDownload={handleDownloadClick} compact />}
                 </div>
 
                 {synopsis && (
@@ -604,12 +650,12 @@ export function MovieDetail() {
         <div className={styles.versionModal} onClick={() => setShowVersions(false)} role="dialog" aria-modal="true">
           <div className={styles.versionCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.versionHead}>
-              <span className={styles.versionTitle}>{t('detail.chooseVersion')}</span>
+              <span className={styles.versionTitle}>{versionAction === 'download' ? t('detail.chooseVersionDownload') : t('detail.chooseVersion')}</span>
               <button className={styles.versionClose} onClick={() => setShowVersions(false)} aria-label={t('common.close')}>✕</button>
             </div>
             <div className={styles.versionOpts}>
               {variants.map((v, i) => (
-                <button key={v.stream_id} type="button" className={styles.versionOpt} onClick={() => playMovie(v)}>
+                <button key={v.stream_id} type="button" className={styles.versionOpt} onClick={() => chooseVersion(v)}>
                   <span>{versionLabel(v.name, t('detail.source', { n: i + 1 }))}</span>
                   <PlayIcon />
                 </button>

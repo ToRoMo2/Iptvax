@@ -222,6 +222,7 @@ const es: typeof frDict = {
     less: 'Menos',
     version: 'Versión',
     chooseVersion: 'Elegir una versión',
+    chooseVersionDownload: 'Versión para descargar',
     source: 'Fuente {n}',
     casting: 'Reparto',
     media: 'Imágenes',
