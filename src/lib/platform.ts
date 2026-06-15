@@ -87,6 +87,16 @@ declare global {
         call: (method: string, args?: unknown[]) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
         onEvent: (handler: (ev: unknown) => void) => () => void;
       };
+      /** Téléchargements hors-ligne (cf. src/native/electronDownloads.ts). */
+      downloads: {
+        start: (item: unknown) => Promise<{ ok: boolean; error?: string }>;
+        pause: (id: string) => Promise<{ ok: boolean }>;
+        resume: (id: string) => Promise<{ ok: boolean }>;
+        cancel: (id: string) => Promise<{ ok: boolean }>;
+        remove: (id: string) => Promise<{ ok: boolean }>;
+        list: () => Promise<unknown[]>;
+        onEvent: (handler: (ev: unknown) => void) => () => void;
+      };
     };
   }
 }
@@ -95,6 +105,15 @@ declare global {
  *  preload). Sert au branchement OAuth « navigateur système » — l'app reste
  *  en mode `web` (`isNative=false`), seul ce point précis diverge. */
 export const isElectron = typeof window !== 'undefined' && !!window.electron;
+
+/** `true` sur les plateformes qui peuvent télécharger des films/épisodes pour
+ *  une lecture hors-ligne : seuls Android (Capacitor) et Windows (Electron)
+ *  disposent d'un accès filesystem ET d'un lecteur natif capable de lire un
+ *  fichier local MKV/MP4 avec toutes ses pistes embarquées. Les TV
+ *  (Tizen/webOS) et la vitrine web n'ont pas de stockage local fiable → la
+ *  feature y est masquée. Tout branchement « téléchargement » passe par ce
+ *  flag, jamais de détection ad-hoc (même doctrine que le dispatch lecteur). */
+export const isDownloadCapable = isCapacitor || isElectron;
 
 /** `true` quand l'app sert de SITE VITRINE (web pur, hors Electron, hors natif).
  *

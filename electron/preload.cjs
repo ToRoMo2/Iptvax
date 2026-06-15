@@ -74,4 +74,21 @@ contextBridge.exposeInMainWorld('electron', {
       return () => ipcRenderer.removeListener('iptvax:mpv-event', listener);
     },
   },
+
+  // ── Téléchargements hors-ligne (cf. src/native/electronDownloads.ts) ────────
+  downloads: {
+    start: (item) => ipcRenderer.invoke('iptvax:dl', 'start', item),
+    pause: (id) => ipcRenderer.invoke('iptvax:dl', 'pause', id),
+    resume: (id) => ipcRenderer.invoke('iptvax:dl', 'resume', id),
+    cancel: (id) => ipcRenderer.invoke('iptvax:dl', 'cancel', id),
+    remove: (id) => ipcRenderer.invoke('iptvax:dl', 'remove', id),
+    list: () => ipcRenderer.invoke('iptvax:dl-list'),
+    /** Liste complète ré-émise à chaque changement. Renvoie un unsubscribe. */
+    onEvent: (handler) => {
+      if (typeof handler !== 'function') return () => {};
+      const listener = (_event, ev) => handler(ev);
+      ipcRenderer.on('iptvax:dl-event', listener);
+      return () => ipcRenderer.removeListener('iptvax:dl-event', listener);
+    },
+  },
 });

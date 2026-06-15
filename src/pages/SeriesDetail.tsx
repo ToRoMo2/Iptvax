@@ -18,7 +18,9 @@ import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { DetailMedia } from '../components/DetailMedia';
 import { DetailHero } from '../components/DetailHero';
+import { DownloadButton } from '../components/DownloadButton';
 import { Focusable } from '../components/Focusable';
+import type { DownloadRequest } from '../types/download.types';
 import { AppLogo } from '../components/AppLogo';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
@@ -269,6 +271,33 @@ export function SeriesDetail() {
     if (!built) return;
     addToHistory(built.item);
     navigate('/player', { state: built.state });
+  };
+
+  // Descripteur de téléchargement d'un épisode (fichier direct UPSTREAM complet
+  // de la variante affichée → toutes pistes embarquées, lues hors-ligne par le
+  // lecteur natif). Premium-only / Android & Windows : géré par <DownloadButton>.
+  const episodeDownloadRequest = (ep: Episode): Omit<DownloadRequest, 'profileId'> | null => {
+    if (!credentials) return null;
+    const epLabel = episodeLabel(ep.title, displayTitle, t('detail.episodeN', { n: ep.episode_num }));
+    const landscape =
+      ep.info.movie_image || stills[ep.episode_num] || tmdb?.backdrop || info?.info.cover || variant?.cover;
+    return {
+      id: `episode-${ep.id}`,
+      type: 'episode',
+      title: `${displayTitle} – ${epLabel}`,
+      subtitle: `S${ep.season} · É${ep.episode_num}`,
+      poster: landscape ?? '',
+      sourceUrl: xtreamService.rawSeriesUrl(credentials, ep.id, ep.container_extension),
+      ext: ep.container_extension,
+      durationSec: ep.info.duration_secs,
+      seriesContext: {
+        seriesId,
+        title: displayTitle,
+        currentSeason: ep.season,
+        currentEpisodeNum: ep.episode_num,
+        tmdbId: tmdb?.tmdbId,
+      },
+    };
   };
 
   const findEpisode = (data: SeriesInfo, season: number, num: number): Episode | undefined =>
@@ -544,6 +573,16 @@ export function SeriesDetail() {
                 {ep.info.plot && <p className={styles.epPlot}>{ep.info.plot}</p>}
                 {ep.info.duration && <span className={styles.epDuration}>{ep.info.duration}</span>}
               </div>
+              {/* Télécharger l'épisode (Android/Windows + Premium). stopPropagation :
+                  ne pas déclencher la lecture de l'épisode au clic du bouton. */}
+              {(() => {
+                const req = episodeDownloadRequest(ep);
+                return req ? (
+                  <span className={styles.epDownload} onClick={(e) => e.stopPropagation()}>
+                    <DownloadButton request={req} compact />
+                  </span>
+                ) : null;
+              })()}
               <div className={styles.epPlay}>▶</div>
             </Focusable>
           );

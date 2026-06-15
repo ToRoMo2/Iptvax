@@ -10,6 +10,7 @@
 const { app, BrowserWindow, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const { mpv } = require('./mpv.cjs');
+const { downloads } = require('./downloads.cjs');
 
 // Réécriture des chemins ffmpeg/ffprobe pour la lecture en bundle asar.
 // Les binaires de `ffmpeg-static` / `ffprobe-static` ne peuvent pas s'exécuter
@@ -287,6 +288,26 @@ async function bootstrap() {
     }
   });
 
+  // ── Pont téléchargements hors-ligne ────────────────────────────────────────
+  // Le main process possède les fichiers (userData/downloads/) + le registre ;
+  // il ré-émet la liste complète au renderer à chaque changement.
+  downloads.setEventSink((ev) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('iptvax:dl-event', ev);
+    }
+  });
+  const DL_METHODS = new Set(['start', 'pause', 'resume', 'cancel', 'remove']);
+  ipcMain.handle('iptvax:dl', async (_event, method, arg) => {
+    if (!DL_METHODS.has(method)) return { ok: false, error: 'method not allowed' };
+    try {
+      await downloads[method](arg);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+  ipcMain.handle('iptvax:dl-list', () => downloads.list());
+
   // Liens externes (ex. paiement Stripe sur iptvax.com) → navigateur par défaut.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -319,6 +340,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async (e) => {
   // Tuer mpv en premier (process enfant séparé → sinon zombie sous Windows).
   try { mpv.dispose(); } catch { /* ignore */ }
+  try { downloads.dispose(); } catch { /* ignore */ }
   if (!serverHandle) return;
   // Laisser le proxy fermer ses sockets (ffmpeg pipes inclus) avant le exit.
   e.preventDefault();
