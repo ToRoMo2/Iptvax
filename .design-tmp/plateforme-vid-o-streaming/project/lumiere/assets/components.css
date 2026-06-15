@@ -1,0 +1,120 @@
+/* ====================================================================
+   IPTVAX · LUMIÈRE — composants transverses
+   ==================================================================== */
+
+/* ── TMDB badge ───────────────────────────────────────────────────── */
+.tmdb-badge { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 9px; border-radius:var(--r-pill);
+  background:rgba(33,208,122,.14); border:1px solid rgba(33,208,122,.4); color:var(--tmdb); font-size:12px; font-weight:700; }
+.tmdb-dot { width:7px; height:7px; border-radius:2px; background:var(--tmdb); box-shadow:0 0 8px var(--tmdb-glow); }
+
+/* ── Affiche chaude ───────────────────────────────────────────────── */
+.poster-art, .wide-art { position:relative; width:100%; height:100%; overflow:hidden; display:flex; align-items:flex-end; isolation:isolate; }
+.poster-tag { font-family:var(--font-display); font-size:19px; line-height:1.1; color:rgba(253,248,242,.9);
+  padding:14px; text-shadow:0 2px 14px rgba(0,0,0,.5); position:relative; z-index:2; }
+.poster-tag.sm { font-size:15px; padding:10px; }
+.poster-q { position:absolute; top:9px; left:9px; z-index:3; }
+
+/* ── Carte poster 2:3 ─────────────────────────────────────────────── */
+.poster-card { display:flex; flex-direction:column; gap:9px; text-align:left; width:var(--poster-w,150px); flex:0 0 auto; }
+.poster-frame { position:relative; aspect-ratio:2/3; border-radius:var(--r-card); overflow:hidden;
+  border:1px solid var(--line); box-shadow:var(--glow-card);
+  transition:transform var(--d-page) var(--ease), box-shadow var(--d-page) var(--ease), border-color var(--d-page) var(--ease); }
+.poster-card:hover .poster-frame, .poster-card:focus-visible .poster-frame {
+  transform:translateY(-6px) scale(1.025); box-shadow:var(--glow-warm); border-color:var(--accent-glow-soft); }
+.poster-hover { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; padding:12px;
+  background:linear-gradient(180deg, rgba(20,14,9,0) 40%, rgba(20,14,9,.82)); opacity:0; transition:opacity var(--d-page) var(--ease); z-index:4; }
+.poster-card:hover .poster-hover, .poster-card:focus-visible .poster-hover { opacity:1; }
+.poster-hover-play { align-self:flex-end; width:40px; height:40px; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-grad); color:#2A1B07; box-shadow:0 0 22px var(--accent-glow); }
+.poster-hover-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.poster-hover-yr { font-size:11.5px; color:var(--t-2); font-weight:500; }
+.poster-fav { position:absolute; top:9px; right:9px; z-index:5; width:32px; height:32px; border-radius:50%; display:grid; place-items:center;
+  background:rgba(20,14,9,.55); backdrop-filter:blur(8px); border:1px solid var(--glass-edge); color:var(--t-1); opacity:0; transition:opacity var(--d-micro), color var(--d-micro); }
+.poster-card:hover .poster-fav { opacity:1; }
+.poster-fav.on { opacity:1; color:var(--accent); }
+.poster-label { display:flex; flex-direction:column; gap:2px; }
+.poster-name { font-size:13.5px; font-weight:600; color:var(--t-1); line-height:1.25; }
+.poster-sub { font-size:11.5px; color:var(--t-3); }
+
+/* ── Carte large 16:9 ─────────────────────────────────────────────── */
+.wide-card { display:flex; flex-direction:column; gap:9px; text-align:left; width:var(--wide-w,260px); flex:0 0 auto; }
+.wide-art { aspect-ratio:16/9; border-radius:var(--r-card); border:1px solid var(--line); box-shadow:var(--glow-card);
+  transition:transform var(--d-page) var(--ease), box-shadow var(--d-page) var(--ease), border-color var(--d-page) var(--ease); }
+.wide-card:hover .wide-art, .wide-card:focus-visible .wide-art {
+  transform:translateY(-5px) scale(1.02); box-shadow:var(--glow-warm); border-color:var(--accent-glow-soft); }
+.wide-art.channel { align-items:center; justify-content:center; }
+.wide-code { font-family:var(--font-display); font-size:30px; letter-spacing:.04em; color:rgba(253,248,242,.92); z-index:2; text-shadow:0 2px 14px rgba(0,0,0,.5); }
+.wide-live { position:absolute; top:9px; left:9px; z-index:3; }
+.wide-q { position:absolute; top:9px; right:9px; z-index:3; }
+.wide-play { position:absolute; right:10px; bottom:10px; z-index:3; width:38px; height:38px; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-grad); color:#2A1B07; box-shadow:0 0 20px var(--accent-glow); opacity:0; transform:scale(.85); transition:all var(--d-micro) var(--ease); }
+.wide-card:hover .wide-play { opacity:1; transform:scale(1); }
+.wide-lock { position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  background:rgba(16,11,7,.55); backdrop-filter:blur(7px); color:var(--accent-2); font-size:12px; font-weight:700; letter-spacing:.04em; }
+.wide-remove { position:absolute; top:8px; right:8px; z-index:5; width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
+  background:rgba(16,11,7,.6); backdrop-filter:blur(6px); border:1px solid var(--glass-edge); color:var(--t-1); opacity:0; transition:opacity var(--d-micro); }
+.wide-card:hover .wide-remove { opacity:1; }
+.wide-progress { position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(16,11,7,.6); z-index:3; }
+.wide-progress > span { display:block; height:100%; background:var(--accent-grad); box-shadow:0 0 12px var(--accent-glow); }
+.wide-label { display:flex; flex-direction:column; gap:2px; }
+.wide-name { font-size:13.5px; font-weight:600; color:var(--t-1); line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wide-sub { font-size:11.5px; color:var(--t-3); }
+
+/* ── Rail ─────────────────────────────────────────────────────────── */
+.rail-wrap { position:relative; }
+.rail { display:flex; overflow-x:auto; scroll-snap-type:x proximity; padding:6px var(--pad-edge) 10px; }
+.rail > * { scroll-snap-align:start; }
+.rail-arrow { position:absolute; top:calc(50% - 24px); transform:translateY(-50%); z-index:8; width:42px; height:42px; border-radius:50%;
+  display:grid; place-items:center; background:var(--glass-strong); backdrop-filter:blur(var(--blur)); border:1px solid var(--glass-edge);
+  color:var(--t-1); box-shadow:var(--glow-pop); transition:transform var(--d-micro), background var(--d-micro); }
+.rail-arrow:hover { background:var(--accent-grad); color:#2A1B07; transform:translateY(-50%) scale(1.08); }
+.rail-arrow.l { left:calc(var(--pad-edge) - 21px); } .rail-arrow.r { right:calc(var(--pad-edge) - 21px); }
+.rail-edge-l, .rail-edge-r { position:absolute; top:0; bottom:0; width:var(--pad-edge); z-index:6; pointer-events:none; opacity:0; transition:opacity var(--d-micro); }
+.rail-edge-l { left:0; background:linear-gradient(90deg, var(--bg), transparent); }
+.rail-edge-r { right:0; background:linear-gradient(270deg, var(--bg), transparent); }
+.rail-edge-l.on, .rail-edge-r.on { opacity:1; }
+@container (max-width:640px){ .rail-arrow{ display:none; } }
+
+/* ── En-tête de rangée ────────────────────────────────────────────── */
+.row-header { display:flex; align-items:flex-end; justify-content:space-between; padding:0 var(--pad-edge); margin-bottom:14px; }
+.row-title-group { display:flex; align-items:center; gap:13px; }
+.row-title { font-size:21px; font-weight:700; letter-spacing:-0.01em; color:var(--t-1); }
+.row-divider { width:1px; height:18px; background:var(--line-strong); }
+.row-count { font-size:13px; color:var(--t-3); font-variant-numeric:tabular-nums; }
+.row-seeall { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:600; color:var(--t-2); padding:6px 4px;
+  transition:color var(--d-micro); }
+.row-seeall:hover { color:var(--accent); }
+.row-seeall.prem { color:var(--accent-2); }
+@container (max-width:640px){ .row-title{ font-size:17px; } }
+
+/* ── Bottom-sheet / popover ───────────────────────────────────────── */
+.sheet-scrim { position:absolute; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(10,7,4,0); transition:background var(--d-page) var(--ease); }
+.sheet-scrim.open { background:rgba(10,7,4,.6); }
+.sheet { width:100%; max-width:520px; background:var(--glass-strong); backdrop-filter:blur(var(--blur)) saturate(1.4); -webkit-backdrop-filter:blur(var(--blur)) saturate(1.4);
+  border:1px solid var(--glass-edge); border-bottom:0; border-radius:24px 24px 0 0; box-shadow:var(--glow-pop);
+  padding:10px 20px calc(22px + var(--safe-bottom)); transform:translateY(102%); transition:transform var(--d-page) var(--ease); max-height:80%; overflow-y:auto; }
+.sheet.open { transform:none; }
+.sheet-grip { width:42px; height:4px; border-radius:99px; background:var(--line-strong); margin:4px auto 14px; }
+.sheet-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; font-size:17px; font-weight:700; }
+.sheet-x { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:var(--glass); border:1px solid var(--glass-edge); color:var(--t-2); }
+.sheet-x:hover { color:var(--t-1); }
+/* desktop : popover ancré bas-droite plutôt que pleine largeur */
+.sheet-scrim.anchored { align-items:flex-end; justify-content:flex-end; padding:0 var(--pad-edge) 120px; }
+.sheet-scrim.anchored .sheet { max-width:380px; border-radius:var(--r-card); border-bottom:1px solid var(--glass-edge); transform:translateY(16px); opacity:0; transition:transform var(--d-page) var(--ease), opacity var(--d-page) var(--ease); }
+.sheet-scrim.anchored .sheet.open { transform:none; opacity:1; }
+
+/* ── Verrou Premium ───────────────────────────────────────────────── */
+.prem-lock { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  background:rgba(16,11,7,.42); backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); cursor:pointer; text-align:center; padding:14px; }
+.prem-lock-ic { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; background:var(--accent-faint); border:1px solid var(--accent-glow-soft); color:var(--accent); }
+.prem-lock.compact .prem-lock-ic { width:36px; height:36px; }
+.prem-lock-title { font-size:14px; font-weight:700; color:var(--t-1); }
+.prem-lock-text { font-size:12px; color:var(--t-2); max-width:200px; }
+.prem-lock-cta { display:inline-flex; align-items:center; gap:5px; height:30px; padding:0 13px; border-radius:var(--r-pill);
+  background:var(--accent-grad); color:#2A1B07; font-size:12px; font-weight:700; box-shadow:0 0 18px var(--accent-glow); }
+
+/* ── Skeletons ────────────────────────────────────────────────────── */
+.sk-poster { width:var(--poster-w,150px); aspect-ratio:2/3; flex:0 0 auto; }
+.sk-wide { width:var(--wide-w,260px); aspect-ratio:16/9; flex:0 0 auto; }
+.sk-line { height:14px; border-radius:6px; }

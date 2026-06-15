@@ -1,0 +1,96 @@
+/* ====================================================================
+   IPTVAX · Chrome — capsule top + bottom-nav + brand + profil
+   ==================================================================== */
+
+/* ── Brand fixe (haut gauche) ─────────────────────────────────────── */
+.brand-fixed { position:absolute; top:calc(var(--safe-top) + 22px); left:var(--pad-edge); z-index:40; }
+@container (max-width:900px){ .brand-fixed{ top:calc(var(--safe-top) + 16px); } }
+@container (max-width:640px){ .brand-fixed{ top:calc(var(--safe-top) + 13px); } }
+
+/* ── Capsule top (desktop / TV) ───────────────────────────────────── */
+.topnav { position:absolute; top:calc(var(--safe-top) + 18px); left:50%; transform:translateX(-50%); z-index:38;
+  display:flex; align-items:center; gap:6px; padding:7px 8px; border-radius:var(--r-pill); box-shadow:var(--glow-pop); }
+.topnav-links { display:flex; align-items:center; gap:2px; }
+.tn-link { display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 16px; border-radius:var(--r-pill);
+  color:var(--t-2); font-size:14.5px; font-weight:500; transition:color var(--d-micro), background var(--d-micro); position:relative; white-space:nowrap; }
+.tn-lbl { white-space:nowrap; }
+.tn-link .tn-ic { display:none; }
+.tn-link:hover { color:var(--t-1); background:var(--glass); }
+.tn-link.active { color:#2A1B07; background:var(--accent-grad); box-shadow:0 0 20px var(--accent-glow); font-weight:600; }
+.tn-sep { width:1px; height:22px; background:var(--line); margin:0 4px; }
+.tn-icon { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; color:var(--t-2); transition:color var(--d-micro), background var(--d-micro); }
+.tn-icon:hover { color:var(--t-1); background:var(--glass); }
+.tn-prem { display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 16px; border-radius:var(--r-pill); font-size:13.5px; font-weight:700; }
+.tn-prem.cta { background:var(--accent-grad-rich); color:#2A1B07; box-shadow:0 0 18px var(--accent-glow); }
+.tn-prem.cta:hover { transform:translateY(-1px); }
+.tn-prem.badge { background:var(--accent-faint); border:1px solid var(--accent-glow-soft); color:var(--accent-2); }
+
+/* ── Recherche / Premium mobiles (cachés desktop) ─────────────────── */
+.search-fixed, .premium-fixed { display:none; }
+
+/* ── Profil (haut droite) ─────────────────────────────────────────── */
+.profile-fixed { position:absolute; top:calc(var(--safe-top) + 22px); right:var(--pad-edge); z-index:40; }
+.profile-btn { display:inline-flex; align-items:center; gap:10px; height:48px; padding:5px 14px 5px 5px; border-radius:var(--r-pill);
+  background:var(--glass); border:1px solid var(--glass-edge); backdrop-filter:blur(var(--blur)); transition:border-color var(--d-micro), background var(--d-micro); }
+.profile-btn:hover { border-color:var(--line-strong); background:var(--glass-strong); }
+.profile-av { position:relative; width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-size:19px;
+  background:radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--pf) 70%, white 8%), var(--pf)); box-shadow:0 0 0 1px rgba(0,0,0,.2) inset; }
+.profile-crown { position:absolute; bottom:-3px; right:-3px; width:16px; height:16px; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-grad-rich); color:#2A1B07; box-shadow:0 0 8px var(--accent-glow); }
+.profile-who { display:flex; flex-direction:column; line-height:1.2; padding-right:4px; }
+.profile-name { font-size:13.5px; font-weight:600; color:var(--t-1); }
+.profile-sub { font-size:11px; color:var(--t-3); }
+
+.panel-scrim { position:absolute; inset:0; z-index:44; }
+.profile-panel { position:absolute; top:calc(var(--safe-top) + 78px); right:var(--pad-edge); z-index:46; width:280px; border-radius:var(--r-card);
+  padding:16px; box-shadow:var(--glow-pop); }
+.pp-head { display:flex; align-items:center; gap:12px; padding-bottom:14px; margin-bottom:10px; border-bottom:1px solid var(--line); }
+.pp-avatar { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; font-size:23px;
+  background:radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--pf) 70%, white 8%), var(--pf)); }
+.pp-who { display:flex; flex-direction:column; }
+.pp-name { font-size:16px; font-weight:700; color:var(--t-1); }
+.pp-plan { font-size:12px; color:var(--accent-2); }
+.pp-list { display:flex; flex-direction:column; gap:2px; }
+.pp-row { display:flex; align-items:center; gap:12px; height:44px; padding:0 12px; border-radius:var(--r-ui); color:var(--t-2); font-size:14px; font-weight:500; text-align:left; transition:background var(--d-micro), color var(--d-micro); }
+.pp-row:hover { background:var(--glass); color:var(--t-1); }
+.pp-row.prem { color:var(--accent-2); }
+.pp-row.prem:hover { background:var(--accent-faint); }
+
+/* ── Bottom-nav mobile (caché desktop) ────────────────────────────── */
+.bottomnav { display:none; }
+
+/* ====================================================================
+   MOBILE ≤640 — capsule → bottom-nav, brand + search + premium flottent
+   ==================================================================== */
+@container (max-width:640px) {
+  .topnav { display:none; }
+  .profile-fixed { top:calc(var(--safe-top) + 11px); right:var(--pad-edge); }
+  .profile-btn { height:40px; padding:4px; }
+  .profile-who { display:none; }
+  .profile-av { width:32px; height:32px; font-size:16px; }
+  .profile-panel { top:calc(var(--safe-top) + 60px); right:var(--pad-edge); left:var(--pad-edge); width:auto; }
+
+  .search-fixed { display:grid; place-items:center; position:absolute; top:calc(var(--safe-top) + 11px); right:calc(var(--pad-edge) + 52px); z-index:40;
+    width:40px; height:40px; border-radius:50%; background:var(--glass); border:1px solid var(--glass-edge); backdrop-filter:blur(var(--blur)); color:var(--t-1); }
+  .premium-fixed { display:inline-flex; align-items:center; gap:5px; position:absolute; top:calc(var(--safe-top) + 13px); right:calc(var(--pad-edge) + 104px); z-index:40;
+    height:36px; padding:0 13px; border-radius:var(--r-pill); font-size:12.5px; font-weight:700; }
+  .premium-fixed.cta { background:var(--accent-grad-rich); color:#2A1B07; box-shadow:0 0 16px var(--accent-glow); }
+  .premium-fixed.badge { background:var(--accent-faint); border:1px solid var(--accent-glow-soft); color:var(--accent-2); }
+  .premium-fixed .pf-lbl { display:none; }
+
+  .bottomnav { display:flex; position:absolute; left:0; right:0; bottom:0; z-index:42; height:var(--bottomnav-h);
+    padding:8px 6px calc(8px + var(--safe-bottom)); justify-content:space-around; align-items:flex-start;
+    border-radius:0; border-left:0; border-right:0; border-bottom:0; }
+  .bn-tab { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; padding-top:5px; color:var(--t-3); transition:color var(--d-micro); position:relative; }
+  .bn-ic { display:grid; place-items:center; height:24px; transition:transform var(--d-micro); }
+  .bn-lbl { font-size:10px; font-weight:600; letter-spacing:.01em; }
+  .bn-tab.active { color:var(--accent); }
+  .bn-tab.active .bn-ic { transform:translateY(-1px); }
+  .bn-tab.active::before { content:""; position:absolute; top:-8px; width:22px; height:3px; border-radius:99px; background:var(--accent-grad); box-shadow:0 0 12px var(--accent-glow); }
+}
+
+/* ── Tablette : capsule visible, libellés conservés ───────────────── */
+@container (max-width:900px) and (min-width:641px) {
+  .tn-link { padding:0 13px; font-size:13.5px; }
+  .tn-prem .pf-lbl, .tn-prem { font-size:12.5px; }
+}

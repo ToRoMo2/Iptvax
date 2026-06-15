@@ -1,0 +1,138 @@
+/* ====================================================================
+   IPTVAX · LECTEUR — overlay transparent (natif: WebView sur vidéo)
+   ==================================================================== */
+.player { position:absolute; inset:0; background:#0A0704; overflow:hidden; cursor:default; }
+.player.ui-off { cursor:none; }
+.player-video { position:absolute; inset:0; }
+.player-video-glow { position:absolute; inset:0; background:radial-gradient(circle at 50% 42%, transparent 40%, rgba(10,7,4,.5)); }
+.player-bright { position:absolute; inset:0; background:#000; pointer-events:none; z-index:2; transition:opacity var(--d-page); }
+
+/* warm-up projecteur à l'ouverture */
+.player::after { content:""; position:absolute; inset:0; z-index:3; pointer-events:none;
+  background:radial-gradient(circle at 50% 45%, var(--accent-glow-soft), transparent 55%); opacity:0; animation:projector-warm 1.6s var(--ease) both; }
+@keyframes projector-warm { 0%{opacity:0;} 30%{opacity:.6;} 100%{opacity:0;} }
+
+/* ── Sous-titres ──────────────────────────────────────────────────── */
+.player-subs { position:absolute; left:0; right:0; z-index:6; display:flex; justify-content:center; padding:0 8%; transition:bottom var(--d-page) var(--ease); pointer-events:none; }
+.sub-cue { font-size:22px; font-weight:600; text-align:center; border-radius:6px; line-height:1.35; }
+
+/* ── Carte buffering (verre dépoli, AUCUN play) ───────────────────── */
+.buffer-card { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; display:flex; flex-direction:column; align-items:center; gap:18px;
+  padding:34px 44px; border-radius:22px; box-shadow:var(--glow-pop); }
+.buffer-spin { width:34px; height:34px; border-radius:50%; border:3px solid var(--line-strong); border-top-color:var(--accent); animation:spin .8s linear infinite; box-shadow:0 0 18px var(--accent-glow-soft); }
+@keyframes spin { to { transform:rotate(360deg); } }
+.buffer-txt { font-size:13px; color:var(--t-2); letter-spacing:.02em; }
+
+/* ── Overlay (fade auto) ──────────────────────────────────────────── */
+.player-overlay { position:absolute; inset:0; z-index:10; display:flex; flex-direction:column; justify-content:space-between;
+  opacity:0; transition:opacity var(--d-page) var(--ease); pointer-events:none;
+  background:linear-gradient(180deg, rgba(10,7,4,.55), transparent 22%, transparent 62%, rgba(10,7,4,.72)); }
+.player.ui-on .player-overlay { opacity:1; pointer-events:auto; transition:none; }
+
+/* top */
+.pl-top { display:flex; align-items:center; gap:16px; padding:calc(var(--safe-top) + 22px) var(--pad-edge) 0; }
+.pl-back { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; background:var(--glass); border:1px solid var(--glass-edge); backdrop-filter:blur(var(--blur)); color:var(--t-1); flex:0 0 auto; }
+.pl-back:hover { background:var(--glass-strong); }
+.pl-title-wrap { flex:1; min-width:0; }
+.pl-title { display:block; font-size:19px; font-weight:700; color:var(--t-1); text-shadow:0 2px 12px rgba(0,0,0,.6); }
+.pl-sub { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--t-2); }
+.pl-eptoggle { display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 16px; border-radius:var(--r-pill); background:var(--glass); border:1px solid var(--glass-edge); backdrop-filter:blur(var(--blur)); color:var(--t-1); font-size:13.5px; font-weight:600; }
+
+/* center */
+.pl-center { display:flex; align-items:center; justify-content:center; gap:clamp(28px,7cqw,72px); }
+.pl-c-main { width:84px; height:84px; border-radius:50%; display:grid; place-items:center; background:var(--accent-grad); color:#2A1B07; box-shadow:0 0 40px var(--accent-glow); transition:transform var(--d-micro); }
+.pl-c-main:hover { transform:scale(1.06); }
+.pl-c-side { position:relative; width:60px; height:60px; border-radius:50%; display:grid; place-items:center; color:var(--t-1); background:var(--glass); border:1px solid var(--glass-edge); backdrop-filter:blur(var(--blur)); transition:transform var(--d-micro); }
+.pl-c-side:hover { transform:scale(1.06); }
+.pl-c-side span { position:absolute; font-size:9px; font-weight:800; bottom:17px; }
+
+/* sliders latéraux (mobile only) */
+.pl-vside { display:none; }
+
+/* bottom */
+.pl-bottom { padding:0 var(--pad-edge) calc(var(--safe-bottom) + 26px); }
+.pl-scrub { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+.pl-time { font-size:12.5px; color:var(--t-2); font-variant-numeric:tabular-nums; min-width:46px; }
+.pl-time:last-child { text-align:right; }
+.pl-track { position:relative; flex:1; height:6px; border-radius:99px; background:rgba(253,248,242,.16); cursor:pointer; }
+.pl-track:hover { height:8px; }
+.pl-track-buf { position:absolute; top:0; left:0; height:100%; border-radius:99px; background:rgba(253,248,242,.16); }
+.pl-track-fill { position:absolute; top:0; left:0; height:100%; border-radius:99px; background:var(--accent-grad); box-shadow:0 0 12px var(--accent-glow); z-index:2; }
+.pl-knob { position:absolute; top:50%; width:16px; height:16px; border-radius:50%; background:#FFF6E6; transform:translate(-50%,-50%); z-index:3;
+  box-shadow:0 0 0 4px var(--accent-glow), 0 0 18px var(--accent-glow); }
+
+.pl-controls { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.pl-ctl-left, .pl-ctl-right { display:flex; align-items:center; gap:6px; }
+.pl-ic { display:inline-flex; align-items:center; gap:7px; height:42px; padding:0 11px; border-radius:var(--r-ui); color:var(--t-1); transition:background var(--d-micro), color var(--d-micro); }
+.pl-ic:hover { background:var(--glass); }
+.pl-ic.txt { font-size:13px; font-weight:600; }
+.pl-ic.txt span { color:var(--t-2); }
+.pl-vol-inline { display:flex; align-items:center; gap:9px; padding:0 10px; color:var(--t-1); }
+.pl-vol-track { width:84px; height:5px; border-radius:99px; background:rgba(253,248,242,.18); overflow:hidden; }
+.pl-vol-track > span { display:block; height:100%; background:var(--accent-grad); }
+
+/* ── Bande Live ───────────────────────────────────────────────────── */
+.live-bar { margin-top:18px; }
+.live-bar-tabs { display:flex; gap:8px; margin-bottom:12px; }
+.lb-tab { height:34px; padding:0 16px; border-radius:var(--r-pill); font-size:13px; font-weight:600; color:var(--t-2); background:var(--glass); border:1px solid var(--glass-edge); }
+.lb-tab.on { background:var(--accent-grad); color:#2A1B07; }
+.lb-channels { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+.lb-chan { display:flex; flex-direction:column; align-items:center; gap:7px; flex:0 0 auto; width:96px; }
+.lb-chan-box { width:96px; height:56px; border-radius:10px; display:grid; place-items:center; font-family:var(--font-display); font-size:20px; color:rgba(253,248,242,.9); border:1px solid var(--line); overflow:hidden; }
+.lb-chan.on .lb-chan-box { box-shadow:var(--glow-focus); }
+.lb-chan-name { font-size:11.5px; color:var(--t-2); }
+.lb-chan.on .lb-chan-name { color:var(--accent); font-weight:600; }
+.lb-epg { display:flex; flex-direction:column; gap:2px; max-height:200px; overflow-y:auto; }
+.epg-row { display:flex; align-items:center; gap:14px; padding:11px 14px; border-radius:var(--r-ui); }
+.epg-row.now { background:var(--accent-faint); border:1px solid var(--accent-glow-soft); }
+.epg-row.done { opacity:.5; }
+.epg-time { font-size:13px; font-weight:700; color:var(--t-2); font-variant-numeric:tabular-nums; min-width:42px; }
+.epg-row.now .epg-time { color:var(--accent); }
+.epg-main { flex:1; min-width:0; }
+.epg-title { display:block; font-size:14px; font-weight:600; color:var(--t-1); }
+.epg-dur { font-size:11.5px; color:var(--t-3); }
+.epg-prog { display:block; height:4px; border-radius:99px; background:rgba(253,248,242,.16); margin-top:6px; overflow:hidden; max-width:220px; }
+.epg-prog > span { display:block; height:100%; background:var(--accent-grad); }
+
+/* ── Sheets : pistes / sous-titres ────────────────────────────────── */
+.subs-custom { display:inline-flex; align-items:center; gap:9px; margin-top:10px; height:46px; padding:0 18px; border-radius:var(--r-ui); width:100%; justify-content:center; background:var(--glass); border:1px solid var(--glass-edge); color:var(--accent-2); font-size:14px; font-weight:600; }
+.sub-cust { display:flex; flex-direction:column; gap:18px; }
+.sub-preview { height:120px; border-radius:var(--r-card); display:grid; place-items:center; overflow:hidden; position:relative;
+  background:linear-gradient(120deg, hsl(28 50% 22%), hsl(348 40% 16%)); border:1px solid var(--line); }
+.sub-ctl { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.sub-ctl-lbl { font-size:14px; color:var(--t-2); font-weight:500; }
+.seg { display:flex; gap:4px; background:var(--glass); border:1px solid var(--glass-edge); border-radius:var(--r-pill); padding:4px; }
+.seg button { height:34px; padding:0 14px; border-radius:99px; font-size:13px; font-weight:600; color:var(--t-2); }
+.seg button.on { background:var(--accent-grad); color:#2A1B07; }
+.sub-colors { display:flex; gap:8px; }
+.sub-color { width:32px; height:32px; border-radius:50%; border:2px solid transparent; }
+.sub-color.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+
+/* ── Panneau Épisodes ─────────────────────────────────────────────── */
+.ep-panel-scrim { position:absolute; inset:0; z-index:40; background:rgba(10,7,4,.55); display:flex; justify-content:flex-end; }
+.ep-panel { width:min(420px,90%); padding:22px; overflow-y:auto; animation:slide-r var(--d-page) var(--ease); }
+@keyframes slide-r { from { transform:translateX(24px); } to { transform:none; } }
+.ep-panel-head { display:flex; align-items:center; justify-content:space-between; font-size:17px; font-weight:700; margin-bottom:18px; }
+.ep-panel-grid { display:flex; flex-direction:column; gap:10px; }
+.ep-card { display:flex; align-items:center; gap:14px; padding:8px; border-radius:var(--r-ui); text-align:left; transition:background var(--d-micro); }
+.ep-card:hover { background:var(--glass); }
+.ep-card.on { background:var(--accent-faint); border:1px solid var(--accent-glow-soft); }
+.ep-card-thumb { position:relative; width:120px; flex:0 0 auto; aspect-ratio:16/9; border-radius:8px; overflow:hidden; border:1px solid var(--line); }
+.ep-card-title { flex:1; font-size:14px; font-weight:600; color:var(--t-1); }
+.ep-card-dur { font-size:12px; color:var(--t-3); }
+
+/* ====================================================================
+   MOBILE / PAYSAGE — contrôles centrés + sliders verticaux latéraux
+   ==================================================================== */
+@container (max-width:640px) {
+  .pl-ctl-left .pl-ic:not(.pl-vol-inline), .pl-vol-inline, .pl-ic.txt span { display:none; }
+  .pl-controls { justify-content:flex-end; }
+  .pl-ctl-right { gap:2px; }
+  .pl-ic.txt { padding:0 8px; }
+  .pl-vside { display:flex; flex-direction:column; align-items:center; gap:10px; position:absolute; top:50%; transform:translateY(-50%); z-index:11; color:var(--t-1); }
+  .pl-vside.left { left:16px; } .pl-vside.right { right:16px; }
+  .vslider { writing-mode:vertical-lr; direction:rtl; width:6px; height:120px; accent-color:var(--accent); background:rgba(253,248,242,.18); border-radius:99px; }
+  .pl-c-main { width:72px; height:72px; }
+  .live-bar { margin-top:12px; }
+}
+/* paysage mobile : contrôles centrés gérés par le conteneur étroit ci-dessus */

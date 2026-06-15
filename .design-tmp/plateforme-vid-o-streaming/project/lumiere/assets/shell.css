@@ -1,0 +1,71 @@
+/* ====================================================================
+   IPTVAX · App Shell chrome — toolbar, stage, device frames, launcher
+   ==================================================================== */
+.shell { position:fixed; inset:0; display:flex; flex-direction:column; background:#0B0805;
+  background-image:radial-gradient(120% 80% at 50% -10%, rgba(245,166,35,.06), transparent 50%); }
+
+/* ── Toolbar ── */
+.toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; height:58px; padding:0 20px; flex:0 0 auto;
+  background:rgba(16,11,7,.7); backdrop-filter:blur(20px); border-bottom:1px solid var(--line); z-index:50; }
+.tb-brand { display:flex; align-items:center; gap:12px; }
+.tb-tag { font-size:11px; color:var(--t-4); letter-spacing:.04em; font-family:ui-monospace,monospace; }
+@media (max-width:720px){ .tb-tag { display:none; } }
+.tb-center { display:flex; align-items:center; gap:12px; }
+.format-toggle { display:flex; gap:3px; padding:3px; border-radius:99px; background:var(--glass); border:1px solid var(--glass-edge); }
+.format-toggle button { height:32px; padding:0 14px; border-radius:99px; font-size:12.5px; font-weight:600; color:var(--t-3); transition:all var(--d-micro); white-space:nowrap; }
+.format-toggle button.on { background:var(--accent-grad); color:#2A1B07; }
+.tb-tv-focus { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:99px; background:var(--glass); border:1px solid var(--glass-edge); color:var(--t-2); font-size:12.5px; font-weight:600; }
+.tb-tv-focus.on { background:var(--accent-faint); border-color:var(--accent-glow-soft); color:var(--accent); }
+.tb-right { display:flex; align-items:center; gap:10px; }
+.tb-prem-toggle { height:34px; padding:0 16px; border-radius:99px; font-size:12.5px; font-weight:700; background:var(--glass); border:1px solid var(--glass-edge); color:var(--t-2); }
+.tb-prem-toggle.on { background:var(--accent-faint); border-color:var(--accent-glow-soft); color:var(--accent-2); }
+.tb-launch { display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 15px; border-radius:99px; background:var(--accent-grad); color:#2A1B07; font-size:12.5px; font-weight:700; }
+@media (max-width:720px){
+  .toolbar { flex-wrap:wrap; height:auto; padding:8px 14px; gap:8px; }
+  .tb-center { order:3; width:100%; justify-content:center; }
+  .format-toggle button { padding:0 10px; font-size:11.5px; }
+}
+
+/* ── Stage ── */
+.stage { flex:1; min-height:0; position:relative; overflow:hidden; padding:26px; }
+.frame-fit { position:absolute; inset:26px; }
+.device { position:absolute; top:50%; left:50%; transform-origin:center; flex:0 0 auto; }
+.shell-tv .stage { padding:34px; }
+.shell-tv .frame-fit { inset:34px; }
+@media (max-width:720px){ .stage { padding:10px; } .frame-fit { inset:10px; } }
+
+/* ── Device frames ── */
+.device-screen { position:absolute; inset:0; overflow:hidden; background:var(--bg); container-type:size; container-name:app; }
+.app-root { position:absolute; inset:0; overflow:hidden; }
+
+/* mobile 9:16 */
+.device-mobile { border-radius:52px; background:#000; padding:0; box-shadow:0 40px 100px -30px rgba(0,0,0,.8), 0 0 0 11px #1a1410, 0 0 0 13px #2a2018; }
+.device-mobile .device-screen { border-radius:42px; }
+.device-notch { position:absolute; top:13px; left:50%; transform:translateX(-50%); width:118px; height:30px; border-radius:99px; background:#000; z-index:90; }
+.device-home { position:absolute; bottom:9px; left:50%; transform:translateX(-50%); width:132px; height:5px; border-radius:99px; background:rgba(253,248,242,.4); z-index:90; }
+
+/* desktop / TV 16:9 */
+.device-tv { border-radius:16px; background:#000; box-shadow:0 50px 120px -36px rgba(0,0,0,.85), 0 0 0 2px #2a2018, 0 0 0 10px #14100b; }
+.device-tv .device-screen { border-radius:10px; }
+.shell-tv .device-tv { box-shadow:0 50px 120px -36px rgba(0,0,0,.85), 0 0 0 2px #2a2018, 0 0 0 14px #14100b, 0 0 0 16px #221a12; }
+
+/* ── TV focus mode : montre le halo D-pad sur les éléments focusables ── */
+.app-root.tv .btn-primary, .app-root.tv .poster-card:first-child .poster-frame,
+.app-root.tv .tn-link.active, .app-root.tv .hero-actions .btn-primary {
+  box-shadow:var(--glow-focus) !important;
+}
+.tv-focus-mode .device-screen::after { content:"FOCUS TÉLÉCOMMANDE"; position:absolute; top:10px; right:12px; z-index:95;
+  font-size:9px; font-weight:800; letter-spacing:.1em; padding:5px 10px; border-radius:99px;
+  background:var(--accent-faint); border:1px solid var(--accent-glow-soft); color:var(--accent); pointer-events:none; }
+
+/* ── Launcher ── */
+.launcher-scrim { position:fixed; inset:0; z-index:100; background:rgba(10,7,4,.66); backdrop-filter:blur(4px); display:flex; align-items:flex-start; justify-content:center; padding:70px 20px; }
+.launcher { width:min(760px,100%); max-height:80vh; overflow-y:auto; border-radius:20px; background:var(--bg-elev); border:1px solid var(--glass-edge); box-shadow:var(--glow-pop); padding:8px; }
+.launcher-head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px 14px; font-size:16px; font-weight:700; color:var(--t-1); }
+.launcher-head button { color:var(--t-3); }
+.launcher-groups { display:flex; flex-direction:column; gap:18px; padding:0 14px 18px; }
+.lg-title { display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--t-3); margin-bottom:10px; }
+.lg-items { display:flex; gap:9px; flex-wrap:wrap; }
+.lg-item { height:40px; padding:0 18px; border-radius:99px; background:var(--glass); border:1px solid var(--glass-edge); color:var(--t-2); font-size:13.5px; font-weight:600; transition:all var(--d-micro); }
+.lg-item:hover { color:var(--t-1); border-color:var(--line-strong); transform:translateY(-2px); }
+.lg-item.on { background:var(--accent-grad); color:#2A1B07; border-color:transparent; }

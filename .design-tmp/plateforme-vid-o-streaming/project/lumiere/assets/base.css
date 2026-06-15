@@ -1,0 +1,153 @@
+/* ====================================================================
+   IPTVAX · LUMIÈRE — base + utilitaires globaux
+   ==================================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-ui);
+  background: #0E0A07;
+  color: var(--t-1);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.006em;
+  font-weight: 400;
+}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; border: 0; background: transparent; color: inherit; font-size: inherit; }
+input, textarea, select { font-family: inherit; }
+img { display: block; max-width: 100%; }
+::selection { background: var(--accent); color: #2A1B07; }
+
+/* ── Display serif cinéma / éditorial ─────────────────────────────── */
+.serif { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+
+/* ── Scrollbars — hairline chaude ─────────────────────────────────── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(253,246,235,0.12); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(253,246,235,0.22); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* ── Texte dégradé OR (signature) ─────────────────────────────────── */
+.au-gold {
+  background: var(--accent-grad);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* ── Verre chaud lumineux ─────────────────────────────────────────── */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.3);
+  border: 1px solid var(--glass-edge);
+}
+
+/* ── Grain de film (overlay, jamais sur le texte) ─────────────────── */
+.grain-layer {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background-image: var(--grain);
+  background-size: 180px 180px;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+}
+
+/* ── Halo de projecteur (lumière diffuse en fond) ─────────────────── */
+.spotlight {
+  position: absolute; pointer-events: none;
+  background: radial-gradient(closest-side, var(--accent-glow-soft), transparent 72%);
+  filter: blur(8px);
+}
+
+/* ====================================================================
+   BOUTONS
+   ==================================================================== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  height: 48px; padding: 0 24px;
+  border-radius: var(--r-pill);
+  font-size: 15px; font-weight: 600; letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: transform var(--d-micro) var(--ease), box-shadow var(--d-micro) var(--ease),
+              background var(--d-micro) var(--ease), color var(--d-micro) var(--ease),
+              border-color var(--d-micro) var(--ease);
+}
+.btn-primary {
+  background: var(--accent-grad); color: #2A1B07;
+  box-shadow: 0 8px 26px -10px var(--accent-glow);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 38px -10px var(--accent-glow); }
+.btn-secondary {
+  background: var(--glass); color: var(--t-1);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
+}
+.btn-secondary:hover { border-color: var(--line-strong); background: var(--glass-strong); transform: translateY(-2px); }
+.btn-ghost {
+  height: 42px; padding: 0 18px; font-size: 14px; font-weight: 500;
+  color: var(--t-2); border: 1px solid var(--line); border-radius: var(--r-pill);
+}
+.btn-ghost:hover { color: var(--t-1); border-color: var(--line-strong); }
+
+/* ── Pastilles / badges ───────────────────────────────────────────── */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 11px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.pill-hd { background: var(--glass-strong); color: var(--t-1); border: 1px solid var(--glass-edge); backdrop-filter: blur(10px); }
+.pill-live {
+  background: rgba(255,83,65,0.16); color: #FF8A7C; border: 1px solid rgba(255,83,65,0.4);
+}
+.pill-live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); box-shadow: 0 0 10px var(--live-glow-c); animation: live-pulse 1.6s var(--ease) infinite; }
+.pill-quality { background: var(--accent-faint); color: var(--accent-2); border: 1px solid var(--accent-glow-soft); }
+
+@keyframes live-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.85); } }
+
+/* ── Étoiles de note ──────────────────────────────────────────────── */
+.stars { display: inline-flex; gap: 2px; color: var(--accent); }
+.stars .empty { color: var(--t-4); }
+
+/* ====================================================================
+   FOCUS — halo doré télécommande (TV) + clavier
+   ==================================================================== */
+.rc-focused, .tv-focus {
+  outline: none;
+  box-shadow: var(--glow-focus) !important;
+  border-radius: var(--r-ui);
+  position: relative; z-index: 6;
+}
+button:focus-visible, [role="button"]:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-ui);
+}
+
+/* ── Signature : bloom doré des cartes à l'apparition ─────────────── */
+@keyframes card-bloom {
+  from { transform: translateY(12px) scale(0.98); }
+  to   { transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bloom { animation: card-bloom 460ms var(--ease) both; }
+}
+
+/* ── Squelettes de chargement (shimmer chaud) ─────────────────────── */
+.sk {
+  background: linear-gradient(100deg, var(--bg-card) 30%, var(--bg-card-hover) 50%, var(--bg-card) 70%);
+  background-size: 220% 100%;
+  animation: sk-shimmer 1.5s linear infinite;
+  border-radius: var(--r-card);
+}
+@keyframes sk-shimmer { from { background-position: 200% 0; } to { background-position: -120% 0; } }
+
+/* ── Toast ────────────────────────────────────────────────────────── */
+.toast {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 13px 18px; border-radius: var(--r-pill);
+  background: var(--glass-strong); border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
+  box-shadow: var(--glow-pop); font-size: 14px; font-weight: 500;
+}

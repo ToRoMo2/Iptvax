@@ -1,0 +1,128 @@
+/* ====================================================================
+   IPTVAX · LUMIÈRE / HALO DORÉ — Design Tokens
+   Nuit chaude (espresso/prune ambré), signature OR→CHAMPAGNE employée
+   comme une lumière. Verre chaud lumineux + grain de film subtil.
+   Mêmes noms de tokens que le système "Vanta" → tout le CSS hérite.
+   ==================================================================== */
+:root {
+  /* ── Surfaces — nuit CHAUDE, jamais noir pur, jamais rouge ───────── */
+  --bg:            #19120D;   /* espresso profond légèrement ambré      */
+  --bg-elev:       #211810;   /* élévation 1                            */
+  --bg-card:       #271C13;   /* carte                                  */
+  --bg-card-hover: #31251A;   /* carte au hover                         */
+  --bg-input:      rgba(253, 248, 242, 0.04);
+
+  /* ── Verre chaud crème translucide (panneaux / sheets / popovers) ── */
+  --glass:         rgba(252, 244, 233, 0.055);
+  --glass-strong:  rgba(252, 244, 233, 0.10);
+  --glass-edge:    rgba(252, 244, 233, 0.14);
+  --blur:          22px;
+
+  /* ── Strokes — hairlines chaudes ────────────────────────────────── */
+  --line:          rgba(253, 246, 235, 0.10);
+  --line-soft:     rgba(253, 246, 235, 0.05);
+  --line-strong:   rgba(253, 246, 235, 0.20);
+
+  /* ── Texte crème (jamais blanc pur) ─────────────────────────────── */
+  --t-1:           #FDF8F2;
+  --t-2:           #CCBFB0;
+  --t-3:           #978A7B;
+  --t-4:           #6E6354;
+
+  /* ── Signature : OR / AMBRE → CHAMPAGNE, employée comme une lumière ─ */
+  --accent:        #F5A623;                         /* or ambré          */
+  --accent-2:      #E8C27E;                         /* champagne         */
+  --accent-deep:   #D98A12;                         /* or saturé Premium */
+  --accent-grad:   linear-gradient(118deg, #F5A623 0%, #F3B658 46%, #E8C27E 100%);
+  --accent-grad-rich: linear-gradient(118deg, #E08A0E 0%, #F5A623 50%, #F3CE92 100%);
+  --accent-glow:   rgba(245, 166, 35, 0.40);
+  --accent-glow-soft: rgba(245, 166, 35, 0.20);
+  --accent-faint:  rgba(245, 166, 35, 0.11);
+
+  /* ── Secondaire : jade / menthe doux → online / succès / connecté ── */
+  --jade:          #5BD6A8;
+  --jade-glow:     rgba(91, 214, 168, 0.34);
+
+  /* ── Live — micro-pastille fonctionnelle UNIQUEMENT (LIVE / REC) ──── */
+  --live:          #FF5341;
+  --live-glow-c:   rgba(255, 83, 65, 0.50);
+
+  /* ── TMDb brand green — badge de note sur les fiches détail ───────── */
+  --tmdb:          #21D07A;
+  --tmdb-glow:     rgba(33, 208, 122, 0.32);
+
+  /* ── Rayons — formes douces, cossues ──────────────────────────────── */
+  --r-card:        16px;
+  --r-ui:          11px;
+  --r-pill:        999px;
+
+  /* ── Glows dorés diffus plutôt qu'ombres dures ───────────────────── */
+  --glow-card:     0 18px 50px -22px rgba(0, 0, 0, 0.7);
+  --glow-warm:     0 0 0 1px var(--accent-glow-soft), 0 14px 44px -16px var(--accent-glow);
+  --glow-focus:    0 0 0 3px var(--accent), 0 0 26px var(--accent-glow);
+  --glow-pop:      0 24px 70px -20px rgba(0, 0, 0, 0.78);
+
+  /* ── Grain de film (overlay fractal, jamais sur le texte) ────────── */
+  --grain:         url("grain.svg");
+  --grain-opacity: 0.05;
+
+  /* ── Motion — easing maison « lumière » ──────────────────────────── */
+  --ease:          cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --d-micro:       150ms;
+  --d-page:        320ms;
+  --transition:    150ms var(--ease);
+
+  /* ── Échelle d'espacement ─────────────────────────────────────────── */
+  --pad-edge:      72px;
+  --row-gap:       64px;
+  --topnav-h:      96px;
+
+  /* ── Safe areas natives ──────────────────────────────────────────── */
+  --safe-top:      env(safe-area-inset-top, 0px);
+  --safe-bottom:   env(safe-area-inset-bottom, 0px);
+
+  /* ── Palette d'avatars de profil — esprit Lumière / Halo doré ─────── */
+  --profile-1:     #F5A623;   /* or            */
+  --profile-2:     #E8825E;   /* terracotta    */
+  --profile-3:     #D96A8B;   /* rose chaud    */
+  --profile-4:     #A88BE0;   /* lilas chaud   */
+  --profile-5:     #5BD6A8;   /* jade          */
+  --profile-6:     #E8C27E;   /* champagne     */
+
+  /* ── Typo ─────────────────────────────────────────────────────────── */
+  --font-display:  "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-ui:       "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+/* ── Compatibilité alias (anciens noms Vanta/Aurora → Lumière) ──────── */
+:root {
+  --bg-0: var(--bg); --bg-1: var(--bg); --bg-2: var(--bg-elev); --bg-3: var(--bg-elev);
+  --text-primary: var(--t-1); --text-secondary: var(--t-2); --text-muted: var(--t-3);
+  --border: var(--line); --border-hover: var(--line-strong);
+  --accent-light: var(--accent-2); --accent-dark: var(--accent-deep);
+  --success: var(--jade); --error: var(--live); --warning: var(--accent);
+  --radius: var(--r-ui); --radius-lg: var(--r-card); --radius-xl: 22px;
+  --live-glow: 0 0 18px var(--live-glow-c);
+}
+
+/* ====================================================================
+   RESPONSIVE — piloté par CONTENEUR (.device-screen), pas par le viewport,
+   pour que le cadre 9:16 rende « mobile » indépendamment de la fenêtre.
+   Les gouttières se redéfinissent sur .app-root → héritées par tout le CSS.
+   ==================================================================== */
+@container (max-width: 900px) {
+  .app-root { --pad-edge: 28px; --row-gap: 44px; --topnav-h: calc(76px + var(--safe-top)); }
+}
+@container (max-width: 640px) {
+  .app-root {
+    --pad-edge: 18px; --row-gap: 34px;
+    --topnav-h: calc(64px + var(--safe-top));
+    --bottomnav-h: calc(66px + var(--safe-bottom));
+  }
+}
+@container (max-width: 380px) { .app-root { --pad-edge: 14px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
