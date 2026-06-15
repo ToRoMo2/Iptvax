@@ -232,4 +232,18 @@ export const xtreamService = {
     const direct = `${creds.serverUrl}/series/${creds.username}/${creds.password}/${episodeId}.${ext}`;
     return isNative ? direct : apiUrl(`/api/hlsproxy?url=${encodeURIComponent(direct)}`);
   },
+
+  // ─── URLs UPSTREAM brutes (téléchargement hors-ligne) ────────────────────
+  // Toujours l'URL DIRECTE du serveur Xtream, jamais l'enveloppe proxy `/api/*`,
+  // quel que soit le runtime. Le moteur de téléchargement (Electron main /
+  // plugin Android) la récupère depuis l'IP de l'appareil (pas de blocage d'IP
+  // datacenter) et écrit le fichier complet sur le disque. Voir
+  // src/services/downloads/ + CLAUDE.md §XI (téléchargements).
+  rawMovieUrl(creds: XtreamCredentials, streamId: number, ext: string): string {
+    return `${normalizeServer(creds.serverUrl)}/movie/${creds.username}/${creds.password}/${streamId}.${ext}`;
+  },
+
+  rawSeriesUrl(creds: XtreamCredentials, episodeId: string, ext: string): string {
+    return `${normalizeServer(creds.serverUrl)}/series/${creds.username}/${creds.password}/${episodeId}.${ext}`;
+  },
 };

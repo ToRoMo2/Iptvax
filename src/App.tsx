@@ -14,6 +14,7 @@ import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthCo
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { IptvProfileProvider, useIptvProfile } from './contexts/IptvProfileContext';
 import { LibraryProvider } from './contexts/LibraryContext';
+import { DownloadsProvider, useDownloads } from './contexts/DownloadsContext';
 import { RatingsProvider } from './contexts/RatingsContext';
 import { SocialProvider } from './contexts/SocialContext';
 import { PremiumOnly } from './components/PremiumOnly';
@@ -56,6 +57,7 @@ const MemberCine = lazy(() => import('./pages/MemberCine').then((m) => ({ defaul
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 const Premium = lazy(() => import('./pages/Premium').then((m) => ({ default: m.Premium })));
 const Watched = lazy(() => import('./pages/Watched').then((m) => ({ default: m.Watched })));
+const MyDownloads = lazy(() => import('./pages/MyDownloads').then((m) => ({ default: m.MyDownloads })));
 // ── Vitrine (site web marketing, Phase 5) ─────────────────────────────────
 const VitrineLayout = lazy(() => import('./components/vitrine/VitrineLayout').then((m) => ({ default: m.VitrineLayout })));
 const HomeVitrine = lazy(() => import('./pages/vitrine/HomeVitrine').then((m) => ({ default: m.HomeVitrine })));
@@ -65,11 +67,12 @@ const MentionsLegales = lazy(() => import('./pages/vitrine/MentionsLegales').the
 const CGV = lazy(() => import('./pages/vitrine/CGV').then((m) => ({ default: m.CGV })));
 const Confidentialite = lazy(() => import('./pages/vitrine/Confidentialite').then((m) => ({ default: m.Confidentialite })));
 
-function LoadingScreen({ label }: { label: string }) {
+function LoadingScreen({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
     <div className="loading-screen">
       <AppLogo spin size={44} />
       <span>{label}</span>
+      {children}
     </div>
   );
 }
@@ -77,7 +80,22 @@ function LoadingScreen({ label }: { label: string }) {
 function AppContent() {
   const { isAuthenticated, isAuthenticating, authError, retryAuth } = useXtream();
   const { activeProfile, clearActiveProfile } = useIptvProfile();
+  const { available: dlAvailable, items: downloads } = useDownloads();
   const { t } = useI18n();
+
+  // Échappatoire hors-ligne : si le serveur Xtream est injoignable (chargement
+  // interminable / erreur) mais que l'appareil a des téléchargements, on permet
+  // d'accéder directement à l'onglet « Téléchargements » + au lecteur de
+  // fichiers locaux SANS attendre l'authentification du catalogue. Le lecteur
+  // (`/player`) lit le fichier `file://` local — pas besoin de réseau ni du
+  // catalogue. Disponible uniquement sur les plateformes téléchargeables.
+  const [offlineMode, setOfflineMode] = useState(false);
+  const hasOffline = dlAvailable && downloads.length > 0;
+  const offlineHatch = hasOffline ? (
+    <button className="btn" style={{ marginTop: 12 }} onClick={() => setOfflineMode(true)}>
+      {t('downloads.accessOffline')}
+    </button>
+  ) : null;
 
   // Préchauffage des routes lazy pendant l'inactivité. Les chunks secondaires
   // (Player, fiches détail, recherche, favoris) sont exclus du bundle initial
@@ -131,8 +149,33 @@ function AppContent() {
     };
   }, [isAuthenticated]);
 
+  // Mode hors-ligne : court-circuite l'attente d'authentification Xtream et
+  // monte directement les téléchargements + le lecteur de fichiers locaux.
+  // Placé APRÈS tous les hooks (rules-of-hooks) — c'est un rendu conditionnel.
+  if (offlineMode) {
+    return (
+      <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
+        <Routes>
+          <Route path="/player" element={<Player />} />
+          <Route
+            path="*"
+            element={
+              <MyDownloads
+                offline
+                onExitOffline={() => {
+                  setOfflineMode(false);
+                  retryAuth();
+                }}
+              />
+            }
+          />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   if (isAuthenticating) {
-    return <LoadingScreen label={t('app.connecting')} />;
+    return <LoadingScreen label={t('app.connecting')}>{offlineHatch}</LoadingScreen>;
   }
 
   if (!isAuthenticated) {
@@ -154,6 +197,7 @@ function AppContent() {
         <button className="btn" style={{ marginTop: 8 }} onClick={clearActiveProfile}>
           {t('app.changeProfile')}
         </button>
+        {offlineHatch}
       </div>
     );
   }
@@ -211,6 +255,7 @@ function Shell() {
             <Route path="/movie/:id" element={<MovieDetail />} />
             <Route path="/search" element={<Search />} />
             <Route path="/favorites" element={<Favorites />} />
+            <Route path="/telechargements" element={<MyDownloads />} />
             <Route
               path="/journal"
               element={<PremiumOnly feature={t('nav.myCine')}><Watched /></PremiumOnly>}
@@ -251,11 +296,13 @@ function ProfileGate() {
   return (
     <XtreamProvider key={activeProfile.id} profile={activeProfile}>
       <LibraryProvider>
-        <RatingsProvider>
-          <SocialProvider>
-            <AppContent />
-          </SocialProvider>
-        </RatingsProvider>
+        <DownloadsProvider>
+          <RatingsProvider>
+            <SocialProvider>
+              <AppContent />
+            </SocialProvider>
+          </RatingsProvider>
+        </DownloadsProvider>
       </LibraryProvider>
     </XtreamProvider>
   );

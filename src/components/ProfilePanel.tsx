@@ -5,6 +5,7 @@ import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useXtream } from '../context/XtreamContext';
+import { isDownloadCapable } from '../lib/platform';
 import styles from './ProfilePanel.module.css';
 
 interface Props {
@@ -67,6 +68,11 @@ export function ProfilePanel({ onClose }: Props) {
   const handleOpenSettings = () => {
     onClose();
     navigate('/settings');
+  };
+
+  const handleOpenDownloads = () => {
+    onClose();
+    navigate('/telechargements');
   };
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -157,6 +163,15 @@ export function ProfilePanel({ onClose }: Props) {
         </svg>
         {t('profilePanel.settings')}
       </button>
+      {/* Téléchargements hors-ligne — Android & Windows uniquement (§XI). */}
+      {isDownloadCapable && (
+        <button className={styles.actionBtn} onClick={handleOpenDownloads}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+          </svg>
+          {t('profilePanel.downloads')}
+        </button>
+      )}
       <button className={styles.actionBtn} onClick={handleSwitchProfile}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/>

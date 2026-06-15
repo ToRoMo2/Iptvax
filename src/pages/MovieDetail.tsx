@@ -17,7 +17,9 @@ import type { WatchedInput } from '../types/ratings.types';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { DetailMedia } from '../components/DetailMedia';
 import { DetailHero } from '../components/DetailHero';
+import { DownloadButton } from '../components/DownloadButton';
 import { Focusable } from '../components/Focusable';
+import type { DownloadRequest } from '../types/download.types';
 import { AppLogo } from '../components/AppLogo';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DETAIL_BACK_FOCUS_KEY, DETAIL_PLAY_FOCUS_KEY } from '../components/RemoteControl';
@@ -256,6 +258,26 @@ export function MovieDetail() {
     };
   }, [movie, selected, displayTitle, year, tmdb]);
 
+  // Descripteur de téléchargement de la version courante (la même que
+  // « Regarder » lit). On télécharge le fichier direct UPSTREAM complet → mpv /
+  // ExoPlayer choisira audio/sous-titres à la lecture hors-ligne. Premium-only
+  // et plateformes Android/Windows : géré par <DownloadButton>.
+  const downloadRequest = useMemo<Omit<DownloadRequest, 'profileId'> | null>(() => {
+    if (!credentials || !movie) return null;
+    const target = selected ?? movie;
+    const landscape = tmdb?.backdrop ?? movie.backdrop_path?.[0] ?? tmdb?.poster ?? target.stream_icon;
+    return {
+      id: `movie-${target.stream_id}`,
+      type: 'movie',
+      title: displayTitle,
+      subtitle: year ?? t('detail.film'),
+      poster: landscape ?? '',
+      sourceUrl: xtreamService.rawMovieUrl(credentials, target.stream_id, target.container_extension),
+      ext: target.container_extension,
+      durationSec: tmdb?.runtime ? tmdb.runtime * 60 : undefined,
+    };
+  }, [credentials, movie, selected, displayTitle, year, tmdb, t]);
+
   // ── Desktop (≥901px) : refonte « fond plein écran » (§Phase 4). Mobile garde
   //    l'affiche portrait (rendu inchangé plus bas). ──────────────────────────
   const isDesktop = useMediaQuery('(min-width: 901px)');
@@ -352,6 +374,7 @@ export function MovieDetail() {
                   >
                     <StarIcon filled={isFavorite('movie', String(movie.stream_id))} />
                   </Focusable>
+                  {downloadRequest && <DownloadButton request={downloadRequest} compact />}
                 </>
               }
               rateInput={watchedInput}
@@ -501,6 +524,7 @@ export function MovieDetail() {
                   >
                     <StarIcon filled={isFavorite('movie', String(movie.stream_id))} />
                   </Focusable>
+                  {downloadRequest && <DownloadButton request={downloadRequest} compact />}
                 </div>
 
                 {synopsis && (

@@ -192,13 +192,17 @@ export function useElectronPlayer(
     audioIdsRef.current = [];
     subIdsRef.current = [];
 
+    // Fichier local téléchargé (file://) : aucun en-tête HTTP (lecture offline).
+    const isHttp = /^https?:\/\//i.test(direct);
     const origin = originOf(direct);
-    const loadOpts = isLiveHint
-      ? { userAgent: UA_LIVE, headers: [] as string[] }
-      : {
-          userAgent: UA_DEFAULT,
-          headers: origin ? [`Referer: ${origin}/`, `Origin: ${origin}`] : [],
-        };
+    const loadOpts = !isHttp
+      ? { headers: [] as string[] }
+      : isLiveHint
+        ? { userAgent: UA_LIVE, headers: [] as string[] }
+        : {
+            userAgent: UA_DEFAULT,
+            headers: origin ? [`Referer: ${origin}/`, `Origin: ${origin}`] : [],
+          };
     electronMpv.load(direct, loadOpts).catch((e) => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Échec du chargement');
@@ -296,10 +300,13 @@ export function useElectronPlayer(
     if (!direct) return;
     setStatus('loading');
     setError(null);
+    const isHttp = /^https?:\/\//i.test(direct);
     const origin = originOf(direct);
-    const loadOpts = isLiveHint
-      ? { userAgent: UA_LIVE, headers: [] as string[] }
-      : { userAgent: UA_DEFAULT, headers: origin ? [`Referer: ${origin}/`, `Origin: ${origin}`] : [] };
+    const loadOpts = !isHttp
+      ? { headers: [] as string[] }
+      : isLiveHint
+        ? { userAgent: UA_LIVE, headers: [] as string[] }
+        : { userAgent: UA_DEFAULT, headers: origin ? [`Referer: ${origin}/`, `Origin: ${origin}`] : [] };
     electronMpv.load(direct, loadOpts).catch((e) => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Échec du chargement');
