@@ -134,9 +134,11 @@ export function DownloadButton({ request, compact, className, onRequestDownload 
       title={label}
     >
       {/* Anneau de progression (téléchargement en cours). */}
-      {(status === 'downloading') && (
+      {status === 'downloading' && (
         <span className={styles.ring} style={{ ['--pct' as string]: `${pct}%` }} aria-hidden="true" />
       )}
+      {/* Anneau indéterminé qui tourne (en file d'attente, avant les 1ers octets). */}
+      {status === 'queued' && <span className={styles.ringSpin} aria-hidden="true" />}
       <span className={styles.icon}>{icon}</span>
       {!compact && <span className={styles.label}>{label}</span>}
     </button>

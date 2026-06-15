@@ -40,49 +40,112 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
   const available = isDownloadCapable && downloadEngine.available();
   const allowed = available && isPremium;
 
-  const [allItems, setAllItems] = useState<DownloadItem[]>([]);
+  // Items réels du moteur (source de vérité une fois confirmés).
+  const [engineItems, setEngineItems] = useState<DownloadItem[]>([]);
+  // Items OPTIMISTES : posés dès le clic « Télécharger » pour un retour visuel
+  // immédiat (le moteur peut mettre un instant à confirmer, ou échouer). Dès que
+  // le moteur émet une entrée du même id, l'optimiste est retiré (le moteur
+  // gagne). Si l'enqueue échoue, l'optimiste passe en `error` → visible.
+  const [optimistic, setOptimistic] = useState<Record<string, DownloadItem>>({});
 
-  // Reflet du registre du moteur (source unique de vérité). Initial list +
-  // abonnement aux changements (progression / statut ré-émis par le moteur).
+  // Reflet du registre du moteur (initial list + abonnement aux changements).
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
-    downloadEngine.list().then((items) => {
-      if (!cancelled) setAllItems(items);
-    });
-    const unsub = downloadEngine.subscribe((items) => {
-      if (!cancelled) setAllItems(items);
-    });
+    const apply = (list: DownloadItem[]) => {
+      if (cancelled) return;
+      setEngineItems(list);
+      // Le moteur fait foi → on purge les optimistes qu'il connaît désormais.
+      setOptimistic((prev) => {
+        const ids = new Set(list.map((i) => i.id));
+        let changed = false;
+        const next: Record<string, DownloadItem> = {};
+        for (const [id, it] of Object.entries(prev)) {
+          if (ids.has(id)) changed = true;
+          else next[id] = it;
+        }
+        return changed ? next : prev;
+      });
+    };
+    downloadEngine.list().then(apply);
+    const unsub = downloadEngine.subscribe(apply);
     return () => {
       cancelled = true;
       unsub();
     };
   }, [available]);
 
-  // Isolation par profil (comme la bibliothèque). Les fichiers sont
-  // device-local mais le registre porte le `profileId` propriétaire.
-  const items = useMemo(
-    () => allItems.filter((it) => !profileId || it.profileId === profileId),
-    [allItems, profileId],
-  );
+  // Fusion moteur + optimiste (le moteur prime), puis isolation par profil.
+  const items = useMemo(() => {
+    const byId = new Map<string, DownloadItem>();
+    for (const it of engineItems) byId.set(it.id, it);
+    for (const [id, it] of Object.entries(optimistic)) {
+      if (!byId.has(id)) byId.set(id, it);
+    }
+    return Array.from(byId.values())
+      .filter((it) => !profileId || it.profileId === profileId)
+      .sort((a, b) => b.addedAt - a.addedAt);
+  }, [engineItems, optimistic, profileId]);
 
   const download = useCallback(
     async (req: Omit<DownloadRequest, 'profileId'>) => {
       if (!allowed || !profileId) return;
-      await downloadEngine.enqueue({ ...req, profileId });
+      // Feedback immédiat : on affiche l'entrée « en attente » tout de suite.
+      const optimisticItem: DownloadItem = {
+        ...req,
+        profileId,
+        status: 'queued',
+        bytesDownloaded: 0,
+        bytesTotal: req.bytesTotal ?? 0,
+        addedAt: Date.now(),
+      };
+      setOptimistic((prev) => ({ ...prev, [req.id]: optimisticItem }));
+      try {
+        await downloadEngine.enqueue({ ...req, profileId });
+      } catch (e) {
+        // Échec d'enqueue (ex. plugin natif absent) → on le rend visible.
+        console.warn('[downloads] enqueue échoué', e);
+        setOptimistic((prev) => ({
+          ...prev,
+          [req.id]: {
+            ...optimisticItem,
+            status: 'error',
+            error: e instanceof Error ? e.message : String(e),
+          },
+        }));
+      }
     },
     [allowed, profileId],
   );
 
+  // Retire aussi l'éventuel optimiste (annulation avant confirmation moteur).
+  const dropOptimistic = useCallback((id: string) => {
+    setOptimistic((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   const pause = useCallback((id: string) => void downloadEngine.pause(id), []);
   const resume = useCallback((id: string) => void downloadEngine.resume(id), []);
-  const cancel = useCallback((id: string) => void downloadEngine.cancel(id), []);
-  const remove = useCallback((id: string) => void downloadEngine.remove(id), []);
-
-  const byId = useCallback(
-    (id: string) => items.find((it) => it.id === id),
-    [items],
+  const cancel = useCallback(
+    (id: string) => {
+      dropOptimistic(id);
+      void downloadEngine.cancel(id);
+    },
+    [dropOptimistic],
   );
+  const remove = useCallback(
+    (id: string) => {
+      dropOptimistic(id);
+      void downloadEngine.remove(id);
+    },
+    [dropOptimistic],
+  );
+
+  const byId = useCallback((id: string) => items.find((it) => it.id === id), [items]);
 
   const value = useMemo(
     () => ({ available, allowed, items, download, pause, resume, cancel, remove, byId }),
