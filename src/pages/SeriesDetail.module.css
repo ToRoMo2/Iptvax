@@ -718,6 +718,13 @@
   border-color: var(--accent);
 }
 
+/* Bouton de téléchargement de l'épisode (compact), aligné à droite avant ▶. */
+.epDownload {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+}
+
 /* ====================================================================
    Popup « Choisir une version » (déclenchée par « Regarder » si > 1 variante)
    ==================================================================== */
