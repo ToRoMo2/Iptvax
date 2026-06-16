@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDownloads } from '../contexts/DownloadsContext';
 import { useI18n } from '../contexts/I18nContext';
 import { safeImgUrl } from '../utils/image';
-import { formatBytes, downloadPercent, localPlayerState } from '../utils/downloads';
+import { formatBytes, formatSpeed, downloadPercent, localPlayerState } from '../utils/downloads';
 import type { DownloadItem } from '../types/download.types';
 import styles from './MyDownloads.module.css';
 
@@ -27,6 +27,34 @@ export function MyDownloads({ offline, onExitOffline }: Props) {
     };
   }, [items]);
 
+  // Vitesse de téléchargement (octets/s) par item, dérivée des deltas d'octets
+  // entre deux mises à jour de la liste (le moteur ne pousse pas de débit). Les
+  // échantillons précédents sont gardés dans un ref ; lissage EMA pour éviter
+  // que le chiffre saute. Pas de dépendance sur `speeds` → pas de boucle.
+  const samplesRef = useRef<Record<string, { bytes: number; t: number; speed: number }>>({});
+  const [speeds, setSpeeds] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const now = Date.now();
+    const samples = samplesRef.current;
+    const next: Record<string, number> = {};
+    const activeIds = new Set<string>();
+    for (const it of items) {
+      if (it.status !== 'downloading') continue;
+      activeIds.add(it.id);
+      const prev = samples[it.id];
+      let speed = prev?.speed ?? 0;
+      if (prev && now > prev.t) {
+        const inst = Math.max(0, ((it.bytesDownloaded - prev.bytes) * 1000) / (now - prev.t));
+        speed = prev.speed > 0 ? prev.speed * 0.6 + inst * 0.4 : inst;
+      }
+      samples[it.id] = { bytes: it.bytesDownloaded, t: now, speed };
+      next[it.id] = speed;
+    }
+    // Purge les échantillons des transferts qui ne tournent plus.
+    for (const id of Object.keys(samples)) if (!activeIds.has(id)) delete samples[id];
+    setSpeeds(next);
+  }, [items]);
+
   const play = (item: DownloadItem) => {
     const state = localPlayerState(item);
     if (state) navigate('/player', { state });
@@ -36,6 +64,7 @@ export function MyDownloads({ offline, onExitOffline }: Props) {
     const pct = downloadPercent(item);
     const poster = safeImgUrl(item.posterLocalPath ?? item.poster);
     const done = item.status === 'done';
+    const speed = item.status === 'downloading' ? formatSpeed(speeds[item.id] ?? 0) : '';
     return (
       <div key={item.id} className={styles.card}>
         <button
@@ -63,7 +92,8 @@ export function MyDownloads({ offline, onExitOffline }: Props) {
                 <div className={styles.barFill} style={{ width: `${pct}%` }} />
               </div>
               <span className={styles.status}>
-                {item.status === 'downloading' && `${pct}% · ${formatBytes(item.bytesDownloaded)}`}
+                {item.status === 'downloading' &&
+                  `${pct}% · ${formatBytes(item.bytesDownloaded)}${speed ? ` · ${speed}` : ''}`}
                 {item.status === 'queued' && t('downloads.queued')}
                 {item.status === 'paused' && t('downloads.paused')}
                 {item.status === 'error' && (item.error || t('downloads.failed'))}
