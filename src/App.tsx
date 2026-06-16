@@ -1,4 +1,14 @@
-import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useCallback,
+  useContext,
+  useMemo,
+  createContext,
+  lazy,
+  Suspense,
+} from 'react';
 import {
   BrowserRouter,
   HashRouter,
@@ -14,7 +24,9 @@ import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthCo
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { IptvProfileProvider, useIptvProfile } from './contexts/IptvProfileContext';
 import { LibraryProvider } from './contexts/LibraryContext';
-import { DownloadsProvider, useDownloads } from './contexts/DownloadsContext';
+import { DownloadsProvider } from './contexts/DownloadsContext';
+import { downloadEngine } from './services/downloads/engine';
+import type { IptvProfile } from './types/profile.types';
 import { RatingsProvider } from './contexts/RatingsContext';
 import { SocialProvider } from './contexts/SocialContext';
 import { PremiumOnly } from './components/PremiumOnly';
@@ -77,25 +89,94 @@ function LoadingScreen({ label, children }: { label: string; children?: React.Re
   );
 }
 
+// ── Échappatoire hors-ligne ───────────────────────────────────────────────
+// Sans connexion (serveur Xtream ou réseau injoignable), TOUS les écrans de
+// chargement/blocage (boot Supabase, chargement des profils, connexion au
+// catalogue) doivent permettre d'atteindre les téléchargements locaux. Le mode
+// hors-ligne est piloté depuis `AppGate` (au-dessus de tout le gating réseau)
+// via ce contexte → n'importe quel écran peut le déclencher.
+const OfflineEscapeContext = createContext<{ enter: () => void } | null>(null);
+function useOfflineEscape() {
+  return useContext(OfflineEscapeContext) ?? { enter: () => {} };
+}
+
+// Profil synthétique pour le sous-arbre hors-ligne : aucune credential (on lit
+// uniquement des fichiers `file://` locaux). `XtreamProvider` tentera une auth
+// qui échoue silencieusement — sans incidence, `Player` n'utilise les
+// credentials que pour le streaming en ligne (tout est gardé par `if (!credentials)`).
+const OFFLINE_PROFILE: IptvProfile = {
+  id: 'offline',
+  user_id: 'offline',
+  name: 'Hors-ligne',
+  avatar: '📥',
+  color: 'profile-1',
+  xtream_server_url: '',
+  xtream_username: '',
+  xtream_password: '',
+  created_at: '',
+  is_public: false,
+  discriminator: null,
+};
+
+// Bouton affiché sur les écrans de chargement quand l'appareil a au moins un
+// téléchargement. Autonome : interroge le moteur (singleton) SANS passer par
+// `DownloadsProvider` (pas encore monté sur les écrans amont) → utilisable
+// partout. Masqué sur les plateformes non téléchargeables (web vitrine / TV).
+function OfflineEscapeButton() {
+  const { t } = useI18n();
+  const { enter } = useOfflineEscape();
+  const [hasDownloads, setHasDownloads] = useState(false);
+  useEffect(() => {
+    if (!downloadEngine.available()) return;
+    let cancelled = false;
+    downloadEngine
+      .list()
+      .then((items) => { if (!cancelled) setHasDownloads(items.length > 0); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  if (!hasDownloads) return null;
+  return (
+    <button className="btn" style={{ marginTop: 12 }} onClick={enter}>
+      {t('downloads.accessOffline')}
+    </button>
+  );
+}
+
+// Sous-arbre hors-ligne self-contained : monte le minimum de providers pour
+// lister les téléchargements et lire un fichier local, SANS dépendre du réseau
+// (profil/catalogue Xtream). `IptvProfileProvider` ne résout aucun profil
+// hors-ligne → `activeProfile` reste null → `DownloadsContext` n'applique aucun
+// filtre profil et montre TOUS les téléchargements de l'appareil.
+function OfflineApp({ onExit }: { onExit: () => void }) {
+  const { t } = useI18n();
+  return (
+    <SubscriptionProvider>
+      <IptvProfileProvider>
+        <XtreamProvider profile={OFFLINE_PROFILE}>
+          <LibraryProvider>
+            <DownloadsProvider>
+              <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
+                <Routes>
+                  <Route path="/player" element={<Player />} />
+                  <Route
+                    path="*"
+                    element={<MyDownloads offline onExitOffline={onExit} />}
+                  />
+                </Routes>
+              </Suspense>
+            </DownloadsProvider>
+          </LibraryProvider>
+        </XtreamProvider>
+      </IptvProfileProvider>
+    </SubscriptionProvider>
+  );
+}
+
 function AppContent() {
   const { isAuthenticated, isAuthenticating, authError, retryAuth } = useXtream();
   const { activeProfile, clearActiveProfile } = useIptvProfile();
-  const { available: dlAvailable, items: downloads } = useDownloads();
   const { t } = useI18n();
-
-  // Échappatoire hors-ligne : si le serveur Xtream est injoignable (chargement
-  // interminable / erreur) mais que l'appareil a des téléchargements, on permet
-  // d'accéder directement à l'onglet « Téléchargements » + au lecteur de
-  // fichiers locaux SANS attendre l'authentification du catalogue. Le lecteur
-  // (`/player`) lit le fichier `file://` local — pas besoin de réseau ni du
-  // catalogue. Disponible uniquement sur les plateformes téléchargeables.
-  const [offlineMode, setOfflineMode] = useState(false);
-  const hasOffline = dlAvailable && downloads.length > 0;
-  const offlineHatch = hasOffline ? (
-    <button className="btn" style={{ marginTop: 12 }} onClick={() => setOfflineMode(true)}>
-      {t('downloads.accessOffline')}
-    </button>
-  ) : null;
 
   // Préchauffage des routes lazy pendant l'inactivité. Les chunks secondaires
   // (Player, fiches détail, recherche, favoris) sont exclus du bundle initial
@@ -149,33 +230,8 @@ function AppContent() {
     };
   }, [isAuthenticated]);
 
-  // Mode hors-ligne : court-circuite l'attente d'authentification Xtream et
-  // monte directement les téléchargements + le lecteur de fichiers locaux.
-  // Placé APRÈS tous les hooks (rules-of-hooks) — c'est un rendu conditionnel.
-  if (offlineMode) {
-    return (
-      <Suspense fallback={<LoadingScreen label={t('app.loading')} />}>
-        <Routes>
-          <Route path="/player" element={<Player />} />
-          <Route
-            path="*"
-            element={
-              <MyDownloads
-                offline
-                onExitOffline={() => {
-                  setOfflineMode(false);
-                  retryAuth();
-                }}
-              />
-            }
-          />
-        </Routes>
-      </Suspense>
-    );
-  }
-
   if (isAuthenticating) {
-    return <LoadingScreen label={t('app.connecting')}>{offlineHatch}</LoadingScreen>;
+    return <LoadingScreen label={t('app.connecting')}><OfflineEscapeButton /></LoadingScreen>;
   }
 
   if (!isAuthenticated) {
@@ -197,7 +253,7 @@ function AppContent() {
         <button className="btn" style={{ marginTop: 8 }} onClick={clearActiveProfile}>
           {t('app.changeProfile')}
         </button>
-        {offlineHatch}
+        <OfflineEscapeButton />
       </div>
     );
   }
@@ -286,7 +342,7 @@ function ProfileGate() {
   const { t } = useI18n();
 
   if (loading) {
-    return <LoadingScreen label={t('app.loadingProfiles')} />;
+    return <LoadingScreen label={t('app.loadingProfiles')}><OfflineEscapeButton /></LoadingScreen>;
   }
 
   if (!activeProfile) {
@@ -314,6 +370,12 @@ function AppGate() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
+  // Mode hors-ligne (échappatoire) piloté ici, au-dessus de tout le gating
+  // réseau → atteignable depuis n'importe quel écran de chargement/blocage.
+  const [offline, setOffline] = useState(false);
+  const enterOffline = useCallback(() => setOffline(true), []);
+  const escapeValue = useMemo(() => ({ enter: enterOffline }), [enterOffline]);
+
   // Filet pour l'appairage TV (Phase 2f) : si l'utilisateur s'est connecté
   // depuis le QR mais que l'OAuth a retombé sur la Site URL au lieu de
   // `/tv-link` (mauvaise config des Redirect URLs côté Supabase), on
@@ -334,20 +396,26 @@ function AppGate() {
   // donc rendue en amont du gating compte/profil. Voir docs/native-port.md §4.
   if (pathname === '/tv-link') return <TvLink />;
 
-  if (loading) {
-    return <LoadingScreen label={t('app.loading')} />;
-  }
-
-  // Sur une box Android TV, la saisie à la télécommande est pénible : on
-  // affiche l'écran d'appairage QR au lieu du formulaire de connexion.
-  if (!user) return isTvDevice() ? <TvPairing /> : <Login />;
+  // Échappatoire hors-ligne : court-circuite TOUT le gating réseau et monte le
+  // sous-arbre des téléchargements locaux + lecteur de fichiers `file://`.
+  if (offline) return <OfflineApp onExit={() => setOffline(false)} />;
 
   return (
-    <SubscriptionProvider>
-      <IptvProfileProvider>
-        <ProfileGate />
-      </IptvProfileProvider>
-    </SubscriptionProvider>
+    <OfflineEscapeContext.Provider value={escapeValue}>
+      {loading ? (
+        <LoadingScreen label={t('app.loading')}><OfflineEscapeButton /></LoadingScreen>
+      ) : !user ? (
+        // Sur une box Android TV, la saisie à la télécommande est pénible : on
+        // affiche l'écran d'appairage QR au lieu du formulaire de connexion.
+        isTvDevice() ? <TvPairing /> : <Login />
+      ) : (
+        <SubscriptionProvider>
+          <IptvProfileProvider>
+            <ProfileGate />
+          </IptvProfileProvider>
+        </SubscriptionProvider>
+      )}
+    </OfflineEscapeContext.Provider>
   );
 }
 
