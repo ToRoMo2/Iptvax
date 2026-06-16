@@ -195,6 +195,16 @@ public class MediaPlayerPlugin extends Plugin {
      * (MKV/MP4/TS via DefaultExtractorsFactory) selon l'URL.
      */
     private DefaultMediaSourceFactory buildMediaSourceFactory(String url, boolean isLive) {
+        // Source LOCALE (téléchargement hors-ligne : file://, ou content://) →
+        // DefaultMediaSourceFactory utilise par défaut un DefaultDataSource qui
+        // gère file/content/asset. Surtout PAS de DefaultHttpDataSource : tenter
+        // un GET réseau sur un fichier local échoue en ERROR_CODE_IO_UNSPECIFIED.
+        boolean isHttp = url != null
+                && (url.startsWith("http://") || url.startsWith("https://"));
+        if (!isHttp) {
+            return new DefaultMediaSourceFactory(getContext());
+        }
+
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(15_000)
