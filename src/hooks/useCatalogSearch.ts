@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useXtream } from '../context/XtreamContext';
 import { xtreamService } from '../services/xtream.service';
 import { useI18n } from '../contexts/I18nContext';
-import { groupByTitle, type TitleGroup } from '../utils/catalog';
+import { groupByTitle, groupByTitleMemo, type TitleGroup } from '../utils/catalog';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 
 /** Longueur minimale de requête avant de filtrer (anti-jank). */
@@ -162,7 +162,9 @@ export function useCatalogSearch(): CatalogSearch {
     if (!allMovies) return [];
     let groups = suggestionsCache.get(allMovies);
     if (!groups) {
-      groups = groupByTitle(allMovies, (v) => v.name, (v) => v.rating_5based ?? 0).sort(
+      // Copie avant `.sort()` : `groupByTitleMemo` renvoie le tableau PARTAGÉ
+      // (réutilisé par Home/Films/fiches) → ne pas le réordonner en place.
+      groups = [...groupByTitleMemo(allMovies, (v) => v.name, (v) => v.rating_5based ?? 0)].sort(
         (a, b) =>
           (Number(b.year) || 0) - (Number(a.year) || 0) ||
           (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0),

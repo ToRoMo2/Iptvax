@@ -12,7 +12,7 @@ import { ScrollRail } from '../components/ScrollRail';
 import { PopularLocked } from '../components/PopularLocked';
 import { Top10Spotlight, type Top10SpotlightItem } from '../components/Top10Spotlight';
 import type { VodCategory, VodStream } from '../types/xtream.types';
-import { groupByTitle, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
+import { groupByTitle, groupByTitleMemo, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import styles from './Browse.module.css';
 
@@ -31,11 +31,10 @@ const RAILS_CHUNK = 6;
 
 interface MovieRail { id: string; name: string; groups: TitleGroup<VodStream>[] }
 
-// Caches des dérivés lourds par identité du catalogue. `allStreams` provient du
-// cache service (même référence d'un montage à l'autre) → la navigation retour
-// ne recalcule pas le regroupement (titleKey/cleanTitle sur potentiellement des
-// dizaines de milliers d'items = plusieurs centaines de ms sinon).
-const allGroupsCache = new WeakMap<VodStream[], TitleGroup<VodStream>[]>();
+// Cache des rails par catégorie, par identité du catalogue. `allStreams` provient
+// du cache service (même référence d'un montage à l'autre) → la navigation retour
+// ne recalcule pas le bucketing. Le regroupement du catalogue COMPLET (allGroups),
+// lui, est partagé entre toutes les pages via `groupByTitleMemo` (cf. catalog.ts).
 const railsCache = new WeakMap<VodStream[], { categories: VodCategory[]; rails: MovieRail[] }>();
 
 // Entrée « Populaires » : groupe catalogue + visuel/synopsis TMDB. Le backdrop
@@ -212,15 +211,13 @@ export function Movies() {
   const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
   // ── Catalogue dédupliqué complet (count d'en-tête + base recherche + match TMDB) ──
-  const allGroups = useMemo(() => {
-    if (!allStreams) return [];
-    let hit = allGroupsCache.get(allStreams);
-    if (!hit) {
-      hit = groupByTitle(allStreams, (v) => v.name, (v) => v.rating_5based ?? 0);
-      allGroupsCache.set(allStreams, hit);
-    }
-    return hit;
-  }, [allStreams]);
+  const allGroups = useMemo(
+    () =>
+      allStreams
+        ? groupByTitleMemo(allStreams, (v) => v.name, (v) => v.rating_5based ?? 0)
+        : [],
+    [allStreams],
+  );
 
   // ── Rails par catégorie : bucket par category_id puis groupage par titre ────
   const rails = useMemo<MovieRail[]>(() => {

@@ -67,6 +67,20 @@ export function XtreamProvider({ children, profile }: XtreamProviderProps) {
     // Tentative d'authentification avec auto-retry unique pour les erreurs
     // transitoires (5xx serveur, réseau coupé). Les erreurs 4xx et le rejet
     // auth=0 ne sont PAS retentées (identifiants incorrects = pas transitoire).
+    // Préchauffage catalogue : on lance les 3 gros fetchs catalogue EN PARALLÈLE
+    // de l'authentification. L'auth Xtream est souvent le maillon lent (serveur
+    // fournisseur surchargé/distant) ; le téléchargement du catalogue et l'auth
+    // se RECOUVRENT alors au lieu de s'enchaîner. Quand l'auth aboutit et que
+    // Home se monte, ces Promises sont déjà en vol / résolues et mises en cache
+    // → les appels identiques de Home (get*Streams) tapent le cache au lieu de
+    // relancer un aller-retour réseau après l'auth. Fire-and-forget : un échec
+    // s'évince tout seul du cache (cf. cachedFetch) et les pages re-déclencheront
+    // / afficheront l'erreur réelle. Idempotent : si le catalogue est déjà chaud
+    // (re-montage), ces appels renvoient la Promise en cache sans requête.
+    void xtreamService.getLiveStreams(credentials).catch(() => {});
+    void xtreamService.getVodStreams(credentials).catch(() => {});
+    void xtreamService.getSeries(credentials).catch(() => {});
+
     const attempt = (internalAttempt: number) => {
       xtreamService
         .authenticate(credentials)
