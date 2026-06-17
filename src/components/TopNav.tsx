@@ -1,6 +1,6 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { setFocus, doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 import { useIptvProfile } from '../contexts/IptvProfileContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -67,9 +67,23 @@ export function TopNav({ onSearch }: { onSearch?: () => void } = {}) {
 
   const navArrow = (direction: string): boolean => {
     if (direction !== 'down') return true;
-    if (browseRoute) { setFocus(SEARCH_FOCUS_KEY); return false; }
-    if (location.pathname === '/') { setFocus(HERO_FOCUS_KEY); return false; }
-    if (detailRoute) { setFocus(DETAIL_BACK_FOCUS_KEY); return false; }
+    // Cible explicite « bas depuis la navbar » selon la page. ⚠ On ne pose le
+    // focus QUE si la cible est réellement montée (`doesFocusableExist`) :
+    // sinon (hero pas encore composé sur `/`, barre de recherche absente…) on
+    // poserait le focus dans le vide → blocage. Cible absente → on retourne
+    // `true` pour laisser norigin descendre géométriquement vers le 1er
+    // élément focusable réel (carte de rail).
+    const target = browseRoute
+      ? SEARCH_FOCUS_KEY
+      : location.pathname === '/'
+        ? HERO_FOCUS_KEY
+        : detailRoute
+          ? DETAIL_BACK_FOCUS_KEY
+          : null;
+    if (target && doesFocusableExist(target)) {
+      setFocus(target);
+      return false;
+    }
     return true;
   };
 

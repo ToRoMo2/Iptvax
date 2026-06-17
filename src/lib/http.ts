@@ -36,6 +36,12 @@ export async function httpGetJson<T>(url: string, init?: RequestInit): Promise<T
       headers: NATIVE_API_HEADERS,
       connectTimeout: HTTP_TIMEOUT_MS,
       readTimeout: HTTP_TIMEOUT_MS,
+      // `text` (pas `json`) : sur un gros catalogue Xtream (dizaines de Mo), le
+      // mode `json` parse le JSON côté natif PUIS le re-sérialise pour franchir
+      // le bridge Capacitor PUIS le re-parse en JS → ~3 copies en RAM, pic qui
+      // fait OOM les appareils 1 Go (Fire TV Stick Lite). En `text`, on reçoit
+      // la chaîne brute (un seul transfert) et on parse UNE fois ci-dessous.
+      responseType: 'text',
     });
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`HTTP ${res.status}`);
