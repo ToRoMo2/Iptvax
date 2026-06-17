@@ -281,3 +281,32 @@ export function groupByTitle<T>(
   }
   return groups;
 }
+
+// Mémoïsation de `groupByTitle` par IDENTITÉ du tableau source. Home, Films,
+// Séries, les fiches détail ET la recherche regroupent toutes le MÊME tableau
+// catalogue (même référence renvoyée par le cache service) avec une sémantique
+// getName/rank identique pour un type de contenu donné. Sans ça, la passe
+// CPU-lourde (`cleanTitle`/`titleKey` par item, des dizaines de milliers d'items)
+// est refaite 2-3× par catalogue → plusieurs centaines de ms gaspillées au
+// changement d'onglet / à l'ouverture d'une fiche. Clé = le tableau lui-même
+// (WeakMap → le 1er consommateur paie, les suivants sont gratuits ; l'entrée est
+// collectée avec le tableau quand le cache catalogue se rafraîchit).
+//
+// ⚠ Le résultat est PARTAGÉ → à traiter comme IMMUABLE : copier avant tout
+// `.sort()` (`[...groupByTitleMemo(...)]`). Ne JAMAIS l'utiliser pour des
+// sous-ensembles transitoires (buckets par catégorie, filtres de recherche) :
+// ce sont des tableaux éphémères qui ne feraient que gonfler la WeakMap — passer
+// par `groupByTitle` direct dans ces cas.
+const groupByTitleMemoCache = new WeakMap<object, unknown>();
+
+export function groupByTitleMemo<T>(
+  items: T[],
+  getName: (t: T) => string,
+  rank: (t: T) => number,
+): TitleGroup<T>[] {
+  const hit = groupByTitleMemoCache.get(items);
+  if (hit) return hit as TitleGroup<T>[];
+  const groups = groupByTitle(items, getName, rank);
+  groupByTitleMemoCache.set(items, groups);
+  return groups;
+}

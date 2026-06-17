@@ -7,7 +7,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { SeriesInfo, Episode, PlayerState, SeriesItem } from '../types/xtream.types';
 import type { TmdbEnrichment, TmdbEpisodeStills } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel, groupByTitle } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey, episodeLabel, groupByTitleMemo } from '../utils/catalog';
 import { splitMeta, isFinishedProgress } from '../utils/ratings';
 import { historyGroupKey } from '../utils/history';
 import { nextEpisode } from '../utils/episodes';
@@ -137,7 +137,7 @@ export function SeriesDetail() {
         const name = self?.name ?? seriesMeta?.name;
         if (!name) return;
         const key = titleKey(name) || name.trim().toLowerCase();
-        const group = groupByTitle(all, (s) => s.name, (s) => s.rating_5based ?? 0).find(
+        const group = groupByTitleMemo(all, (s) => s.name, (s) => s.rating_5based ?? 0).find(
           (g) => g.key === key,
         );
         if (group && group.variants.length > 1) {

@@ -17,7 +17,7 @@ import type { WatchHistoryItem } from '../types/library.types';
 import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
 import type { TmdbTrendingItem } from '../types/tmdb.types';
-import { groupByTitle, cleanTitle, titleKey, type TitleGroup } from '../utils/catalog';
+import { groupByTitleMemo, cleanTitle, titleKey, type TitleGroup } from '../utils/catalog';
 import { dedupeHistoryByGroup } from '../utils/history';
 import { safeImgUrl } from '../utils/image';
 import styles from './Home.module.css';
@@ -389,7 +389,9 @@ export function Home() {
     xtreamService
       .getVodStreams(credentials)
       .then((all) => {
-        const grouped = groupByTitle(all, (v) => v.name, (v) => v.rating_5based ?? 0)
+        // Copie avant `.sort()` : `groupByTitleMemo` renvoie un tableau PARTAGÉ
+        // (réutilisé par Films/fiches/recherche) → ne jamais le muter en place.
+        const grouped = [...groupByTitleMemo(all, (v) => v.name, (v) => v.rating_5based ?? 0)]
           .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0));
         movieGroupsRef.current = grouped;
         setMovies(grouped.slice(0, 18));
@@ -409,7 +411,8 @@ export function Home() {
     xtreamService
       .getSeries(credentials)
       .then((all) => {
-        const grouped = groupByTitle(all, (s) => s.name, (s) => s.rating_5based ?? 0)
+        // Copie avant `.sort()` (tableau partagé — cf. rail Films ci-dessus).
+        const grouped = [...groupByTitleMemo(all, (s) => s.name, (s) => s.rating_5based ?? 0)]
           .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0));
         seriesGroupsRef.current = grouped;
         setSeries(grouped.slice(0, 18));

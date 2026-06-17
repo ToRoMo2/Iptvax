@@ -12,7 +12,7 @@ import { ScrollRail } from '../components/ScrollRail';
 import { PopularLocked } from '../components/PopularLocked';
 import { Top10Spotlight, type Top10SpotlightItem } from '../components/Top10Spotlight';
 import type { SeriesCategory, SeriesItem } from '../types/xtream.types';
-import { groupByTitle, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
+import { groupByTitle, groupByTitleMemo, titleKey, star5Label, type TitleGroup } from '../utils/catalog';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import styles from './Browse.module.css';
 
@@ -31,11 +31,10 @@ const RAILS_CHUNK = 6;
 
 interface SeriesRail { id: string; name: string; groups: TitleGroup<SeriesItem>[] }
 
-// Caches des dérivés lourds par identité du catalogue. `allSeries` provient du
-// cache service (même référence d'un montage à l'autre) → la navigation retour
-// ne recalcule pas le regroupement (titleKey/cleanTitle sur potentiellement des
-// dizaines de milliers d'items = plusieurs centaines de ms sinon).
-const allGroupsCache = new WeakMap<SeriesItem[], TitleGroup<SeriesItem>[]>();
+// Cache des rails par catégorie, par identité du catalogue. `allSeries` provient
+// du cache service (même référence d'un montage à l'autre) → la navigation retour
+// ne recalcule pas le bucketing. Le regroupement du catalogue COMPLET (allGroups),
+// lui, est partagé entre toutes les pages via `groupByTitleMemo` (cf. catalog.ts).
 const railsCache = new WeakMap<SeriesItem[], { categories: SeriesCategory[]; rails: SeriesRail[] }>();
 
 // Entrée « Populaires » : groupe catalogue + visuel/synopsis TMDB. Le backdrop
@@ -208,15 +207,13 @@ export function Series() {
 
   const isGlobalSearch = query.length >= MIN_SEARCH_LEN;
 
-  const allGroups = useMemo(() => {
-    if (!allSeries) return [];
-    let hit = allGroupsCache.get(allSeries);
-    if (!hit) {
-      hit = groupByTitle(allSeries, (s) => s.name, (s) => s.rating_5based ?? 0);
-      allGroupsCache.set(allSeries, hit);
-    }
-    return hit;
-  }, [allSeries]);
+  const allGroups = useMemo(
+    () =>
+      allSeries
+        ? groupByTitleMemo(allSeries, (s) => s.name, (s) => s.rating_5based ?? 0)
+        : [],
+    [allSeries],
+  );
 
   // ── Rails par catégorie ────────────────────────────────────────────────────
   const rails = useMemo<SeriesRail[]>(() => {

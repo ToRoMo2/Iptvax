@@ -8,7 +8,7 @@ import { useDownloads } from '../contexts/DownloadsContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { VodStream, PlayerState } from '../types/xtream.types';
 import type { TmdbEnrichment } from '../types/tmdb.types';
-import { cleanTitle, extractYear, versionLabel, titleKey, groupByTitle } from '../utils/catalog';
+import { cleanTitle, extractYear, versionLabel, titleKey, groupByTitleMemo } from '../utils/catalog';
 import { splitMeta } from '../utils/ratings';
 import { historyGroupKey, resumePosition } from '../utils/history';
 import { fmtRuntime } from '../utils/format';
@@ -118,7 +118,7 @@ export function MovieDetail() {
           return;
         }
         const key = titleKey(found.name) || found.name.trim().toLowerCase();
-        const group = groupByTitle(all, (v) => v.name, (v) => v.rating_5based ?? 0).find(
+        const group = groupByTitleMemo(all, (v) => v.name, (v) => v.rating_5based ?? 0).find(
           (g) => g.key === key,
         );
         if (!passed) {
