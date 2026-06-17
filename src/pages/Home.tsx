@@ -7,7 +7,7 @@ import { useLibrary } from '../contexts/LibraryContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
 import type { TranslationKey } from '../i18n';
-import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { setFocus, doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 import { PreviewCard } from '../components/PreviewCard';
 import { Focusable } from '../components/Focusable';
 import { HERO_FOCUS_KEY } from '../components/RemoteControl';
@@ -487,8 +487,14 @@ export function Home() {
   // quelle que soit la carte (la géométrie n'y menait que depuis la gauche).
   const upToHero = (direction: string): boolean => {
     if (direction === 'up') {
-      setFocus(HERO_FOCUS_KEY);
-      return false;
+      // Vers les boutons du hero — mais SEULEMENT s'il est monté. Si le hero
+      // n'est pas encore composé (chargement catalogue lent), poser le focus
+      // dessus le perdrait dans le vide → on laisse norigin remonter
+      // géométriquement (vers la navbar persistante).
+      if (doesFocusableExist(HERO_FOCUS_KEY)) {
+        setFocus(HERO_FOCUS_KEY);
+        return false;
+      }
     }
     return true;
   };

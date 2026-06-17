@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { setFocus, getCurrentFocusKey, doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 
 /** Première entrée de navbar — point de départ du focus télécommande. */
 export const FIRST_NAV_FOCUS_KEY = 'rc-nav-0';
@@ -59,6 +59,17 @@ export function RemoteControl() {
           e.key === 'ArrowRight')
       ) {
         e.preventDefault();
+        // Filet anti-blocage : si le focus courant pointe sur un nœud démonté
+        // (cible `setFocus` disparue — hero non chargé, barre de recherche
+        // absente —, rail encore en squelette, ou race de changement de route),
+        // norigin ne peut plus naviguer depuis ce nœud fantôme → toutes les
+        // flèches deviennent inertes et l'utilisateur est coincé. On ré-ancre
+        // alors sur la navbar (toujours montée dans le Shell). Inerte quand le
+        // focus est sain (cas normal souris/web : la clé courante existe).
+        const cur = getCurrentFocusKey();
+        if (!cur || !doesFocusableExist(cur)) {
+          setFocus(FIRST_NAV_FOCUS_KEY);
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
