@@ -14,6 +14,12 @@ export function formatBytes(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+/** Formate un débit (octets/seconde) en libellé court (« 4,2 Mo/s »). */
+export function formatSpeed(bytesPerSec: number): string {
+  if (!bytesPerSec || bytesPerSec <= 0) return '';
+  return `${formatBytes(bytesPerSec)}/s`;
+}
+
 /** Progression 0–100 d'un téléchargement (0 si taille totale inconnue). */
 export function downloadPercent(item: DownloadItem): number {
   if (item.status === 'done') return 100;

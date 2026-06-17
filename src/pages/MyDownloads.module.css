@@ -2,6 +2,9 @@
   padding: var(--topnav-h, 72px) var(--pad-edge, 72px) 64px;
   max-width: 1100px;
   margin: 0 auto;
+  /* Police UI de l'app (Hanken Grotesk en thème lumière) — explicite pour que
+     l'onglet utilise exactement la même typo que le reste de l'app. */
+  font-family: var(--font-ui), 'Inter', sans-serif;
 }
 
 .offlinePage {
@@ -36,8 +39,12 @@
 }
 
 .heading {
-  font-size: 26px;
-  font-weight: 800;
+  /* Même typo « display » que les titres des autres pages (Films/Séries/Réglages). */
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1;
   margin: 0 0 24px;
 }
 

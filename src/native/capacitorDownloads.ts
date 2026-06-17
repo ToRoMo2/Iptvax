@@ -22,7 +22,7 @@ interface DownloaderPlugin {
   addListener(
     event: 'downloadsChanged',
     cb: (data: { items: DownloadItem[] }) => void,
-  ): Promise<{ remove: () => void }>;
+  ): Promise<PluginListenerHandle> & PluginListenerHandle;
 }
 
 // Enregistrement STATIQUE du plugin (même pattern que tvDetect/volumeControl).
@@ -41,6 +41,9 @@ export const capacitorDownloads = {
   available(): boolean {
     return isCapacitor;
   },
+  // ⚠ Les erreurs natives sont volontairement PROPAGÉES (pas de catch silencieux) :
+  // un échec d'enqueue doit faire passer l'item en `error` (bouton « Réessayer »)
+  // côté DownloadsContext, jamais le laisser tourner indéfiniment.
   async start(req: DownloadRequest): Promise<void> {
     await Downloader?.start(req);
   },
