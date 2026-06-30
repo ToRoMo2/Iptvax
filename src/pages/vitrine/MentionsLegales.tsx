@@ -18,16 +18,25 @@ export function MentionsLegales() {
           <p>
             Le service et l'application « {LEGAL.brand} » sont édités par :
           </p>
-          <ul>
-            <li><strong>Dénomination :</strong> {LEGAL.editorName}</li>
-            <li><strong>Forme juridique :</strong> {LEGAL.editorForm}</li>
-            <li><strong>Capital social :</strong> {LEGAL.editorCapital}</li>
-            <li><strong>Immatriculation :</strong> {LEGAL.editorSiren}</li>
-            <li><strong>N° TVA intracommunautaire :</strong> {LEGAL.editorVat}</li>
-            <li><strong>Siège social :</strong> {LEGAL.editorAddress}</li>
-            <li><strong>Contact :</strong> {LEGAL.contactEmail}</li>
-            <li><strong>Directeur de la publication :</strong> {LEGAL.publicationDirector}</li>
-          </ul>
+          {LEGAL.editorType === 'company' ? (
+            <ul>
+              <li><strong>Dénomination :</strong> {LEGAL.editorName}</li>
+              <li><strong>Forme juridique :</strong> {LEGAL.editorForm}</li>
+              <li><strong>Capital social :</strong> {LEGAL.editorCapital}</li>
+              <li><strong>Immatriculation :</strong> {LEGAL.editorSiren}</li>
+              <li><strong>N° TVA intracommunautaire :</strong> {LEGAL.editorVat}</li>
+              <li><strong>Siège social :</strong> {LEGAL.editorAddress}</li>
+              <li><strong>Contact :</strong> {LEGAL.contactEmail}</li>
+              <li><strong>Directeur de la publication :</strong> {LEGAL.publicationDirector}</li>
+            </ul>
+          ) : (
+            <ul>
+              <li><strong>Éditeur :</strong> {LEGAL.editorName}</li>
+              <li><strong>Statut :</strong> particulier (édition à titre non professionnel)</li>
+              <li><strong>Contact :</strong> {LEGAL.contactEmail}</li>
+              <li><strong>Directeur de la publication :</strong> {LEGAL.editorName}</li>
+            </ul>
+          )}
 
           <h2>2. Hébergement du site</h2>
           <p>Le site est hébergé par :</p>

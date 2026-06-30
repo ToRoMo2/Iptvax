@@ -18,9 +18,10 @@ export function Confidentialite() {
         <div className="legal-body">
           <h2>1. Responsable du traitement</h2>
           <p>
-            Le responsable du traitement des données est {LEGAL.editorName}, dont le siège
-            est situé {LEGAL.editorAddress}. Pour toute question relative à vos données ou
-            l'exercice de vos droits : <strong>{LEGAL.contactEmail}</strong>.
+            Le responsable du traitement des données est {LEGAL.editorName}
+            {LEGAL.editorType === 'company' ? `, dont le siège est situé ${LEGAL.editorAddress}` : ''}.
+            Pour toute question relative à vos données ou l'exercice de vos droits :{' '}
+            <strong>{LEGAL.contactEmail}</strong>.
           </p>
 
           <h2>2. Données collectées</h2>
