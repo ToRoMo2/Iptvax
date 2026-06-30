@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { DeviceShowcase } from '../../components/vitrine/DeviceShowcase';
 import { useScrollReveal } from '../../hooks/useScrollReveal';
 import { useHomeFx } from '../../hooks/useHomeFx';
+import { PREMIUM_ENABLED } from '../../config/monetization';
 
 type Period = 'monthly' | 'annual';
 
@@ -60,13 +61,17 @@ export function HomeVitrine() {
               </Link>
             </span>
             <span className="magnetic">
-              <a href="#pricing" className="btn btn-secondary">
-                Découvrir Premium
+              <a href={PREMIUM_ENABLED ? '#pricing' : '#features'} className="btn btn-secondary">
+                {PREMIUM_ENABLED ? 'Découvrir Premium' : 'Découvrir les fonctionnalités'}
               </a>
             </span>
           </div>
 
-          <p className="hero-note">// gratuit pour démarrer · premium à partir de 2,49 €/mois</p>
+          <p className="hero-note">
+            {PREMIUM_ENABLED
+              ? '// gratuit pour démarrer · premium à partir de 2,49 €/mois'
+              : '// 100 % gratuit · sans publicité · sans tracker'}
+          </p>
         </div>
 
         <div className="scroll-hint">Défiler</div>
@@ -118,7 +123,7 @@ export function HomeVitrine() {
             <div className="num">
               <span className="suffix">∞</span>
             </div>
-            <div className="lbl">Profils Premium</div>
+            <div className="lbl">{PREMIUM_ENABLED ? 'Profils Premium' : 'Profils'}</div>
           </div>
         </div>
       </div>
@@ -298,7 +303,7 @@ export function HomeVitrine() {
             </article>
 
             <article className="bento-card" data-reveal="scale" style={{ '--rd': '200ms' } as CSSProperties}>
-              <span className="b-premium">Premium</span>
+              {PREMIUM_ENABLED && <span className="b-premium">Premium</span>}
               <div className="b-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -309,7 +314,7 @@ export function HomeVitrine() {
             </article>
 
             <article className="bento-card b-2x1" data-reveal="scale" style={{ '--rd': '120ms' } as CSSProperties}>
-              <span className="b-premium">Premium</span>
+              {PREMIUM_ENABLED && <span className="b-premium">Premium</span>}
               <div className="b-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
@@ -341,79 +346,122 @@ export function HomeVitrine() {
       {/* ── PRICING ───────────────────────────────────────────────── */}
       <div className="band band-lit band-edge" id="pricing">
         <section className="section">
-          <div className="section-head">
-            <span className="eyebrow" data-reveal="fade">
-              Tarifs
-            </span>
-            <h2 className="s-title" data-reveal>
-              Simple et <em>transparent.</em>
-            </h2>
-            <p className="s-sub" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
-              Démarrez gratuitement. Passez à Premium pour les profils illimités et la
-              synchronisation cloud cross-device.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <div className="price-toggle" data-reveal="fade" role="group" aria-label="Période de facturation">
-              <button className={period === 'monthly' ? 'active' : ''} onClick={() => setPeriod('monthly')}>
-                Mensuel
-              </button>
-              <button className={period === 'annual' ? 'active' : ''} onClick={() => setPeriod('annual')}>
-                Annuel <span className="save">−40 %</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-grid">
-            <article className="plan" data-reveal>
-              <div className="plan-name">Gratuit</div>
-              <div className="plan-price">
-                0<span className="cur">€</span>
-                <small>/ toujours</small>
+          {PREMIUM_ENABLED ? (
+            <>
+              <div className="section-head">
+                <span className="eyebrow" data-reveal="fade">
+                  Tarifs
+                </span>
+                <h2 className="s-title" data-reveal>
+                  Simple et <em>transparent.</em>
+                </h2>
+                <p className="s-sub" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
+                  Démarrez gratuitement. Passez à Premium pour les profils illimités et la
+                  synchronisation cloud cross-device.
+                </p>
               </div>
-              <p className="plan-tag">Tout ce qu'il faut pour démarrer.</p>
-              <ul className="plan-list">
-                <Tick>1 profil</Tick>
-                <Tick delay="60ms">Live, films et séries</Tick>
-                <Tick delay="120ms">Favoris &amp; historique locaux</Tick>
-                <Tick delay="180ms" locked>
-                  Pas de sync cloud cross-device
-                </Tick>
-                <Tick delay="240ms" locked>
-                  Pas de Mon ciné ni Communauté
-                </Tick>
-              </ul>
-              <span className="magnetic" style={{ width: '100%' }}>
-                <Link to="/downloads" className="btn btn-ghost" style={{ width: '100%' }}>
-                  Télécharger
-                </Link>
-              </span>
-            </article>
 
-            <article className="plan plan-featured" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
-              <span className="plan-badge">Recommandé</span>
-              <div className="plan-name">Premium</div>
-              <div className="plan-price">
-                <PriceOdometer value={PRICES[period].prem} />
-                <span className="cur">€</span>
-                <small>{PRICES[period].unit}</small>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <div className="price-toggle" data-reveal="fade" role="group" aria-label="Période de facturation">
+                  <button className={period === 'monthly' ? 'active' : ''} onClick={() => setPeriod('monthly')}>
+                    Mensuel
+                  </button>
+                  <button className={period === 'annual' ? 'active' : ''} onClick={() => setPeriod('annual')}>
+                    Annuel <span className="save">−40 %</span>
+                  </button>
+                </div>
               </div>
-              <p className="plan-tag">{PRICES[period].tag}</p>
-              <ul className="plan-list">
-                <Tick>Profils illimités</Tick>
-                <Tick delay="60ms">Sync cloud (téléphone ↔ TV ↔ ordi)</Tick>
-                <Tick delay="120ms">Mon ciné — mur de visionnage &amp; notes</Tick>
-                <Tick delay="180ms">Communauté — suivez des cinéphiles</Tick>
-                <Tick delay="240ms">Métadonnées enrichies</Tick>
-              </ul>
-              <span className="magnetic" style={{ width: '100%' }}>
-                <Link to="/premium" className="btn btn-primary" style={{ width: '100%' }}>
-                  Passer Premium
-                </Link>
-              </span>
-            </article>
-          </div>
+
+              <div className="pricing-grid">
+                <article className="plan" data-reveal>
+                  <div className="plan-name">Gratuit</div>
+                  <div className="plan-price">
+                    0<span className="cur">€</span>
+                    <small>/ toujours</small>
+                  </div>
+                  <p className="plan-tag">Tout ce qu'il faut pour démarrer.</p>
+                  <ul className="plan-list">
+                    <Tick>1 profil</Tick>
+                    <Tick delay="60ms">Live, films et séries</Tick>
+                    <Tick delay="120ms">Favoris &amp; historique locaux</Tick>
+                    <Tick delay="180ms" locked>
+                      Pas de sync cloud cross-device
+                    </Tick>
+                    <Tick delay="240ms" locked>
+                      Pas de Mon ciné ni Communauté
+                    </Tick>
+                  </ul>
+                  <span className="magnetic" style={{ width: '100%' }}>
+                    <Link to="/downloads" className="btn btn-ghost" style={{ width: '100%' }}>
+                      Télécharger
+                    </Link>
+                  </span>
+                </article>
+
+                <article className="plan plan-featured" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
+                  <span className="plan-badge">Recommandé</span>
+                  <div className="plan-name">Premium</div>
+                  <div className="plan-price">
+                    <PriceOdometer value={PRICES[period].prem} />
+                    <span className="cur">€</span>
+                    <small>{PRICES[period].unit}</small>
+                  </div>
+                  <p className="plan-tag">{PRICES[period].tag}</p>
+                  <ul className="plan-list">
+                    <Tick>Profils illimités</Tick>
+                    <Tick delay="60ms">Sync cloud (téléphone ↔ TV ↔ ordi)</Tick>
+                    <Tick delay="120ms">Mon ciné — mur de visionnage &amp; notes</Tick>
+                    <Tick delay="180ms">Communauté — suivez des cinéphiles</Tick>
+                    <Tick delay="240ms">Métadonnées enrichies</Tick>
+                  </ul>
+                  <span className="magnetic" style={{ width: '100%' }}>
+                    <Link to="/premium" className="btn btn-primary" style={{ width: '100%' }}>
+                      Passer Premium
+                    </Link>
+                  </span>
+                </article>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="section-head">
+                <span className="eyebrow" data-reveal="fade">
+                  Tarifs
+                </span>
+                <h2 className="s-title" data-reveal>
+                  Gratuit. <em>Tout simplement.</em>
+                </h2>
+                <p className="s-sub" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
+                  Toutes les fonctionnalités sont incluses, sans abonnement. Sans
+                  publicité, sans tracker — pour tout le monde.
+                </p>
+              </div>
+
+              <div className="pricing-grid">
+                <article className="plan plan-featured" data-reveal>
+                  <span className="plan-badge">Tout inclus</span>
+                  <div className="plan-name">Gratuit</div>
+                  <div className="plan-price">
+                    0<span className="cur">€</span>
+                    <small>/ toujours</small>
+                  </div>
+                  <p className="plan-tag">Aucune fonctionnalité réservée.</p>
+                  <ul className="plan-list">
+                    <Tick>Profils illimités</Tick>
+                    <Tick delay="60ms">Sync cloud (téléphone ↔ TV ↔ ordi)</Tick>
+                    <Tick delay="120ms">Mon ciné — mur de visionnage &amp; notes</Tick>
+                    <Tick delay="180ms">Communauté — suivez des cinéphiles</Tick>
+                    <Tick delay="240ms">Métadonnées enrichies &amp; téléchargements</Tick>
+                  </ul>
+                  <span className="magnetic" style={{ width: '100%' }}>
+                    <Link to="/downloads" className="btn btn-primary" style={{ width: '100%' }}>
+                      Télécharger
+                    </Link>
+                  </span>
+                </article>
+              </div>
+            </>
+          )}
         </section>
       </div>
 

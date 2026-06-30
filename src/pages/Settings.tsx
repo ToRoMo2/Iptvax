@@ -11,6 +11,7 @@ import {
   PREVIEW_PX, CHIP_PX, SUB_COLOR_HEX, SUB_BG_CSS, SUB_OUTLINE, SUB_SOFT_SHADOW,
 } from '../utils/subtitlePrefs';
 import { TmdbAttribution } from '../components/TmdbAttribution';
+import { PREMIUM_ENABLED } from '../config/monetization';
 import styles from './Settings.module.css';
 
 type Tab = 'account' | 'playback' | 'about';
@@ -165,6 +166,7 @@ export function Settings() {
           {tab === 'account' && (
             <>
               <div className={styles.col}>
+              {PREMIUM_ENABLED ? (
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>{t('settings.subscription')}</div>
                 <div className={styles.row}>
@@ -204,6 +206,20 @@ export function Settings() {
                   </button>
                 </div>
               </section>
+              ) : (
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>{t('settings.subscription')}</div>
+                <div className={styles.row}>
+                  <div className={styles.rowText}>
+                    <div className={styles.rowLabel}>Toutes les fonctionnalités sont incluses</div>
+                    <div className={styles.rowDesc}>
+                      Umbra est gratuit : profils, sync, Mon ciné, Communauté et
+                      téléchargements sont accessibles sans abonnement.
+                    </div>
+                  </div>
+                </div>
+              </section>
+              )}
 
               {userInfo && (
                 <section className={styles.section}>

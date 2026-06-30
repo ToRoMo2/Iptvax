@@ -19,6 +19,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import { isWebOS, isTizen, isVitrine, isElectron } from './lib/platform';
+import { PREMIUM_ENABLED } from './config/monetization';
 import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { SupabaseAuthProvider, useSupabaseAuth } from './contexts/SupabaseAuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
@@ -325,7 +326,7 @@ function Shell() {
               element={<PremiumOnly feature={t('community.title')}><MemberCine /></PremiumOnly>}
             />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/premium" element={<Premium />} />
+            <Route path="/premium" element={PREMIUM_ENABLED ? <Premium /> : <Navigate to="/" replace />} />
           </Routes>
           </Suspense>
         </main>
@@ -454,7 +455,7 @@ function VitrineGate() {
         <Routes>
           <Route path="/" element={<HomeVitrine />} />
           <Route path="/downloads" element={<Downloads />} />
-          <Route path="/premium" element={<Premium />} />
+          <Route path="/premium" element={PREMIUM_ENABLED ? <Premium /> : <Navigate to="/" replace />} />
           <Route path="/login" element={<Login hideBrand />} />
           <Route path="/settings" element={<SettingsVitrine />} />
           <Route path="/mentions-legales" element={<MentionsLegales />} />

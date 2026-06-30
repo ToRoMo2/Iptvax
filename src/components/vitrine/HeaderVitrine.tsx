@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppLogo } from '../AppLogo';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
+import { PREMIUM_ENABLED } from '../../config/monetization';
 
 /**
  * Header sticky vitrine (design Umbra) : transparent puis blur + hairline dorée
@@ -41,8 +42,8 @@ export function HeaderVitrine() {
           <Link className={`nav-link${activeNav === 'downloads' ? ' active' : ''}`} to="/downloads">
             Télécharger
           </Link>
-          <a className="nav-link" href="/#pricing">
-            Premium
+          <a className="nav-link" href={PREMIUM_ENABLED ? '/#pricing' : '/#features'}>
+            {PREMIUM_ENABLED ? 'Premium' : 'Fonctionnalités'}
           </a>
           <Link className="nav-link nav-cta-wrap" to={account} style={{ padding: 0 }}>
             <span className="nav-cta">{user ? 'Mon compte' : 'Se connecter'}</span>
@@ -70,8 +71,8 @@ export function HeaderVitrine() {
         <Link to="/downloads" onClick={() => setOpen(false)}>
           Télécharger
         </Link>
-        <a href="/#pricing" onClick={() => setOpen(false)}>
-          Premium
+        <a href={PREMIUM_ENABLED ? '/#pricing' : '/#features'} onClick={() => setOpen(false)}>
+          {PREMIUM_ENABLED ? 'Premium' : 'Fonctionnalités'}
         </a>
         <Link to={account} onClick={() => setOpen(false)}>
           {user ? 'Mon compte' : 'Se connecter'}

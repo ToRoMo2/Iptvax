@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { AppLogo } from '../AppLogo';
 import { TmdbAttribution } from '../TmdbAttribution';
 import { GITHUB_REPO } from '../../config/vitrine';
+import { PREMIUM_ENABLED } from '../../config/monetization';
 
 /**
  * Footer vitrine (design Umbra) : 4 colonnes, hairline dorée, watermark
@@ -28,7 +29,7 @@ export function FooterVitrine() {
             <h4>Produit</h4>
             <div className="links">
               <Link to="/downloads">Téléchargements</Link>
-              <a href="/#pricing">Premium</a>
+              {PREMIUM_ENABLED && <a href="/#pricing">Premium</a>}
               <a href="/#features">Fonctionnalités</a>
             </div>
           </div>
