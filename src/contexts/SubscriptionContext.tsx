@@ -15,6 +15,7 @@ import { useSupabaseAuth } from './SupabaseAuthContext';
 import { subscriptionService } from '../services/subscription.service';
 import { tmdbService } from '../services/tmdb.service';
 import { isCapacitor } from '../lib/platform';
+import { PREMIUM_ENABLED } from '../config/monetization';
 import type { Subscription, PlanInterval } from '../types/subscription.types';
 
 interface SubscriptionContextValue {
@@ -42,6 +43,10 @@ const DEV_FORCE_PREMIUM =
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
 function computeIsPremium(sub: Subscription): boolean {
+  // Option 1 — palier payant désactivé : l'app est gratuite, toutes les
+  // fonctionnalités sont débloquées pour tout le monde (TMDB compris, via
+  // l'effet `setEnabled(isPremium)` plus bas). Voir config/monetization.ts.
+  if (!PREMIUM_ENABLED) return true;
   if (DEV_FORCE_PREMIUM) return true;
   if (sub.status !== 'active' && sub.status !== 'trialing') return false;
   if (sub.currentPeriodEnd != null && sub.currentPeriodEnd < Date.now()) return false;

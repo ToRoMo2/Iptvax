@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { AppLogo } from '../AppLogo';
+import { TmdbAttribution } from '../TmdbAttribution';
 import { GITHUB_REPO } from '../../config/vitrine';
 
 /**
@@ -54,6 +55,9 @@ export function FooterVitrine() {
       <div className="ftr-bottom">
         <span>© {year} Umbra. Tous droits réservés.</span>
         <span className="mono">Fait avec ❤ en France.</span>
+      </div>
+      <div className="ftr-inner" style={{ paddingTop: 0, paddingBottom: 24 }}>
+        <TmdbAttribution compact />
       </div>
       <div className="ftr-watermark" aria-hidden="true">
         Umbra

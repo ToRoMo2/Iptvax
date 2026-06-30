@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useScrollReveal } from '../../hooks/useScrollReveal';
+import { PREMIUM_ENABLED } from '../../config/monetization';
 
 /**
  * Page « Mon compte » en mode vitrine (design Umbra). N'utilise QUE Supabase +
@@ -64,6 +65,20 @@ export function SettingsVitrine() {
         </div>
 
         {/* ── Abonnement ─────────────────────────────────────────── */}
+        {!PREMIUM_ENABLED ? (
+          <section className="set-section" data-reveal>
+            <div className="set-section-title">Abonnement</div>
+            <div className="set-row">
+              <div className="set-row-text">
+                <span className="set-row-label">Toutes les fonctionnalités sont incluses</span>
+                <div className="set-row-desc">
+                  Umbra est gratuit : profils, sync, Mon ciné, Communauté et
+                  téléchargements sont accessibles sans abonnement.
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
         <section className="set-section" data-reveal>
           <div className="set-section-title">Abonnement</div>
           <div className="set-row">
@@ -105,6 +120,7 @@ export function SettingsVitrine() {
             </button>
           </div>
         </section>
+        )}
 
         {/* ── Identifiants ───────────────────────────────────────── */}
         <section className="set-section" data-reveal style={{ '--rd': '80ms' } as CSSProperties}>

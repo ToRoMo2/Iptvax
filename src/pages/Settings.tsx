@@ -10,6 +10,7 @@ import {
   loadSubPrefs, saveSubPrefs,
   PREVIEW_PX, CHIP_PX, SUB_COLOR_HEX, SUB_BG_CSS, SUB_OUTLINE, SUB_SOFT_SHADOW,
 } from '../utils/subtitlePrefs';
+import { TmdbAttribution } from '../components/TmdbAttribution';
 import styles from './Settings.module.css';
 
 type Tab = 'account' | 'playback' | 'about';
@@ -461,6 +462,11 @@ export function Settings() {
                 <span className={styles.versionDot} />
                 <span>{t('settings.tlsSecure')}</span>
               </div>
+
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>Crédits</div>
+                <TmdbAttribution />
+              </section>
               </div>
             </>
           )}

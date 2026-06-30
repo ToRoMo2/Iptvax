@@ -8,7 +8,7 @@
 // ⚠ Validation device requise (non compilable/testable en CI) — comme tout le
 // natif Android. Voir CLAUDE.md §XI (téléchargements) et docs/native-port.md.
 
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { isCapacitor } from '../lib/platform';
 import type { DownloadItem, DownloadRequest } from '../types/download.types';
 
