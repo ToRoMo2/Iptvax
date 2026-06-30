@@ -540,6 +540,20 @@
 .vitrine .legal-back { display: inline-block; margin-top: 24px; color: var(--accent); font-size: 14px; }
 .vitrine .legal-back:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+/* ── Corps des documents légaux (contenu rédigé) ─────────────────────── */
+.vitrine .legal-update { color: var(--t-3); font-family: var(--mono); font-size: 12px; margin: -20px 0 28px; }
+.vitrine .legal-body { color: var(--t-2); line-height: 1.75; font-size: 15px; }
+.vitrine .legal-body h2 { font-family: var(--serif); font-weight: 400; color: var(--t-1); font-size: clamp(20px, 2.6vw, 26px); letter-spacing: -0.01em; margin: 44px 0 12px; }
+.vitrine .legal-body h3 { color: var(--t-1); font-size: 16px; font-weight: 600; margin: 26px 0 8px; }
+.vitrine .legal-body p { margin: 0 0 14px; }
+.vitrine .legal-body ul { margin: 0 0 16px; padding-left: 22px; }
+.vitrine .legal-body li { margin: 0 0 8px; }
+.vitrine .legal-body a { color: var(--accent); }
+.vitrine .legal-body a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.vitrine .legal-body strong { color: var(--t-1); }
+.vitrine .legal-note { background: var(--bg-card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--r-card); padding: 16px 20px; color: var(--t-2); line-height: 1.7; font-size: 14px; margin: 20px 0 28px; }
+.vitrine .legal-note strong { color: var(--t-1); }
+
 /* ── Responsive gutters ──────────────────────────────────────────────── */
 @media (max-width: 900px) { .vitrine { --pad-edge: 32px; } .vitrine .section { padding: 84px var(--pad-edge); } }
 @media (max-width: 640px) { .vitrine { --pad-edge: 20px; } .vitrine .section { padding: 64px var(--pad-edge); } .vitrine .btn { height: 48px; } }
