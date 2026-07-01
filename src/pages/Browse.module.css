@@ -343,6 +343,11 @@
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
+  /* Sans ça, une fois le rail scrollé, le snap colle la 1re carte au bord du
+     scrollport (boîte de padding) → la marge gauche est mangée et le rail
+     reste désaligné du bord même après relâchement (même fix que .rowRail
+     dans Home.module.css). Le snapport est inseté du gutter. */
+  scroll-padding-inline: var(--pad-edge);
   scrollbar-width: none;
   padding: 12px var(--pad-edge);
 }
