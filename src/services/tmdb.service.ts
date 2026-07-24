@@ -51,6 +51,15 @@ function img(path: string | null | undefined, size: string): string | undefined 
 // Promise. Inclut les résultats null pour éviter de re-marteler une absence.
 const cache = new Map<string, Promise<unknown>>();
 
+// Snapshot SYNCHRONE des tendances déjà résolues (par `kind`). Permet à
+// l'accueil de SEEDER son hero au montage sur cache chaud (retour d'onglet)
+// SANS attendre une microtask → aucun squelette hero. Peuplé quand la Promise
+// de `getTrending` se résout ; lu par `peekTrending`.
+const trendingSnapshot: Record<'movie' | 'tv', TmdbTrendingItem[] | null> = {
+  movie: null,
+  tv: null,
+};
+
 async function tmdbGet<T>(path: string, params: Record<string, string>): Promise<T | null> {
   if (!active()) return null;
   const search = new URLSearchParams({ api_key: API_KEY, ...params });
@@ -353,8 +362,18 @@ export const tmdbService = {
           rating: r.vote_average && r.vote_average > 0 ? Math.round(r.vote_average * 10) / 10 : undefined,
         });
       }
+      trendingSnapshot[kind] = out; // snapshot synchrone pour peekTrending
       return out;
     });
+  },
+
+  /**
+   * Lecture SYNCHRONE des tendances déjà résolues (null si pas encore chargées
+   * ou TMDB désactivé). Sert à seeder le hero de l'accueil au retour d'onglet
+   * (cache chaud) sans flash squelette. Voir `getTrending`.
+   */
+  peekTrending(kind: 'movie' | 'tv'): TmdbTrendingItem[] | null {
+    return trendingSnapshot[kind];
   },
 
   /**

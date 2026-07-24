@@ -6,7 +6,7 @@ import { tmdbService } from '../services/tmdb.service';
 import { useLibrary } from '../contexts/LibraryContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useI18n } from '../contexts/I18nContext';
-import type { TranslationKey } from '../i18n';
+import type { TranslationKey, TParams } from '../i18n';
 import { setFocus, doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 import { PreviewCard } from '../components/PreviewCard';
 import { Focusable } from '../components/Focusable';
@@ -14,7 +14,7 @@ import { HERO_FOCUS_KEY } from '../components/RemoteControl';
 import { ScrollRail } from '../components/ScrollRail';
 import { PremiumLockOverlay } from '../components/PremiumLockOverlay';
 import type { WatchHistoryItem } from '../types/library.types';
-import type { LiveStream, VodStream, SeriesItem } from '../types/xtream.types';
+import type { LiveStream, VodStream, SeriesItem, XtreamCredentials } from '../types/xtream.types';
 import type { PlayerState } from '../types/xtream.types';
 import type { TmdbTrendingItem } from '../types/tmdb.types';
 import { groupByTitleMemo, cleanTitle, titleKey, type TitleGroup } from '../utils/catalog';
@@ -134,6 +134,136 @@ function RowSkeleton({ type }: { type: 'cw' | 'channel' | 'poster' }) {
   );
 }
 
+// ── Constructeur PUR des slides hero ────────────────────────────────────────
+// Extrait de `composeHero` pour être appelable AUSSI au montage (seed synchrone
+// depuis le cache — cf. `seed` dans le composant) : aucun état, aucune ref, il
+// prend ses entrées en paramètres et renvoie jusqu'à 6 slides (ou []). Priorité :
+// tendances TMDB matchées au catalogue → repli top-note films → repli top-note
+// séries (le hero n'est jamais vide dès qu'il y a du catalogue).
+function buildHeroSlides(
+  credentials: XtreamCredentials,
+  movieGroups: TitleGroup<VodStream>[],
+  seriesGroups: TitleGroup<SeriesItem>[],
+  trending: { movies: TmdbTrendingItem[]; series: TmdbTrendingItem[] } | null,
+  t: (key: TranslationKey, params?: TParams) => string,
+): HeroSlide[] {
+  if (movieGroups.length === 0 && seriesGroups.length === 0) return [];
+
+  const mMap = new Map(movieGroups.map((g) => [g.key, g] as const));
+  const sMap = new Map(seriesGroups.map((g) => [g.key, g] as const));
+  const slides: HeroSlide[] = [];
+
+  if (trending) {
+    const movieSlides: HeroSlide[] = [];
+    for (const tr of trending.movies) {
+      const g = mMap.get(titleKey(tr.title));
+      if (!g) continue;
+      const m = g.primary;
+      movieSlides.push({
+        id: String(m.stream_id),
+        title: g.title,
+        genre: m.genre ?? t('common.film'),
+        rating: tr.rating?.toFixed(1) ?? (m.rating || '—'),
+        description: tr.overview ?? m.plot ?? '',
+        eyebrowKey: 'home.trendingMovie',
+        bgImage: tr.backdrop ?? m.backdrop_path?.[0] ?? m.stream_icon,
+        artTag: 'BACKDROP · 16:9',
+        kind: 'movie',
+        movieGroup: g,
+        playerState: {
+          url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
+          fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
+          title: g.title,
+          type: 'movie',
+          poster: m.stream_icon,
+          description: tr.overview ?? m.plot,
+        },
+      });
+      if (movieSlides.length >= 4) break;
+    }
+    const seriesSlides: HeroSlide[] = [];
+    for (const tr of trending.series) {
+      const g = sMap.get(titleKey(tr.title));
+      if (!g) continue;
+      const s = g.primary;
+      seriesSlides.push({
+        id: `s${s.series_id}`,
+        title: g.title,
+        genre: s.genre ?? t('common.series'),
+        rating: tr.rating?.toFixed(1) ?? (s.rating || '—'),
+        description: tr.overview ?? s.plot ?? '',
+        eyebrowKey: 'home.trendingSeriesEyebrow',
+        bgImage: tr.backdrop ?? s.cover,
+        artTag: 'BACKDROP · 16:9',
+        kind: 'series',
+        seriesGroup: g,
+        playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: tr.overview ?? s.plot },
+      });
+      if (seriesSlides.length >= 3) break;
+    }
+    const n = Math.max(movieSlides.length, seriesSlides.length);
+    for (let i = 0; i < n; i++) {
+      if (movieSlides[i]) slides.push(movieSlides[i]);
+      if (seriesSlides[i]) slides.push(seriesSlides[i]);
+    }
+  }
+
+  // Repli : pas de tendance matchée → top note (le hero n'est jamais vide).
+  if (slides.length === 0) {
+    const topMovies = [...movieGroups]
+      .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0))
+      .slice(0, 3);
+    for (const g of topMovies) {
+      const m = g.primary;
+      slides.push({
+        id: String(m.stream_id),
+        title: g.title,
+        genre: m.genre ?? t('common.film'),
+        rating: m.rating || (m.rating_5based ? (m.rating_5based * 2).toFixed(1) : '—'),
+        description: m.plot ?? '',
+        eyebrowKey: 'home.featuredMovie',
+        bgImage: m.backdrop_path?.[0] ?? m.stream_icon,
+        artTag: 'BACKDROP · 16:9',
+        kind: 'movie',
+        movieGroup: g,
+        playerState: {
+          url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
+          fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
+          title: g.title,
+          type: 'movie',
+          poster: m.stream_icon,
+          description: m.plot,
+        },
+      });
+    }
+  }
+
+  // Repli ultime : catalogue sans films → top séries (hero jamais vide).
+  if (slides.length === 0) {
+    const topSeries = [...seriesGroups]
+      .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0))
+      .slice(0, 3);
+    for (const g of topSeries) {
+      const s = g.primary;
+      slides.push({
+        id: `s${s.series_id}`,
+        title: g.title,
+        genre: s.genre ?? t('common.series'),
+        rating: s.rating || '—',
+        description: s.plot ?? '',
+        eyebrowKey: 'home.featuredSeries',
+        bgImage: s.cover,
+        artTag: 'BACKDROP · 16:9',
+        kind: 'series',
+        seriesGroup: g,
+        playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: s.plot },
+      });
+    }
+  }
+
+  return slides.slice(0, 6);
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export function Home() {
   const { credentials } = useXtream();
@@ -149,17 +279,50 @@ export function Home() {
   tRef.current = t;
   const navigate = useNavigate();
 
-  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
+  // ── Seed synchrone depuis le cache catalogue (retour d'onglet = zéro squelette) ──
+  // Même principe que Movies/Series/Live : sur cache chaud, l'état initial porte
+  // déjà les données (peek* + peekTrending = snapshots synchrones du cache
+  // service/TMDB) → l'accueil s'affiche INSTANTANÉ au lieu de re-flasher tous ses
+  // squelettes à chaque retour. Premier chargement (cache froid) → tout est null
+  // → comportement historique strictement inchangé (squelettes). Le groupage
+  // passe par `groupByTitleMemo` (mémoïsé → quasi gratuit sur cache chaud).
+  const seed = useMemo(() => {
+    if (!credentials) return null;
+    const liveAll = xtreamService.peekLiveStreams(credentials);
+    const vodAll = xtreamService.peekVodStreams(credentials);
+    const serAll = xtreamService.peekSeries(credentials);
+    const movieGroups = vodAll
+      ? [...groupByTitleMemo(vodAll, (v) => v.name, (v) => v.rating_5based ?? 0)].sort(
+          (a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0),
+        )
+      : null;
+    const seriesGroups = serAll
+      ? [...groupByTitleMemo(serAll, (s) => s.name, (s) => s.rating_5based ?? 0)].sort(
+          (a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0),
+        )
+      : null;
+    const tm = tmdbService.peekTrending('movie');
+    const ts = tmdbService.peekTrending('tv');
+    const trending = tm && ts ? { movies: tm, series: ts } : null;
+    const heroSlides =
+      movieGroups || seriesGroups
+        ? buildHeroSlides(credentials, movieGroups ?? [], seriesGroups ?? [], trending, tRef.current)
+        : [];
+    return { liveAll, movieGroups, seriesGroups, trending, heroSlides };
+    // tRef est stable (ref) → recalcul uniquement au changement de creds.
+  }, [credentials]);
+
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() => seed?.heroSlides ?? []);
   const [heroIdx, setHeroIdx] = useState(0);
-  const [heroLoading, setHeroLoading] = useState(true);
+  const [heroLoading, setHeroLoading] = useState(() => !(seed?.heroSlides.length));
 
-  const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
-  const [movies, setMovies] = useState<TitleGroup<VodStream>[]>([]);
-  const [series, setSeries] = useState<TitleGroup<SeriesItem>[]>([]);
+  const [liveStreams, setLiveStreams] = useState<LiveStream[]>(() => seed?.liveAll?.slice(0, 18) ?? []);
+  const [movies, setMovies] = useState<TitleGroup<VodStream>[]>(() => seed?.movieGroups?.slice(0, 18) ?? []);
+  const [series, setSeries] = useState<TitleGroup<SeriesItem>[]>(() => seed?.seriesGroups?.slice(0, 18) ?? []);
 
-  const [loadingLive, setLoadingLive] = useState(true);
-  const [loadingMovies, setLoadingMovies] = useState(true);
-  const [loadingSeries, setLoadingSeries] = useState(true);
+  const [loadingLive, setLoadingLive] = useState(() => !seed?.liveAll);
+  const [loadingMovies, setLoadingMovies] = useState(() => !seed?.movieGroups);
+  const [loadingSeries, setLoadingSeries] = useState(() => !seed?.seriesGroups);
   const [clearConfirm, setClearConfirm] = useState(false);
   const clearConfirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -169,18 +332,29 @@ export function Home() {
   const [cwBackdrops, setCwBackdrops] = useState<Record<string, string>>({});
 
   // Note TMDB (sur 10) par titleKey → remplace le rating Xtream sur les cartes.
-  const [tmdbRatings, setTmdbRatings] = useState<Record<string, number>>({});
+  // Seedée depuis les tendances en cache (retour d'onglet) → notes présentes d'emblée.
+  const [tmdbRatings, setTmdbRatings] = useState<Record<string, number>>(() => {
+    const tr = seed?.trending;
+    if (!tr) return {};
+    const r: Record<string, number> = {};
+    for (const it of tr.movies) if (it.rating) r[titleKey(it.title)] = it.rating;
+    for (const it of tr.series) if (it.rating) r[titleKey(it.title)] = it.rating;
+    return r;
+  });
 
   const heroTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const heroLenRef = useRef(0);
+  const heroLenRef = useRef(seed?.heroSlides.length ?? 0);
   const heroSwipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const heroSuppressRef = useRef(false);
 
   // Catalogue dédupliqué COMPLET (pour matcher les tendances TMDB) + tendances.
-  const movieGroupsRef = useRef<TitleGroup<VodStream>[]>([]);
-  const seriesGroupsRef = useRef<TitleGroup<SeriesItem>[]>([]);
-  const trendingRef = useRef<{ movies: TmdbTrendingItem[]; series: TmdbTrendingItem[] } | null>(null);
-  const trendingDone = useRef(false);
+  // Seedés depuis le cache (retour d'onglet) → composeHero/Rows dispose déjà des
+  // groupes sans attendre le refetch. `trendingDone` seedé à true si les
+  // tendances sont en cache → l'effet TMDB ne relance pas une requête inutile.
+  const movieGroupsRef = useRef<TitleGroup<VodStream>[]>(seed?.movieGroups ?? []);
+  const seriesGroupsRef = useRef<TitleGroup<SeriesItem>[]>(seed?.seriesGroups ?? []);
+  const trendingRef = useRef<{ movies: TmdbTrendingItem[]; series: TmdbTrendingItem[] } | null>(seed?.trending ?? null);
+  const trendingDone = useRef(!!seed?.trending);
 
   // ── Auto-advance hero ────────────────────────────────────────────────────
   const startHeroTimer = useCallback(() => {
@@ -245,125 +419,14 @@ export function Home() {
   // dernière à arriver produit le hero « Tendance ». Repli garanti non vide.
   const composeHero = useCallback(() => {
     if (!credentials) return;
-    const movieGroups = movieGroupsRef.current;
-    const seriesGroups = seriesGroupsRef.current;
-    if (movieGroups.length === 0 && seriesGroups.length === 0) return;
-
-    const mMap = new Map(movieGroups.map((g) => [g.key, g] as const));
-    const sMap = new Map(seriesGroups.map((g) => [g.key, g] as const));
-    const trending = trendingRef.current;
-    const slides: HeroSlide[] = [];
-
-    if (trending) {
-      const movieSlides: HeroSlide[] = [];
-      for (const t of trending.movies) {
-        const g = mMap.get(titleKey(t.title));
-        if (!g) continue;
-        const m = g.primary;
-        movieSlides.push({
-          id: String(m.stream_id),
-          title: g.title,
-          genre: m.genre ?? tRef.current('common.film'),
-          rating: t.rating?.toFixed(1) ?? (m.rating || '—'),
-          description: t.overview ?? m.plot ?? '',
-          eyebrowKey: 'home.trendingMovie',
-          bgImage: t.backdrop ?? m.backdrop_path?.[0] ?? m.stream_icon,
-          artTag: 'BACKDROP · 16:9',
-          kind: 'movie',
-          movieGroup: g,
-          playerState: {
-            url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
-            fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
-            title: g.title,
-            type: 'movie',
-            poster: m.stream_icon,
-            description: t.overview ?? m.plot,
-          },
-        });
-        if (movieSlides.length >= 4) break;
-      }
-      const seriesSlides: HeroSlide[] = [];
-      for (const t of trending.series) {
-        const g = sMap.get(titleKey(t.title));
-        if (!g) continue;
-        const s = g.primary;
-        seriesSlides.push({
-          id: `s${s.series_id}`,
-          title: g.title,
-          genre: s.genre ?? tRef.current('common.series'),
-          rating: t.rating?.toFixed(1) ?? (s.rating || '—'),
-          description: t.overview ?? s.plot ?? '',
-          eyebrowKey: 'home.trendingSeriesEyebrow',
-          bgImage: t.backdrop ?? s.cover,
-          artTag: 'BACKDROP · 16:9',
-          kind: 'series',
-          seriesGroup: g,
-          playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: t.overview ?? s.plot },
-        });
-        if (seriesSlides.length >= 3) break;
-      }
-      const n = Math.max(movieSlides.length, seriesSlides.length);
-      for (let i = 0; i < n; i++) {
-        if (movieSlides[i]) slides.push(movieSlides[i]);
-        if (seriesSlides[i]) slides.push(seriesSlides[i]);
-      }
-    }
-
-    // Repli : pas de tendance matchée → top note (le hero n'est jamais vide).
-    if (slides.length === 0) {
-      const topMovies = [...movieGroups]
-        .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0))
-        .slice(0, 3);
-      for (const g of topMovies) {
-        const m = g.primary;
-        slides.push({
-          id: String(m.stream_id),
-          title: g.title,
-          genre: m.genre ?? tRef.current('common.film'),
-          rating: m.rating || (m.rating_5based ? (m.rating_5based * 2).toFixed(1) : '—'),
-          description: m.plot ?? '',
-          eyebrowKey: 'home.featuredMovie',
-          bgImage: m.backdrop_path?.[0] ?? m.stream_icon,
-          artTag: 'BACKDROP · 16:9',
-          kind: 'movie',
-          movieGroup: g,
-          playerState: {
-            url: xtreamService.getVodStreamUrl(credentials, m.stream_id, m.container_extension),
-            fallbackUrl: xtreamService.getVodDirectUrl(credentials, m.stream_id, m.container_extension),
-            title: g.title,
-            type: 'movie',
-            poster: m.stream_icon,
-            description: m.plot,
-          },
-        });
-      }
-    }
-
-    // Repli ultime : catalogue sans films → top séries (hero jamais vide).
-    if (slides.length === 0) {
-      const topSeries = [...seriesGroups]
-        .sort((a, b) => (b.primary.rating_5based ?? 0) - (a.primary.rating_5based ?? 0))
-        .slice(0, 3);
-      for (const g of topSeries) {
-        const s = g.primary;
-        slides.push({
-          id: `s${s.series_id}`,
-          title: g.title,
-          genre: s.genre ?? tRef.current('common.series'),
-          rating: s.rating || '—',
-          description: s.plot ?? '',
-          eyebrowKey: 'home.featuredSeries',
-          bgImage: s.cover,
-          artTag: 'BACKDROP · 16:9',
-          kind: 'series',
-          seriesGroup: g,
-          playerState: { url: '', title: g.title, type: 'episode', poster: s.cover, description: s.plot },
-        });
-      }
-    }
-
-    if (slides.length === 0) return;
-    const final = slides.slice(0, 6);
+    const final = buildHeroSlides(
+      credentials,
+      movieGroupsRef.current,
+      seriesGroupsRef.current,
+      trendingRef.current,
+      tRef.current,
+    );
+    if (final.length === 0) return;
     heroLenRef.current = final.length;
     setHeroSlides(final);
     setHeroIdx(0);
@@ -372,9 +435,12 @@ export function Home() {
   }, [credentials, startHeroTimer]);
 
   // ── Fetch live streams ───────────────────────────────────────────────────
+  // Pas de setLoadingLive(true) : si l'état a été seedé depuis le cache (retour
+  // d'onglet), on ne veut PAS retomber au squelette. Le fetch (Promise en cache)
+  // ne fait que rafraîchir les données déjà affichées. Cache froid → loading est
+  // déjà `true` (seed null). Idem pour films/séries ci-dessous.
   useEffect(() => {
     if (!credentials) return;
-    setLoadingLive(true);
     xtreamService
       .getLiveStreams(credentials)
       .then((all) => setLiveStreams(all.slice(0, 18)))
@@ -385,7 +451,6 @@ export function Home() {
   // ── Fetch movies ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!credentials) return;
-    setLoadingMovies(true);
     xtreamService
       .getVodStreams(credentials)
       .then((all) => {
@@ -407,7 +472,6 @@ export function Home() {
   // ── Fetch series ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!credentials) return;
-    setLoadingSeries(true);
     xtreamService
       .getSeries(credentials)
       .then((all) => {

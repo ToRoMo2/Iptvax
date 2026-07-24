@@ -52,9 +52,20 @@ export function useCatalogSearch(): CatalogSearch {
 
   // Datasets globaux préchargés UNE fois au montage — la recherche filtre
   // ensuite en mémoire (pas de fetch par frappe, pas de résultats partiels).
-  const [allLive, setAllLive] = useState<LiveStream[] | null>(null);
-  const [allMovies, setAllMovies] = useState<VodStream[] | null>(null);
-  const [allSeries, setAllSeries] = useState<SeriesItem[] | null>(null);
+  // Seed synchrone depuis le cache service (Home a déjà chargé les catalogues) :
+  // ouvrir la recherche (overlay mobile / page) affiche INSTANTANÉMENT les
+  // suggestions au lieu d'un écran vide le temps que le fetch (même en cache,
+  // résolu sur une microtask) re-remplisse. Cache froid → null → chargement
+  // normal (comportement historique).
+  const [allLive, setAllLive] = useState<LiveStream[] | null>(
+    () => (credentials ? xtreamService.peekLiveStreams(credentials) : null),
+  );
+  const [allMovies, setAllMovies] = useState<VodStream[] | null>(
+    () => (credentials ? xtreamService.peekVodStreams(credentials) : null),
+  );
+  const [allSeries, setAllSeries] = useState<SeriesItem[] | null>(
+    () => (credentials ? xtreamService.peekSeries(credentials) : null),
+  );
   const loadedRef = useRef(false);
 
   useEffect(() => {

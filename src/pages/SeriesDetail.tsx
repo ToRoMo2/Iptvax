@@ -76,14 +76,30 @@ export function SeriesDetail() {
   const seriesMeta = (location.state as LocationState)?.series ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
 
+  // Seed synchrone des infos série depuis le cache (flow binge : épisode →
+  // retour sur la fiche → grille d'épisodes instantanée, sans flash squelette).
+  // `variant` démarre à `seriesMeta` → l'id initial coïncide avec `seriesId`.
+  // Cache froid → null → fetch + squelette (comportement historique).
+  const initialSeriesId = seriesMeta?.series_id ?? (id ? parseInt(id) : NaN);
+  const seededInfo = useMemo(() => {
+    if (!credentials || Number.isNaN(initialSeriesId)) return null;
+    const data = xtreamService.peekSeriesInfo(credentials, initialSeriesId);
+    if (!data) return null;
+    return data.episodes ? data : { ...data, episodes: {} };
+  }, [credentials, initialSeriesId]);
+
   const [variants, setVariants] = useState<SeriesItem[]>(passedVariants ?? (seriesMeta ? [seriesMeta] : []));
   const [variant, setVariant] = useState<SeriesItem | null>(seriesMeta);
-  const [info, setInfo] = useState<SeriesInfo | null>(null);
+  const [info, setInfo] = useState<SeriesInfo | null>(seededInfo);
   const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
   const [stills, setStills] = useState<TmdbEpisodeStills>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seededInfo);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<string>('1');
+  const [selectedSeason, setSelectedSeason] = useState<string>(() => {
+    if (!seededInfo) return '1';
+    const fs = Object.keys(seededInfo.episodes).sort((a, b) => Number(a) - Number(b))[0];
+    return fs ?? '1';
+  });
   // Accordéon « À propos » (mobile uniquement — desktop l'ignore via CSS).
   const [aboutOpen, setAboutOpen] = useState(false);
   // Synopsis replié par défaut (bouton « Plus / Moins »).
@@ -102,6 +118,19 @@ export function SeriesDetail() {
 
   useEffect(() => {
     if (!credentials || Number.isNaN(seriesId)) return;
+    // Cache chaud (retour sur la fiche, changement de variante déjà visité) →
+    // on pose les infos SYNCHRONIQUEMENT, sans blanchir la grille ni afficher
+    // le squelette. Même source que le fetch (getSeriesInfo est caché) → pas de
+    // requête réseau superflue. Cache froid/expiré → fetch normal ci-dessous.
+    const cached = xtreamService.peekSeriesInfo(credentials, seriesId);
+    if (cached) {
+      const safe = cached.episodes ? cached : { ...cached, episodes: {} };
+      setInfo(safe);
+      const firstSeason = Object.keys(safe.episodes).sort((a, b) => Number(a) - Number(b))[0];
+      if (firstSeason) setSelectedSeason(firstSeason);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setInfo(null);
     xtreamService
