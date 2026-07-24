@@ -247,6 +247,12 @@ export const xtreamService = {
   getSeriesInfo: (creds: XtreamCredentials, seriesId: number) =>
     cachedFetch<SeriesInfo>(creds, { action: 'get_series_info', series_id: String(seriesId) }, CATALOG_TTL),
 
+  // Snapshot synchrone des infos série déjà résolues (null sinon) — seed de la
+  // fiche série au retour (flow binge : épisode → retour → épisode suivant),
+  // évite le flash squelette de la grille d'épisodes. Voir peekCatalog.
+  peekSeriesInfo: (creds: XtreamCredentials, seriesId: number) =>
+    peekCatalog<SeriesInfo>(creds, { action: 'get_series_info', series_id: String(seriesId) }),
+
   // EPG court (programme en cours + suivants) d'une chaîne live.
   // Renvoie `epg_listings` (titre/description en base64). Tolère un serveur
   // sans EPG : la liste est alors vide et l'UI retombe sur le nom de chaîne.

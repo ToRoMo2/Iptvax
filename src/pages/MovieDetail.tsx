@@ -81,11 +81,32 @@ export function MovieDetail() {
   const passed = (location.state as LocationState)?.movie ?? null;
   const passedVariants = (location.state as LocationState)?.variants ?? null;
 
-  const [movie, setMovie] = useState<VodStream | null>(passed);
-  const [variants, setVariants] = useState<VodStream[]>(passedVariants ?? (passed ? [passed] : []));
-  const [selected, setSelected] = useState<VodStream | null>(passed);
+  // Seed synchrone depuis le cache catalogue quand on arrive SANS état de
+  // navigation (clic « Reprendre », lien direct, refresh) : le catalogue est
+  // déjà en cache (Home l'a chargé) → on retrouve le film + ses variantes
+  // immédiatement, sans le spinner que le fetch (même en cache, résolu sur une
+  // microtask) laisserait clignoter. Cache froid → null → fetch + spinner
+  // (comportement historique).
+  const seeded = useMemo(() => {
+    if (passed || !credentials || !id) return null;
+    const all = xtreamService.peekVodStreams(credentials);
+    if (!all) return null;
+    const found = all.find((v) => String(v.stream_id) === id);
+    if (!found) return null;
+    const key = titleKey(found.name) || found.name.trim().toLowerCase();
+    const group = groupByTitleMemo(all, (v) => v.name, (v) => v.rating_5based ?? 0).find(
+      (g) => g.key === key,
+    );
+    return { found, variants: group && group.variants.length > 1 ? group.variants : [found] };
+  }, [passed, credentials, id]);
+
+  const [movie, setMovie] = useState<VodStream | null>(passed ?? seeded?.found ?? null);
+  const [variants, setVariants] = useState<VodStream[]>(
+    passedVariants ?? seeded?.variants ?? (passed ? [passed] : []),
+  );
+  const [selected, setSelected] = useState<VodStream | null>(passed ?? seeded?.found ?? null);
   const [tmdb, setTmdb] = useState<TmdbEnrichment | null>(null);
-  const [loading, setLoading] = useState(!passed);
+  const [loading, setLoading] = useState(!passed && !seeded);
   const [error, setError] = useState<string | null>(null);
   // Accordéon « À propos » (mobile uniquement — desktop l'ignore via CSS).
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -106,6 +127,9 @@ export function MovieDetail() {
     if (!credentials || !id) return;
     // Variantes déjà complètes via l'état de navigation → rien à reconstruire.
     if (passed && passedVariants && passedVariants.length > 1) return;
+    // Déjà seedé synchroniquement depuis le cache (même source que le fetch) →
+    // rien à refetcher, et surtout pas de spinner.
+    if (!passed && seeded) return;
     let alive = true;
     if (!passed) setLoading(true);
     xtreamService
@@ -130,7 +154,7 @@ export function MovieDetail() {
       .catch((e: Error) => { if (alive && !passed) setError(e.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [passed, passedVariants, credentials, id, t]);
+  }, [passed, passedVariants, seeded, credentials, id, t]);
 
   const displayTitle = movie ? cleanTitle(movie.name) : '';
   const year = useMemo(
