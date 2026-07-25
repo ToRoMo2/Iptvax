@@ -475,8 +475,8 @@
 
 @media (max-width: 640px) {
   .page { padding: calc(var(--topnav-h) + 4px) var(--pad-edge) 64px; }
-  .title { font-size: 26px; margin-bottom: 4px; }
-  .pageSub { font-size: 13px; }
+  .title { font-size: clamp(30px, 8.5vw, 36px); margin-bottom: 5px; letter-spacing: -0.02em; }
+  .pageSub { font-size: 14px; }
   .header {
     flex-direction: column;
     align-items: stretch;
@@ -577,7 +577,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 14px;
+  }
+  /* Le bloc titre + compteur s'étire sur toute la largeur dispo jusqu'à la
+     loupe (min-width:0 → le texte peut occuper la largeur sans écrasement /
+     débordement). Sans ça il restait collé à gauche à sa largeur min-content. */
+  .titleBlockRow > div {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* Films / Séries : 3 posters par ligne en vue catégorie complète (choix
