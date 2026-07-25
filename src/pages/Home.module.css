@@ -1088,13 +1088,17 @@
     height: 64vh;
     min-height: 480px;
     max-height: none;
-    margin: 0;
+    /* Décalé sous la chrome fixe du haut (marque/profil/recherche) : au repos
+       sur l'accueil, la navbar ne recouvre plus la card. Le bandeau verre
+       (.topbar-glass) reste transparent au repos et se révèle au scroll — le
+       hero glisse alors sous la barre translucide (comportement inchangé). */
+    margin: var(--topnav-h) 0 0;
     width: 100%;
     border-radius: 0;
   }
   .heroSkeleton {
     height: 64vh; min-height: 480px; max-height: none;
-    margin: 0;
+    margin: var(--topnav-h) 0 0;
     width: 100%;
     border-radius: 0;
   }
